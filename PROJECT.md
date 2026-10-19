@@ -72,8 +72,8 @@ The application is structured into four decoupled layers:
 
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Repository Foundation & Compliance Engine | Git init, docs (`README`, `ARCHITECTURE`, `COMPLIANCE`, `CHANGELOG`), build setup, core domain structure, Capability Gating Engine | none | PLANNED |
-| M2 | Application Shell & Design System | Electron main/preload, React 18+ Vite UI, Minimalist Dark Design System, 3 destinations shell, secondary menu, DPAPI safeStorage, HUD overlay window | M1 | PLANNED |
+| M1 | Repository Foundation & Compliance Engine | Git init, docs (`README`, `ARCHITECTURE`, `COMPLIANCE`, `CHANGELOG`), build setup, core domain structure, Capability Gating Engine | none | DONE |
+| M2 | Application Shell & Design System | Electron main/preload, React 18+ Vite UI, Minimalist Dark Design System, 3 destinations shell, secondary menu, DPAPI safeStorage, HUD overlay window | M1 | IN_PROGRESS |
 | M3 | Utility Room & Strategy Library | Normalized lineups and multi-phase strategies across 6 maps, SVG diagrams, custom editor, CSNADES/Scope.gg links, JSON import/export, Match Preparation Profiles | M1 | PLANNED |
 | M4 | Live Match Engine & GSI Subsystem | GSI listener & cfg generator, simulation mode, tactical memory with provenance & Palace invariance, lineup FSM, bomb timer, HUD priority arbitrage | M1, M3 | PLANNED |
 | M5 | Gemini Tactical Coach & History Intelligence | `@google/genai` SDK integration, Tactical AI prompt, structured schema, async pipeline with cache/offline fallback, match history analytics, closed loop `[PRACTICE — MIRAGE A RETAKE]` | M3, M4 | PLANNED |
