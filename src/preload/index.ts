@@ -157,6 +157,13 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.invoke('hud:set-calibration-mode', interactive),
     getSafeZones: (): Promise<SafeZones> =>
       ipcRenderer.invoke('hud:get-safe-zones'),
+    onConfigChange: (callback: (config: HudConfig) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: HudConfig) => callback(data);
+      ipcRenderer.on('hud:config-updated', handler);
+      return () => {
+        ipcRenderer.removeListener('hud:config-updated', handler);
+      };
+    },
   },
 
   // ----------------------------------------------------

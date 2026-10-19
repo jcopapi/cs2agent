@@ -291,6 +291,7 @@ export interface ICS2AssistantAPI {
     updateConfig(config: Partial<HudConfig>): Promise<HudConfig>;
     setCalibrationMode(interactive: boolean): Promise<void>;
     getSafeZones(): Promise<SafeZones>;
+    onConfigChange?(callback: (config: HudConfig) => void): () => void;
   };
 
   // --- Compliance & Capability Gating ---

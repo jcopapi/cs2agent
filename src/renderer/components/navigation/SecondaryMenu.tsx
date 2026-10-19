@@ -52,6 +52,7 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
 
   // HUD & Appearance State
   const [environmentMode, setEnvironmentMode] = useState<EnvironmentMode>('COMPETITIVE_PROTECTED');
+  const [overlayEnabled, setOverlayEnabled] = useState<boolean>(false);
   const [overlayScale, setOverlayScale] = useState<number>(1.0);
   const [overlayOpacity, setOverlayOpacity] = useState<number>(0.9);
   const [safeZonePreview, setSafeZonePreview] = useState<boolean>(false);
@@ -75,6 +76,7 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
 
       window.cs2Assistant.hud.getConfig().then((cfg) => {
         if (cfg) {
+          setOverlayEnabled(Boolean(cfg.enabled));
           setOverlayScale(cfg.scale);
           setOverlayOpacity(cfg.opacity);
           setSafeZonePreview(cfg.calibrationMode);
@@ -162,11 +164,13 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
   };
 
   const handleResetHudDefaults = async () => {
+    setOverlayEnabled(false);
     setOverlayScale(1.0);
     setOverlayOpacity(0.9);
     setSafeZonePreview(false);
     if (window.cs2Assistant?.hud) {
       await window.cs2Assistant.hud.updateConfig({
+        enabled: false,
         scale: 1.0,
         opacity: 0.9,
         calibrationMode: false,
@@ -413,6 +417,34 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
           {/* ================================================================ */}
           {activeTab === 'HUD_CONFIGURATION' && (
             <div data-testid="panel-content-hud-config" className="space-y-4">
+              {/* Master HUD Overlay Toggle */}
+              <div className="flex items-center justify-between rounded border border-border-subtle bg-background-panel p-3">
+                <div>
+                  <div className="text-xs font-semibold text-zinc-100">In-Game HUD Overlay (Click-Through)</div>
+                  <div className="text-[11px] text-zinc-400">
+                    Transparent topmost overlay. Never blocks mouse clicks (OS WS_EX_TRANSPARENT).
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !overlayEnabled;
+                    setOverlayEnabled(next);
+                    if (!next) setSafeZonePreview(false);
+                    window.cs2Assistant?.hud?.updateConfig({
+                      enabled: next,
+                      ...(next ? {} : { calibrationMode: false }),
+                    });
+                  }}
+                  className={`rounded px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                    overlayEnabled
+                      ? 'bg-tactical-emerald text-zinc-950 font-semibold'
+                      : 'border border-border-subtle text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {overlayEnabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+
               {/* Environment Mode Selector */}
               <div className="space-y-2">
                 <label className="block text-xs font-medium text-zinc-300">
@@ -526,6 +558,7 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
                   onClick={() => {
                     const next = !safeZonePreview;
                     setSafeZonePreview(next);
+                    if (next) setOverlayEnabled(true);
                     window.cs2Assistant?.hud?.setCalibrationMode(next);
                   }}
                   className={`rounded px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${

@@ -16,7 +16,7 @@ export class OverlayManager {
   private isCalibrationMode: boolean = false;
 
   private currentConfig: HudConfig = {
-    enabled: true,
+    enabled: false,
     scale: 1.0,
     opacity: 0.9,
     crosshairSafeZonePx: 450,
@@ -43,6 +43,13 @@ export class OverlayManager {
   public updateConfig(patch: Partial<HudConfig>): HudConfig {
     this.currentConfig = { ...this.currentConfig, ...patch };
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.setIgnoreMouseEvents(true);
+      this.overlayWindow.setFocusable(false);
+      if (this.currentConfig.enabled) {
+        this.overlayWindow.showInactive();
+      } else {
+        this.overlayWindow.hide();
+      }
       this.overlayWindow.webContents.send('hud:config-updated', this.currentConfig);
     }
     return { ...this.currentConfig };
@@ -66,6 +73,7 @@ export class OverlayManager {
       height,
       type: 'toolbar',
       transparent: true,
+      backgroundColor: '#00000000',
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
@@ -86,8 +94,8 @@ export class OverlayManager {
     this.overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     this.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-    // Enable click-through input forwarding by default
-    this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+    // Strict OS-level click-through (WS_EX_TRANSPARENT) so mouse is never blocked
+    this.overlayWindow.setIgnoreMouseEvents(true);
 
     // Overlay URL routes to the overlay destination in the renderer
     const targetUrl = this.rendererUrl.includes('localhost')
@@ -101,8 +109,11 @@ export class OverlayManager {
     }
 
     this.overlayWindow.once('ready-to-show', () => {
-      if (this.currentConfig.enabled) {
-        this.overlayWindow?.showInactive();
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.setIgnoreMouseEvents(true);
+        if (this.currentConfig.enabled) {
+          this.overlayWindow.showInactive();
+        }
       }
     });
 
@@ -114,25 +125,29 @@ export class OverlayManager {
   }
 
   /**
-   * Toggles calibration mode.
-   * When interactive = true: Overlay window captures mouse events for dragging HUD elements.
-   * When interactive = false: Overlay window returns to click-through mode.
+   * Toggles calibration mode (Safe-Zone visual guides).
+   * Always preserves strict OS click-through so the overlay never blocks mouse input.
    */
   public setCalibrationMode(interactive: boolean): void {
     this.isCalibrationMode = interactive;
     this.currentConfig.calibrationMode = interactive;
+    if (interactive) {
+      this.currentConfig.enabled = true;
+    }
 
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
 
-    if (interactive) {
-      this.overlayWindow.setIgnoreMouseEvents(false);
-      this.overlayWindow.setFocusable(true);
-      this.overlayWindow.focus();
+    // Never disable ignoreMouseEvents on fullscreen Windows overlay
+    this.overlayWindow.setIgnoreMouseEvents(true);
+    this.overlayWindow.setFocusable(false);
+
+    if (this.currentConfig.enabled) {
+      this.overlayWindow.showInactive();
     } else {
-      this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-      this.overlayWindow.setFocusable(false);
+      this.overlayWindow.hide();
     }
 
+    this.overlayWindow.webContents.send('hud:config-updated', this.currentConfig);
     this.overlayWindow.webContents.send('hud:calibration-changed', { interactive });
   }
 
