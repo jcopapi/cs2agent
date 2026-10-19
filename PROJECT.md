@@ -73,9 +73,9 @@ The application is structured into four decoupled layers:
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Repository Foundation & Compliance Engine | Git init, docs (`README`, `ARCHITECTURE`, `COMPLIANCE`, `CHANGELOG`), build setup, core domain structure, Capability Gating Engine | none | DONE |
-| M2 | Application Shell & Design System | Electron main/preload, React 18+ Vite UI, Minimalist Dark Design System, 3 destinations shell, secondary menu, DPAPI safeStorage, HUD overlay window | M1 | IN_PROGRESS |
-| M3 | Utility Room & Strategy Library | Normalized lineups and multi-phase strategies across 6 maps, SVG diagrams, custom editor, CSNADES/Scope.gg links, JSON import/export, Match Preparation Profiles | M1 | PLANNED |
-| M4 | Live Match Engine & GSI Subsystem | GSI listener & cfg generator, simulation mode, tactical memory with provenance & Palace invariance, lineup FSM, bomb timer, HUD priority arbitrage | M1, M3 | PLANNED |
+| M2 | Application Shell & Design System | Electron main/preload, React 18+ Vite UI, Minimalist Dark Design System, 3 destinations shell, secondary menu, DPAPI safeStorage, HUD overlay window | M1 | DONE |
+| M3 | Utility Room & Strategy Library | Normalized lineups and multi-phase strategies across 6 maps, SVG diagrams, custom editor, CSNADES/Scope.gg links, JSON import/export, Match Preparation Profiles | M1 | DONE |
+| M4 | Live Match Engine & GSI Subsystem | GSI listener & cfg generator, simulation mode, tactical memory with provenance & Palace invariance, lineup FSM, bomb timer, HUD priority arbitrage | M1, M3 | IN_PROGRESS |
 | M5 | Gemini Tactical Coach & History Intelligence | `@google/genai` SDK integration, Tactical AI prompt, structured schema, async pipeline with cache/offline fallback, match history analytics, closed loop `[PRACTICE — MIRAGE A RETAKE]` | M3, M4 | PLANNED |
 | M6 | Final Verification & Adversarial Hardening | 100% pass of E2E test suite (Tiers 1-4) published in `TEST_READY.md`, all 11 test domains passing under `npm test`, clean `npm run build`, Tier 5 adversarial hardening, and clean forensic audit | M1-M5, TEST_READY | PLANNED |
 

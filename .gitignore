@@ -145,11 +145,9 @@ Icon
 *.sublime-project
 
 # ------------------------------------------------------------------------------
-# Teamwork & Agent Metadata Preservation (DO NOT IGNORE)
+# Project Documentation Preservation (DO NOT IGNORE)
 # ------------------------------------------------------------------------------
-# Explicitly preserve agent audit trails, briefing logs, and project documentation
-!.agents/
-!.agents/**
+.agents/
 !PROJECT.md
 !README.md
 !ARCHITECTURE.md

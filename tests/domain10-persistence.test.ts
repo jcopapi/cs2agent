@@ -18,6 +18,14 @@ import {
   DEFAULT_USER_SETTINGS,
   type IUserSettings,
 } from '../src/main/credential-store';
+import { ProfileManager } from '../src/core/utility/profile-manager';
+import { COMPETITIVE_LINEUPS } from '../src/core/utility/lineup-database';
+import { COMPETITIVE_STRATEGIES } from '../src/core/utility/strategy-database';
+import {
+  validateLineup,
+  serializeExportEnvelope,
+  deserializeAndValidate,
+} from '../src/core/utility/json-io';
 
 describe('Domain 10: ICredentialStore Lifecycle & Basic CRUD Operations', () => {
   let store: InMemoryCredentialStore;
@@ -306,3 +314,73 @@ describe('Domain 10: User Settings Persistence & Fallback Defaults', () => {
     expect(recovered).toEqual(DEFAULT_USER_SETTINGS);
   });
 });
+
+describe('Domain 10: Utility Playbook, Custom Lineups & Preparation Profiles Persistence', () => {
+  it('TC10.26: should persist and update Match Preparation Profiles and maintain active state', () => {
+    const pm = new ProfileManager();
+
+    const created = pm.createProfile({
+      name: 'Inferno B Site Attack',
+      map: 'de_inferno',
+      side: 'T',
+      selectedLineupIds: ['lineup-inferno-b-coffins', 'lineup-inferno-b-ct-smoke'],
+      selectedStrategyIds: ['strat-inferno-b-execute'],
+      active: true,
+    });
+
+    expect(created.profileId).toBeDefined();
+    expect(created.active).toBe(true);
+    expect(pm.getActiveProfile()?.profileId).toBe(created.profileId);
+
+    // Update profile
+    const updated = pm.updateProfile(created.profileId, {
+      name: 'Inferno B Site Attack (Modified)',
+      selectedLineupIds: ['lineup-inferno-b-coffins'],
+    });
+
+    expect(updated?.name).toBe('Inferno B Site Attack (Modified)');
+    expect(updated?.selectedLineupIds.length).toBe(1);
+    expect(pm.getActiveProfile()?.name).toBe('Inferno B Site Attack (Modified)');
+  });
+
+  it('TC10.27: should persist custom lineups and preserve favorite flags', () => {
+    const baseLineup = COMPETITIVE_LINEUPS[0];
+    const customLineup = {
+      ...baseLineup,
+      id: 'custom-mirage-smoke-1',
+      isCustom: true,
+      favorite: true,
+    };
+
+    expect(customLineup.isCustom).toBe(true);
+    expect(customLineup.favorite).toBe(true);
+
+    const res = validateLineup(customLineup);
+    expect(res.valid).toBe(true);
+    expect(res.sanitizedData?.isCustom).toBe(true);
+    expect(res.sanitizedData?.favorite).toBe(true);
+  });
+
+  it('TC10.28: should serialize and deserialize full playbook bundle roundtrip with zero data corruption', () => {
+    const serialized = serializeExportEnvelope('PLAYBOOK_BUNDLE', {
+      lineups: [COMPETITIVE_LINEUPS[0]],
+      strategies: [COMPETITIVE_STRATEGIES[0]],
+    });
+
+    const deserialized = deserializeAndValidate(serialized, 'OVERWRITE', [], []);
+    expect(deserialized.summary.errors.length).toBe(0);
+    expect(deserialized.lineups.length).toBe(1);
+    expect(deserialized.strategies.length).toBe(1);
+    expect(deserialized.lineups[0].id).toBe(COMPETITIVE_LINEUPS[0].id);
+    expect(deserialized.strategies[0].id).toBe(COMPETITIVE_STRATEGIES[0].id);
+  });
+
+  it('TC10.29: should safely handle corrupted JSON import by populating error summary without throwing', () => {
+    const corruptedJson = '{"bundleType": "LINEUP_COLLECTION", "payload": [{"id": 12345, "invalid": true}]}';
+
+    const result = deserializeAndValidate(corruptedJson, 'SKIP', [], []);
+    expect(result.summary.errors.length).toBeGreaterThan(0);
+    expect(result.summary.importedCount).toBe(0);
+  });
+});
+

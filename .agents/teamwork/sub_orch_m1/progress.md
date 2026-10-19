@@ -1,2 +1,0 @@
-## Initialized
-Awaiting dispatch.
