@@ -1,0 +1,156 @@
+# ==============================================================================
+# CS2 Assistant - .gitignore
+# Production-grade Git ignore rules for Electron + React + TypeScript + Vite
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Dependencies & Package Managers
+# ------------------------------------------------------------------------------
+node_modules/
+.pnp
+.pnp.js
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+yarn-error.log
+
+# ------------------------------------------------------------------------------
+# Build Outputs & Bundler Artifacts
+# ------------------------------------------------------------------------------
+dist/
+dist-electron/
+out/
+release/
+build/
+bin/
+obj/
+*.tsbuildinfo
+.vite/
+.turbo/
+.parcel-cache/
+
+# ------------------------------------------------------------------------------
+# Environment Variables, Secrets & DPAPI Stores
+# ------------------------------------------------------------------------------
+# Never commit actual secret keys or local credentials
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
+# Allow example environment file
+!.env.example
+
+# Windows DPAPI / Electron safeStorage local encrypted data files
+credentials.enc
+*.credentials.enc
+secrets.json
+private_keys/
+*.pem
+*.key
+
+# ------------------------------------------------------------------------------
+# Logs & Process Dumps
+# ------------------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.pid
+*.seed
+*.pid.lock
+
+# ------------------------------------------------------------------------------
+# Testing & Code Coverage
+# ------------------------------------------------------------------------------
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ------------------------------------------------------------------------------
+# CS2 Runtime Generated Configurations (Local Machine)
+# ------------------------------------------------------------------------------
+# Prevent committing user-customized game integration config files generated locally
+gamestate_integration_cs2agent.cfg
+gamestate_integration_*.cfg
+
+# ------------------------------------------------------------------------------
+# Operating System Files
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ------------------------------------------------------------------------------
+# IDE & Code Editor Configurations
+# ------------------------------------------------------------------------------
+# JetBrains (WebStorm, IntelliJ IDEA)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Visual Studio / Visual Studio Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# ------------------------------------------------------------------------------
+# Teamwork & Agent Metadata Preservation (DO NOT IGNORE)
+# ------------------------------------------------------------------------------
+# Explicitly preserve agent audit trails, briefing logs, and project documentation
+!.agents/
+!.agents/**
+!PROJECT.md
+!README.md
+!ARCHITECTURE.md
+!COMPLIANCE.md
+!CHANGELOG.md
