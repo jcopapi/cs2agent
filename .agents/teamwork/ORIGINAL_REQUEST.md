@@ -62,3 +62,8 @@ Integrate the official `@google/genai` SDK (`>= 2.29.1`, using `client.interacti
 - [ ] The application compiles and builds cleanly (`npm run build`) with zero TypeScript or bundler errors.
 - [ ] The UI implements the minimalist dark design system and features **exactly three primary navigation destinations** (`LIVE MATCH`, `UTILITY ROOM`, `HISTORY`) on the Home screen plus a compact secondary menu.
 - [ ] The complete loop (`UTILITY ROOM → LIVE MATCH → HISTORY → UTILITY ROOM`) is operational and verified end-to-end.
+
+
+## Follow-up — 2026-10-19T22:00:02Z
+
+The authorized GitHub remote repository URL is `https://github.com/jcopapi/cs2agent.git`. Please ensure the `origin` remote in `c:\Users\conta\Desktop\CS2Agent` is configured to `https://github.com/jcopapi/cs2agent.git` and push clean milestone commits to `origin` as milestones complete.

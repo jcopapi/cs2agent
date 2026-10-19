@@ -68,7 +68,10 @@ export type ComplianceFeatureId =
   | 'esp_wallhack_overlay'
   | 'aim_assistance_triggerbot'
   | 'spectator_data_mining'
-  | 'unauthorized_web_scraping';
+  | 'unauthorized_web_scraping'
+  | 'process_concealment'
+  | 'unauthorized_hooks'
+  | 'unauthorized_scraping';
 
 /**
  * Rule definition for a specific feature in the compliance matrix.

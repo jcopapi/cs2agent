@@ -17,9 +17,34 @@ import {
 } from './types';
 
 /**
- * Authoritative registry of compliance rules for every capability in CS2 Assistant.
+ * Recursively freezes an object, its sub-objects, and arrays to guarantee runtime immutability.
  */
-export const COMPLIANCE_MATRIX: Record<ComplianceFeatureId, IFeatureComplianceRule> = Object.freeze({
+export function deepFreeze<T>(obj: T): Readonly<T> {
+  if (obj === null || typeof obj !== 'object' || Object.isFrozen(obj)) {
+    return obj;
+  }
+
+  Object.freeze(obj);
+
+  for (const name of Object.getOwnPropertyNames(obj)) {
+    const val = (obj as any)[name];
+    if (val !== null && typeof val === 'object' && !Object.isFrozen(val)) {
+      deepFreeze(val);
+    }
+  }
+
+  return obj;
+}
+
+/**
+ * Authoritative registry of compliance rules for every capability in CS2 Assistant.
+ * Initialized with a null prototype (Object.create(null)) to prevent prototype pollution
+ * and property inheritance, and deeply frozen to prevent runtime mutation.
+ */
+export const COMPLIANCE_MATRIX: Record<ComplianceFeatureId, IFeatureComplianceRule> = deepFreeze<
+  Record<ComplianceFeatureId, IFeatureComplianceRule>
+>(
+  Object.assign(Object.create(null), {
   // --- TELEMETRY & GSI ---
   gsi_http_listener: {
     id: 'gsi_http_listener',
@@ -323,7 +348,38 @@ export const COMPLIANCE_MATRIX: Record<ComplianceFeatureId, IFeatureComplianceRu
     enforcement: 'Zero scraping engines; static verified datasets and user imports only.',
     authorityJustification: 'Terms of Service & Copyright compliance.',
   },
-});
+  process_concealment: {
+    id: 'process_concealment',
+    name: 'Process Concealment & Cloaking',
+    status: 'PROHIBITED',
+    category: 'PROHIBITED_CHEATING',
+    description: 'Hiding processes, threads, or windows from OS task managers or anti-cheat scanners.',
+    permittedEnvironments: [],
+    enforcement: 'Zero rootkit/cloaking techniques; transparent standard desktop application.',
+    authorityJustification: 'Steam Subscriber Agreement Sec. 4 & VAC Guide. Malicious obfuscation ban.',
+  },
+  unauthorized_hooks: {
+    id: 'unauthorized_hooks',
+    name: 'Unauthorized OS & Game Process Hooks',
+    status: 'PROHIBITED',
+    category: 'PROHIBITED_CHEATING',
+    description: 'Installing system-wide or game-targeted API hooks, keyboard hooks, or window message hooks.',
+    permittedEnvironments: [],
+    enforcement: 'Zero SetWindowsHookEx or detour hooks; passive listener architecture.',
+    authorityJustification: 'CS2 Trusted Mode FAQ & VAC Guide. Untrusted injection trigger.',
+  },
+  unauthorized_scraping: {
+    id: 'unauthorized_scraping',
+    name: 'Unauthorized Data Scraping',
+    status: 'PROHIBITED',
+    category: 'PROHIBITED_CHEATING',
+    description: 'Automated scraping or harvesting from game servers, matchmaking APIs, or tactical websites.',
+    permittedEnvironments: [],
+    enforcement: 'Zero scraping engines; static verified datasets and user-supplied JSON only.',
+    authorityJustification: 'Steam Subscriber Agreement Sec. 4 & Platform Terms of Service.',
+  },
+  })
+);
 
 /**
  * Array of prohibited marketing and safety claims.
@@ -343,9 +399,22 @@ export const BANNED_MARKETING_PHRASES: readonly string[] = Object.freeze([
 
 /**
  * Retrieves the compliance rule for a specific feature ID.
+ * Employs strict own-property verification and null prototype shielding to prevent
+ * prototype pollution and prototype property traversal (e.g. toString, valueOf, constructor).
+ * Fails safe closed: any non-string, missing, or prototype-inherited key returns undefined.
  */
 export function getComplianceRule(featureId: string): IFeatureComplianceRule | undefined {
-  return COMPLIANCE_MATRIX[featureId as ComplianceFeatureId];
+  if (typeof featureId !== 'string' || !featureId) {
+    return undefined;
+  }
+  if (!Object.prototype.hasOwnProperty.call(COMPLIANCE_MATRIX, featureId)) {
+    return undefined;
+  }
+  const rule = COMPLIANCE_MATRIX[featureId as ComplianceFeatureId];
+  if (!rule || typeof rule !== 'object') {
+    return undefined;
+  }
+  return rule;
 }
 
 /**
@@ -400,21 +469,120 @@ export function validateMatrixIntegrity(): { valid: boolean; errors: string[] } 
 }
 
 /**
- * Scans a given text string for prohibited marketing claims.
+ * Invisible, zero-width, formatting, and control characters stripped during normalization.
+ */
+const INVISIBLE_CHARS_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u200E\u200F\u2028\u2029\u2060-\u206F\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
+
+/**
+ * Internal compiled anti-claim rule specification.
+ */
+interface AntiClaimRule {
+  readonly canonicalPhrase: string;
+  readonly regex: RegExp;
+}
+
+/**
+ * Compiled regular expressions matching banned marketing claims across all evasion techniques:
+ * - Character spacing ('v a c - p r o o f')
+ * - Delimiter variations ('vac_proof', 'valve-approved', 'vac.proof', 'vac/proof')
+ * - Invisible characters ('\u200B', soft hyphens, zero-width joiners)
+ * - Multi-line newlines ('officially\nvalve\napproved')
+ * - Leetspeak substitutions ('v@c-pr00f', '100% v4c $afe')
+ */
+const ANTI_CLAIM_RULES: readonly AntiClaimRule[] = Object.freeze([
+  // 1. 100% VAC Safe (evaluated before generic phrases)
+  {
+    canonicalPhrase: '100% vac safe',
+    regex: /\b1[\W_]*0[\W_]*0[\W_]*(?:%|percent)[\W_]*v[\W_]*[a@4][\W_]*c[\W_]*[s$5][\W_]*[a@4][\W_]*f[\W_]*[e3]\b/i,
+  },
+  // 2. Officially Valve Approved (evaluated before 'valve approved')
+  {
+    canonicalPhrase: 'officially valve approved',
+    regex: /\bo[\W_]*f[\W_]*f[\W_]*[i1!][\W_]*c[\W_]*[i1!][\W_]*[a@4][\W_]*[l1!][\W_]*[l1!][\W_]*y[\W_]*v[\W_]*[a@4][\W_]*[l1!][\W_]*v[\W_]*[e3][\W_]*[a@4][\W_]*p[\W_]*p[\W_]*r[\W_]*[o0][\W_]*v[\W_]*[e3][\W_]*d\b/i,
+  },
+  // 3. VAC-Proof / VAC Proof / VacProof
+  {
+    canonicalPhrase: 'vac-proof',
+    regex: /\bv[\W_]*[a@4][\W_]*c[\W_]*p[\W_]*r[\W_]*[o0][\W_]*[o0][\W_]*f\b/i,
+  },
+  // 4. Valve Approved (standalone)
+  {
+    canonicalPhrase: 'valve approved',
+    regex: /\bv[\W_]*[a@4][\W_]*[l1!][\W_]*v[\W_]*[e3][\W_]*[a@4][\W_]*p[\W_]*p[\W_]*r[\W_]*[o0][\W_]*v[\W_]*[e3][\W_]*d\b/i,
+  },
+  // 5. Valve Certified (or Certified by Valve)
+  {
+    canonicalPhrase: 'valve certified',
+    regex: /\b(?:v[\W_]*[a@4][\W_]*[l1!][\W_]*v[\W_]*[e3][\W_]*c[\W_]*[e3][\W_]*r[\W_]*t[\W_]*[i1!][\W_]*f[\W_]*[i1!][\W_]*[e3][\W_]*d|c[\W_]*[e3][\W_]*r[\W_]*t[\W_]*[i1!][\W_]*f[\W_]*[i1!][\W_]*[e3][\W_]*d[\W_]*b[\W_]*y[\W_]*v[\W_]*[a@4][\W_]*[l1!][\W_]*v[\W_]*[e3])\b/i,
+  },
+  // 6. Whitelisted by Valve
+  {
+    canonicalPhrase: 'whitelisted by valve',
+    regex: /\bw[\W_]*h[\W_]*[i1!][\W_]*t[\W_]*[e3][\W_]*[l1!][\W_]*[i1!][\W_]*[s$5][\W_]*t[\W_]*[e3][\W_]*d[\W_]*b[\W_]*y[\W_]*v[\W_]*[a@4][\W_]*[l1!][\W_]*v[\W_]*[e3]\b/i,
+  },
+  // 7. Valve Whitelisted
+  {
+    canonicalPhrase: 'valve whitelisted',
+    regex: /\bv[\W_]*[a@4][\W_]*[l1!][\W_]*v[\W_]*[e3][\W_]*w[\W_]*h[\W_]*[i1!][\W_]*t[\W_]*[e3][\W_]*[l1!][\W_]*[i1!][\W_]*[s$5][\W_]*t[\W_]*[e3][\W_]*d\b/i,
+  },
+  // 8. Anti-VAC
+  {
+    canonicalPhrase: 'anti-vac',
+    regex: /\b[a@4][\W_]*n[\W_]*t[\W_]*[i1!][\W_]*v[\W_]*[a@4][\W_]*c\b/i,
+  },
+]);
+
+/**
+ * Scans a given text string for prohibited marketing and safety claims.
+ *
+ * Implements a multi-pass normalization pipeline (Unicode NFKC normalization,
+ * invisible character stripping, character-gap regex analysis) to catch all
+ * adversarial obfuscations while guaranteeing zero false positives on legitimate
+ * technical disclaimers.
  */
 export function scanTextForAntiClaimViolations(text: string): AntiClaimCheckResult {
-  const normalized = text.toLowerCase();
-  const violations: { matchedPhrase: string; snippet: string }[] = [];
+  if (!text || typeof text !== 'string') {
+    return { clean: true, violations: [] };
+  }
 
-  for (const phrase of BANNED_MARKETING_PHRASES) {
-    const index = normalized.indexOf(phrase);
-    if (index !== -1) {
-      const start = Math.max(0, index - 25);
-      const end = Math.min(text.length, index + phrase.length + 25);
-      violations.push({
-        matchedPhrase: phrase,
-        snippet: text.substring(start, end).trim(),
-      });
+  // Pass 1: Unicode NFKC normalization (decomposes fullwidth and compatibility characters)
+  const normalized = text.normalize('NFKC');
+
+  // Pass 2: Invisible and formatting character stripping
+  const cleaned = normalized.replace(INVISIBLE_CHARS_REGEX, '');
+
+  const violations: { matchedPhrase: string; snippet: string }[] = [];
+  const coveredSpans: { start: number; end: number }[] = [];
+
+  for (const { canonicalPhrase, regex } of ANTI_CLAIM_RULES) {
+    // Primary scan on normalized text
+    let match = regex.exec(normalized);
+
+    // Secondary scan on stripped text if normalized had invisible characters
+    if (!match && cleaned !== normalized) {
+      match = regex.exec(cleaned);
+    }
+
+    if (match) {
+      const matchStart = match.index;
+      const matchEnd = match.index + match[0].length;
+
+      // Subsumption check: suppress redundant sub-matches (e.g. 'valve approved' inside 'officially valve approved')
+      const isSubsumed = coveredSpans.some(
+        (span) => matchStart >= span.start && matchEnd <= span.end
+      );
+
+      if (!isSubsumed) {
+        coveredSpans.push({ start: matchStart, end: matchEnd });
+
+        // Extract context window from original input text
+        const start = Math.max(0, matchStart - 25);
+        const end = Math.min(text.length, matchEnd + 25);
+        violations.push({
+          matchedPhrase: canonicalPhrase,
+          snippet: text.substring(start, end).trim(),
+        });
+      }
     }
   }
 

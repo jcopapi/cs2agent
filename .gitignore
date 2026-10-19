@@ -76,6 +76,7 @@ test-results/
 playwright-report/
 cypress/videos/
 cypress/screenshots/
+tests/e2e/reports/
 
 # ------------------------------------------------------------------------------
 # CS2 Runtime Generated Configurations (Local Machine)

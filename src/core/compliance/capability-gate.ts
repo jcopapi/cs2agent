@@ -92,9 +92,25 @@ export class CapabilityGate implements ICapabilityGate {
    * Returns an array of all feature IDs permitted in the active environment.
    */
   public getPermittedFeatures(): string[] {
+    const validEnvironments: readonly EnvironmentMode[] = [
+      'COMPETITIVE_PROTECTED',
+      'PRACTICE_SERVER',
+      'SIMULATION_PREVIEW',
+    ];
+    if (!validEnvironments.includes(this._currentEnvironment)) {
+      return [];
+    }
+
     const allRules = Object.values(COMPLIANCE_MATRIX);
     return allRules
-      .filter((rule) => rule.permittedEnvironments.includes(this._currentEnvironment))
+      .filter(
+        (rule) =>
+          rule &&
+          typeof rule === 'object' &&
+          rule.status !== 'PROHIBITED' &&
+          Array.isArray(rule.permittedEnvironments) &&
+          rule.permittedEnvironments.includes(this._currentEnvironment)
+      )
       .map((rule) => rule.id);
   }
 
@@ -109,10 +125,21 @@ export class CapabilityGate implements ICapabilityGate {
    * Evaluates a capability and returns a structured result with explanation.
    */
   public evaluateCapability(featureId: string): CapabilityEvaluationResult {
+    // Fail-safe closed: validate featureId string
+    if (typeof featureId !== 'string' || !featureId) {
+      return {
+        permitted: false,
+        featureId: String(featureId),
+        environment: this._currentEnvironment,
+        status: 'UNKNOWN',
+        reason: `Feature '${String(featureId)}' is unrecognized in the compliance matrix. Access denied (fail-safe closed).`,
+      };
+    }
+
     const rule = getComplianceRule(featureId);
 
-    // Fail-safe closed 1: Unknown features are unconditionally denied
-    if (!rule) {
+    // Fail-safe closed 1: Unknown features or malformed rules are unconditionally denied
+    if (!rule || typeof rule !== 'object' || !Array.isArray(rule.permittedEnvironments)) {
       return {
         permitted: false,
         featureId,
@@ -130,6 +157,23 @@ export class CapabilityGate implements ICapabilityGate {
         environment: this._currentEnvironment,
         status: rule.status,
         reason: `Feature '${rule.name}' is strictly PROHIBITED under Valve Anti-Cheat, SSA, or Tournament regulations.`,
+        rule,
+      };
+    }
+
+    // Defensive check: environment must be a valid known environment mode
+    const validEnvironments: readonly EnvironmentMode[] = [
+      'COMPETITIVE_PROTECTED',
+      'PRACTICE_SERVER',
+      'SIMULATION_PREVIEW',
+    ];
+    if (!validEnvironments.includes(this._currentEnvironment)) {
+      return {
+        permitted: false,
+        featureId,
+        environment: this._currentEnvironment,
+        status: rule.status,
+        reason: `Operational environment '${this._currentEnvironment}' is invalid or unverified. Access denied (fail-safe closed).`,
         rule,
       };
     }
