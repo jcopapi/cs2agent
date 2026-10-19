@@ -1,74 +1,44 @@
 # Changelog
 
-All notable changes to the **CS2 Assistant** project will be documented in this file.
+All notable changes to the **CS2 Assistant** project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [1.0.0] - 2026-10-19
 
-### Planned for Milestone 2 (Application Shell & Design System)
-- Minimalist Dark Design System implemented in React 18, Vite, and Tailwind CSS.
-- Navigation shell featuring **only three primary destinations** (`LIVE MATCH`, `UTILITY ROOM`, `HISTORY`).
-- Compact secondary drawer for Settings, Gemini Key Configuration, HUD Overlay Controls, and Compliance Matrix.
-- Windows DPAPI credential storage integration via Electron `safeStorage`.
-- Transparent click-through HUD overlay window with CS2 screen safe zone enforcement.
+### Added — Milestone 6 (Final Verification & Adversarial Hardening)
+- Complete 11-Domain automated unit and integration test suite (`tests/domain1` through `tests/domain11`) verifying event normalization, provenance, last-seen decay, Palace Killer Invariance, 7-state lineup FSM with dual-radius hysteresis, strategy sequencing, match detection, AI output validation, capability gating, persistence, and failure recovery.
+- Complete 4-Tier opaque-box End-to-End (E2E) test suite (`tests/e2e/runner.ts`, `tier1` through `tier4`) and Tier 5 adversarial compliance/security stress suites (`tests/adversarial-compliance-challenge.test.ts`, `tests/adversarial-milestone2-challenge.test.ts`).
 
-### Planned for Milestone 3 (Utility Room & Strategy Library)
-- Normalized lineup database covering Mirage, Inferno, Dust2, Nuke, Ancient, and Anubis.
-- Multi-phase tactical strategies across 4 tiers (`BASIC`, `INTERMEDIATE`, `ADVANCED`, `COORDINATED`).
-- Interactive lineup cards with SVG vector crosshair alignment references.
-- Custom lineup creator, personal collections, and schema-validated JSON import/export.
-- Match Preparation Profiles that bind directly to live match context.
+### Added — Milestone 5 (Gemini Tactical Coach & History Intelligence)
+- Official `@google/genai` (`>= 2.29.1`) integration using `client.interactions.create` with `gemini-3.8-flash` and structured JSON schema enforcement (`src/core/ai/gemini-coach.ts`).
+- Dedicated Tactical AI System Prompt (`src/core/ai/system-prompt.ts`) enforcing CS2 callout brevity (`<= 45` chars), strict evidence provenance, Palace Killer Invariance, and uncertainty silence.
+- Structured recommendation validator (`src/core/ai/validator.ts`) rejecting hallucinated lineup IDs, expired timestamps, and oversized HUD strings.
+- Asynchronous AI pipeline with context compression, sliding-window rate limiting, token budgeting, 5s caching, round-end stale-response rejection, and deterministic offline fallback.
+- History Performance Intelligence engine (`src/core/history/history-analytics.ts`) and `HistoryView.tsx` strictly separating Measured Telemetry Facts from AI Tactical Interpretations, with the mandatory one-click `[PRACTICE — MIRAGE A RETAKE]` closed-loop trigger into Utility Room.
 
-### Planned for Milestone 4 (Live Match Engine & GSI Subsystem)
-- Native GSI HTTP listener on port 3001 with auth token validation and 15-second heartbeat.
-- Dedicated offline simulation engine with pre-recorded scenarios.
-- Tactical Memory Engine with provenance tracking and Palace Killer Invariance.
-- Opponent Last-Known Information overlay with 30-second visual staleness decay.
-- 7-stage Lineup Execution State Machine with dual-radius hysteresis.
-- Millisecond-accurate 40-second synchronized Bomb Timer with 10s and 5s defuse kit thresholds.
-- Safe HUD Priority Arbitrage (`CRITICAL`, `CONTEXTUAL`, `INFORMATIONAL`, `PASSIVE`).
+### Added — Milestone 4 (Live Match Engine & GSI Subsystem)
+- Official Valve Game State Integration (GSI) parser, `.cfg` generator (`src/core/match/gsi-parser.ts`), and localhost HTTP listener (`src/main/gsi-listener.ts` on `127.0.0.1:3001`).
+- Tactical Memory Engine (`src/core/match/tactical-memory.ts`) with `CONFIRMED`, `REPORTED`, and `INFERRED` provenance tiers, 30s visual staleness decay (`FRESH`, `AGING`, `STALE`, `EXPIRED`), Last-Known Information Overlay annotations, and strict **Palace Killer Invariance**.
+- Deterministic Tactical Context Engine (`src/core/match/context-engine.ts`) with silence discipline when evidence is insufficient.
+- 7-State Lineup Execution State Machine (`src/core/lineup-fsm/lineup-engine.ts`: `INACTIVE` -> `NEARBY` -> `POSITIONING` -> `ALIGNING` -> `READY` -> `EXECUTED` -> `NEXT`) with dual-radius spatial/angular hysteresis and 4 distinct completion classifications (`Attempted`, `Confirmed thrown`, `Confirmed landed`, `Manually completed`).
+- Verified Bomb Timer Engine (`src/core/bomb-timer/bomb-timer-engine.ts`) with latency compensation, 10s (no-kit) and 5s (kit) defuse thresholds, urgency stages, and estimate labeling.
+- Global HUD Priority & Collision Arbitrage Manager (`src/core/hud-manager/priority-manager.ts`) enforcing `CRITICAL > CONTEXTUAL > INFORMATIONAL > PASSIVE` priority rules and CS2 HUD safe zones.
 
-### Planned for Milestone 5 (Gemini Tactical Coach & History Loop)
-- Official `@google/genai` (>= 2.29.1) integration with `client.interactions.create` and `gemini-3.8-flash`.
-- Strict Tactical AI System Prompt enforcing CS2 callouts (<= 45 chars) and uncertainty silence.
-- Asynchronous AI pipeline with context compression (< 400 tokens), rate limiting, and 5s caching.
-- Stale-response rejection guard dropping recommendations arriving after round transitions.
-- Deterministic local offline rule engine fallback.
-- Chronological match history with evidence-based analytics separating measured facts from inferences.
-- Closed ecosystem practice loop trigger (`[PRACTICE — MIRAGE A RETAKE]`).
+### Added — Milestone 3 (Utility Room & Strategy Library)
+- Normalized lineup database (`src/core/utility/lineup-database.ts`) covering all 6 Active Duty maps (Mirage, Inferno, Dust2, Nuke, Ancient, Anubis) with SVG crosshair landmark diagrams.
+- Multi-phase tactical strategy library (`src/core/utility/strategy-database.ts`) across `BASIC`, `INTERMEDIATE`, `ADVANCED`, and `COORDINATED` tiers.
+- Custom lineup creator modal (`LineupCreatorModal.tsx`), schema-validated JSON import/export with script sanitization (`json-io.ts`, `ImportExportModal.tsx`), zero-scraping external reference links (`external-providers.ts` for CSNADES & Scope.gg), and Match Preparation Profiles (`profile-manager.ts`).
 
-### Planned for Milestone 6 (Final Verification & Adversarial Hardening)
-- Multi-tier requirement-driven opaque-box test suite (Tiers 1-4).
-- Tier 5 adversarial white-box stress testing and forensic audit verification.
+### Added — Milestone 2 (Application Shell & Design System)
+- Precision minimalist dark design system in React 18, TypeScript, Vite, and Tailwind CSS.
+- Application shell featuring **only three primary navigation destinations** (`LIVE MATCH`, `UTILITY ROOM`, `HISTORY`) plus a compact secondary drawer (`SecondaryMenu.tsx`) for Settings, Gemini API Key Configuration, HUD Safe-Zone Calibration, Compliance Matrix, and Help.
+- Windows DPAPI credential storage via Electron `safeStorage` (`src/main/credential-store.ts`) with HMAC tamper detection.
+- Transparent click-through HUD overlay window (`src/main/overlay-manager.ts`) and SafeZoneEvaluator (`src/core/hud-manager/safe-zone-evaluator.ts`).
 
----
-
-## [0.1.0] - 2026-10-19
-
-### Added
-- **Repository Foundation & Git Setup**:
-  - Initialized clean Git repository (`cs2-assistant`) in `c:\Users\conta\Desktop\CS2Agent`.
-  - Configured comprehensive `.gitignore` filtering `node_modules/`, `dist/`, `.env*`, build artifacts, and OS/IDE metadata while strictly preserving `.agents/` and documentation.
-  - Established Conventional Commit protocol for milestones.
-- **Core Governance & Compliance Documentation**:
-  - `README.md`: Comprehensive overview detailing project mission, compliance commitments, the Three Primary Destinations (`LIVE MATCH`, `UTILITY ROOM`, `HISTORY`), architecture, getting started, and verification procedures.
-  - `COMPLIANCE.md`: Definitive regulatory document citing 6 official Valve/Steam primary sources (SSA, Trusted Mode FAQ, VAC Guide, GSI Wiki, Major Rulebook, ESL Rules) with exact URLs and verification dates.
-  - Anti-Cheat Invariants: Codified the Anti-Claim Invariant (never claim "VAC-proof", "100% VAC safe", or "Officially Valve approved") and the Six Zero Invariants (zero DLL injection, zero memory reading, zero process concealment, zero input automation, zero unauthorized hooks, zero unauthorized scraping).
-  - Feature Compliance Matrix: Categorized all application capabilities into `VERIFIED PERMITTED`, `REQUIRES APPROVAL`, and `PROHIBITED`.
-- **System Architecture Specification**:
-  - `ARCHITECTURE.md`: Complete specification of the 4 decoupled layers (Core Domain, Main Process, Preload Layer, Renderer UI), GSI telemetry data flow, Windows DPAPI `safeStorage` credential encryption, and typed Electron IPC contracts (`ICS2AssistantAPI`).
-  - Headless Testing Strategy: Detailed specification for the 11 test domains running in Vitest with zero Electron/DOM dependencies.
-  - Palace Killer Invariance: Formal specification requiring strict separation of observation from interpretation.
-- **Build & Development Tooling Configuration**:
-  - `package.json`: Configured dependencies (`react`, `react-dom`, `@google/genai`, `lucide-react`, `clsx`, `tailwind-merge`) and devDependencies (`electron`, `vite`, `typescript`, `vitest`, `tailwindcss`, `postcss`, `autoprefixer`).
-  - TypeScript Configurations: `tsconfig.json`, `tsconfig.node.json`, and `tsconfig.web.json` for composite build separation.
-  - Bundler & Test Configurations: `vite.config.ts` and `vitest.config.ts`.
-  - Minimal entry point: `index.html`.
-- **Core Domain Compliance Engine**:
-  - Pure TypeScript compliance types (`src/core/compliance/types.ts`).
-  - Feature compliance matrix implementation (`src/core/compliance/compliance-matrix.ts`).
-  - Runtime Capability Gating Engine (`src/core/compliance/capability-gate.ts`) actively gating capabilities across `COMPETITIVE_PROTECTED`, `PRACTICE_SERVER`, and `SIMULATION_PREVIEW`.
+### Added — Milestone 1 (Repository Foundation & Compliance Engine)
+- Initialized Git repository (`cs2-assistant`) with `.gitignore`, `README.md`, `ARCHITECTURE.md`, `COMPLIANCE.md`, and `CHANGELOG.md`.
+- Runtime Capability Gating Engine (`src/core/compliance/capability-gate.ts`) and Feature Compliance Matrix (`src/core/compliance/compliance-matrix.ts`) with deep-freeze immutability, prototype-pollution protection, and multi-pass Unicode/leetspeak anti-claim scanner.

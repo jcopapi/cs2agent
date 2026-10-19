@@ -5,3 +5,4 @@
 
 export * from './types';
 export * from './safe-zone-evaluator';
+export * from './priority-manager';

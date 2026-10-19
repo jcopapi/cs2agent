@@ -12,7 +12,7 @@ export type { EnvironmentMode };
 
 export type CS2Map = 'de_mirage' | 'de_inferno' | 'de_dust2' | 'de_nuke' | 'de_ancient' | 'de_anubis';
 export type TeamSide = 'CT' | 'T' | 'BOTH';
-export type UtilityType = 'SMOKE' | 'FLASHBANG' | 'HE_GRENADE' | 'MOLOTOV_INCENDIARY';
+export type UtilityType = 'SMOKE' | 'FLASHBANG' | 'MOLOTOV' | 'HE_GRENADE' | 'MOLOTOV_INCENDIARY';
 export type StrategyTier = 'BASIC' | 'INTERMEDIATE' | 'ADVANCED' | 'COORDINATED';
 export type ProvenanceLevel = 'CONFIRMED' | 'REPORTED' | 'INFERRED';
 export type LineupFsmState = 'INACTIVE' | 'NEARBY' | 'POSITIONING' | 'ALIGNING' | 'READY' | 'EXECUTED' | 'NEXT';

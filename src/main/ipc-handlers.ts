@@ -3,7 +3,13 @@
  * File: src/main/ipc-handlers.ts
  *
  * Implements the backend handlers for the ICS2AssistantAPI contract.
- * Manages request-response pipelines and push notification broadcasters.
+ * Connects the Electron Main process to the Core Domain Engines:
+ * - TacticalMemoryEngine (Provenance & Palace Killer Invariance)
+ * - LineupExecutionEngine (7-State FSM with Hysteresis)
+ * - BombTimerEngine (Synchronized C4 Countdown)
+ * - GeminiTacticalCoach (@google/genai gemini-3.8-flash pipeline)
+ * - HistoryAnalyticsEngine (Measured vs AI Interpretation + Practice Loop)
+ * - Utility Room Databases (Lineups, Strategies, Profiles)
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
@@ -30,6 +36,13 @@ import type {
 import type { ICredentialStore } from './credential-store';
 import type { OverlayManager } from './overlay-manager';
 import type { ICapabilityGate } from '../core/compliance/types';
+import { getAllLineups } from '../core/utility/lineup-database';
+import { getAllStrategies } from '../core/utility/strategy-database';
+import { TacticalMemoryEngine } from '../core/match/tactical-memory';
+import { LineupExecutionEngine } from '../core/lineup-fsm/lineup-engine';
+import { BombTimerEngine } from '../core/bomb-timer/bomb-timer-engine';
+import { GeminiTacticalCoach } from '../core/ai/gemini-coach';
+import { HistoryAnalyticsEngine } from '../core/history/history-analytics';
 
 export interface IpcDependencies {
   credentialStore: ICredentialStore;
@@ -43,7 +56,16 @@ export class IpcHandlerManager {
   private deps: IpcDependencies;
   private registeredChannels: string[] = [];
 
-  // In-memory state caches for immediate responsiveness
+  // Core Domain Engines
+  private tacticalMemory = new TacticalMemoryEngine();
+  private lineupEngine = new LineupExecutionEngine();
+  private bombTimer = new BombTimerEngine();
+  private geminiCoach = new GeminiTacticalCoach();
+  private historyEngine = new HistoryAnalyticsEngine();
+
+  private lineups: Lineup[] = getAllLineups();
+  private strategies: Strategy[] = getAllStrategies();
+
   private currentGsiStatus: GsiStatus = {
     listening: false,
     port: 3001,
@@ -54,21 +76,11 @@ export class IpcHandlerManager {
     activeMatch: false,
   };
 
-  private currentBombState: BombState | null = null;
-  private currentObservations: TacticalObservation[] = [];
-  private currentExecutionState: LineupExecutionState = {
-    state: 'INACTIVE',
-    activeLineupId: null,
-    playerDistance: 0,
-    angleOffset: 0,
-    completionType: null,
-    timestamp: Date.now(),
-  };
-
   private activeProfile: MatchPreparationProfile | null = null;
 
   constructor(deps: IpcDependencies) {
     this.deps = deps;
+    this.lineupEngine.setSequence(this.lineups.slice(0, 5).map((l) => l.id));
   }
 
   public register(): void {
@@ -81,6 +93,7 @@ export class IpcHandlerManager {
 
     this.handle('gsi:set-simulation-mode', async (_event, enabled: boolean): Promise<void> => {
       this.currentGsiStatus.environment = enabled ? 'SIMULATION_PREVIEW' : 'COMPETITIVE_PROTECTED';
+      this.currentGsiStatus.activeMatch = enabled;
       if (this.deps.capabilityGate) {
         this.deps.capabilityGate.setEnvironment(this.currentGsiStatus.environment);
       }
@@ -88,60 +101,116 @@ export class IpcHandlerManager {
     });
 
     this.handle('gsi:inject-scenario', async (_event, scenarioId: string): Promise<void> => {
-      console.log(`[IPC] Injected scenario: ${scenarioId}`);
+      const now = Date.now();
+      if (scenarioId === 'palace-killer-invariance') {
+        this.tacticalMemory.recordElimination({
+          victimName: 'Player X',
+          victimTeam: 'T',
+          victimCallout: 'Palace',
+          killerName: 'Player Y',
+          killerTeam: 'CT',
+          roundId: 13,
+          map: 'de_mirage',
+          timestamp: now,
+        });
+      } else if (scenarioId === 'bomb-plant-retake') {
+        this.bombTimer.onBombPlanted({
+          plantTimestampMs: now,
+          site: 'A',
+          hasKit: true,
+        });
+        this.broadcast('tactical:bomb-updated', this.bombTimer.getSnapshot());
+      }
+      this.broadcast('tactical:observations-updated', this.tacticalMemory.getActiveObservations(now));
     });
 
     // ----------------------------------------------------
     // Tactical Memory Channels
     // ----------------------------------------------------
     this.handle('tactical:get-observations', async (): Promise<TacticalObservation[]> => {
-      return [...this.currentObservations];
+      return this.tacticalMemory.getActiveObservations();
     });
 
     this.handle('tactical:get-bomb-state', async (): Promise<BombState | null> => {
-      return this.currentBombState ? { ...this.currentBombState } : null;
+      const snap = this.bombTimer.getSnapshot();
+      return snap.planted ? snap : null;
     });
 
     // ----------------------------------------------------
     // Lineup & State Machine Channels
     // ----------------------------------------------------
-    this.handle('lineup:get-all', async (_event, _filter?: LineupFilter): Promise<Lineup[]> => {
-      return [];
+    this.handle('lineup:get-all', async (_event, filter?: LineupFilter): Promise<Lineup[]> => {
+      return this.lineups.filter((l) => {
+        if (filter?.map && l.map !== filter.map) return false;
+        if (filter?.side && l.side !== filter.side && l.side !== 'BOTH') return false;
+        if (filter?.utilityType && l.utilityType !== filter.utilityType) return false;
+        if (filter?.difficulty && l.difficulty !== filter.difficulty) return false;
+        if (filter?.tag && !l.tags.includes(filter.tag)) return false;
+        return true;
+      });
     });
 
-    this.handle('lineup:get-by-id', async (_event, _id: string): Promise<Lineup | null> => {
-      return null;
+    this.handle('lineup:get-by-id', async (_event, id: string): Promise<Lineup | null> => {
+      return this.lineups.find((l) => l.id === id) ?? null;
     });
 
     this.handle('lineup:save', async (_event, lineup: Lineup): Promise<Lineup> => {
-      return lineup;
+      const idx = this.lineups.findIndex((l) => l.id === lineup.id);
+      if (idx >= 0) {
+        this.lineups[idx] = { ...lineup };
+      } else {
+        this.lineups.push({ ...lineup });
+      }
+      return { ...lineup };
     });
 
-    this.handle('lineup:delete', async (_event, _id: string): Promise<boolean> => {
-      return true;
+    this.handle('lineup:delete', async (_event, id: string): Promise<boolean> => {
+      const before = this.lineups.length;
+      this.lineups = this.lineups.filter((l) => l.id !== id);
+      return this.lineups.length < before;
     });
 
     this.handle('lineup:manual-override', async (_event, action: 'NEXT' | 'CANCEL' | 'COMPLETE'): Promise<void> => {
-      console.log(`[IPC] Lineup manual override: ${action}`);
+      if (action === 'COMPLETE') {
+        this.lineupEngine.recordExecution({ manualOverride: true });
+      } else if (action === 'NEXT') {
+        this.lineupEngine.advanceToNext();
+      } else if (action === 'CANCEL') {
+        this.lineupEngine.cancel();
+      }
+      this.broadcast('lineup:state-changed', this.lineupEngine.getSnapshot());
     });
 
     // ----------------------------------------------------
     // Strategy & Profile Channels
     // ----------------------------------------------------
-    this.handle('strategy:get-all', async (_event, _filter?: StrategyFilter): Promise<Strategy[]> => {
-      return [];
+    this.handle('strategy:get-all', async (_event, filter?: StrategyFilter): Promise<Strategy[]> => {
+      return this.strategies.filter((s) => {
+        if (filter?.map && s.map !== filter.map) return false;
+        if (filter?.side && s.side !== filter.side && s.side !== 'BOTH') return false;
+        if (filter?.difficulty && s.difficulty !== filter.difficulty) return false;
+        return true;
+      });
     });
 
-    this.handle('strategy:get-by-id', async (_event, _id: string): Promise<Strategy | null> => {
-      return null;
+    this.handle('strategy:get-by-id', async (_event, id: string): Promise<Strategy | null> => {
+      return this.strategies.find((s) => s.id === id) ?? null;
     });
 
     this.handle('strategy:save', async (_event, strategy: Strategy): Promise<Strategy> => {
-      return strategy;
+      const idx = this.strategies.findIndex((s) => s.id === strategy.id);
+      if (idx >= 0) {
+        this.strategies[idx] = { ...strategy };
+      } else {
+        this.strategies.push({ ...strategy });
+      }
+      return { ...strategy };
     });
 
-    this.handle('strategy:delete', async (_event, _id: string): Promise<boolean> => {
-      return true;
+    this.handle('strategy:delete', async (_event, id: string): Promise<boolean> => {
+      const before = this.strategies.length;
+      this.strategies = this.strategies.filter((s) => s.id !== id);
+      return this.strategies.length < before;
     });
 
     this.handle('strategy:get-active-profile', async (): Promise<MatchPreparationProfile | null> => {
@@ -150,25 +219,28 @@ export class IpcHandlerManager {
 
     this.handle('strategy:set-active-profile', async (_event, profile: MatchPreparationProfile | null): Promise<void> => {
       this.activeProfile = profile;
+      if (profile && profile.selectedLineupIds.length > 0) {
+        this.lineupEngine.setSequence(profile.selectedLineupIds);
+      }
     });
 
     // ----------------------------------------------------
     // History Channels
     // ----------------------------------------------------
     this.handle('history:get-all', async (): Promise<MatchRecord[]> => {
-      return [];
+      return this.historyEngine.getAllMatches();
     });
 
-    this.handle('history:get-by-id', async (_event, _id: string): Promise<MatchRecord | null> => {
-      return null;
+    this.handle('history:get-by-id', async (_event, id: string): Promise<MatchRecord | null> => {
+      return this.historyEngine.getMatchById(id);
     });
 
     this.handle('history:save', async (_event, record: MatchRecord): Promise<MatchRecord> => {
-      return record;
+      return this.historyEngine.saveMatch(record);
     });
 
-    this.handle('history:delete', async (_event, _id: string): Promise<boolean> => {
-      return true;
+    this.handle('history:delete', async (_event, id: string): Promise<boolean> => {
+      return this.historyEngine.deleteMatch(id);
     });
 
     // ----------------------------------------------------
@@ -179,11 +251,19 @@ export class IpcHandlerManager {
     });
 
     this.handle('gemini:store-key', async (_event, key: string): Promise<boolean> => {
-      return await this.deps.credentialStore.storeApiKey(key);
+      const ok = await this.deps.credentialStore.storeApiKey(key);
+      if (ok) {
+        this.geminiCoach.setApiKey(key);
+      }
+      return ok;
     });
 
     this.handle('gemini:remove-key', async (): Promise<boolean> => {
-      return await this.deps.credentialStore.removeApiKey();
+      const ok = await this.deps.credentialStore.removeApiKey();
+      if (ok) {
+        this.geminiCoach.setApiKey(null);
+      }
+      return ok;
     });
 
     this.handle('gemini:test-key', async (_event, key: string): Promise<{ valid: boolean; latencyMs?: number; error?: string }> => {
@@ -194,18 +274,18 @@ export class IpcHandlerManager {
       return { valid: true, latencyMs: 145 };
     });
 
-    this.handle('gemini:request-advice', async (_event, _context: TacticalContext): Promise<TacticalRecommendation | null> => {
-      return null;
+    this.handle('gemini:request-advice', async (_event, context: TacticalContext): Promise<TacticalRecommendation | null> => {
+      const storedKey = await this.deps.credentialStore.getApiKey();
+      this.geminiCoach.setApiKey(storedKey);
+      const rec = await this.geminiCoach.analyzeContext(context);
+      if (rec) {
+        this.broadcast('tactical:recommendation', rec);
+      }
+      return rec;
     });
 
     this.handle('gemini:get-usage-stats', async (): Promise<AiUsageStats> => {
-      return {
-        totalRequests: 0,
-        cachedResponses: 0,
-        failedRequests: 0,
-        totalTokensEstimated: 0,
-        lastRequestTimestamp: null,
-      };
+      return this.geminiCoach.getUsageStats();
     });
 
     // ----------------------------------------------------
@@ -296,7 +376,11 @@ export class IpcHandlerManager {
     });
 
     this.handle('api:save-api-key', async (_event, key: string): Promise<boolean> => {
-      return await this.deps.credentialStore.storeApiKey(key);
+      const ok = await this.deps.credentialStore.storeApiKey(key);
+      if (ok) {
+        this.geminiCoach.setApiKey(key);
+      }
+      return ok;
     });
 
     this.handle('api:get-api-key', async (): Promise<string | null> => {
@@ -304,7 +388,11 @@ export class IpcHandlerManager {
     });
 
     this.handle('api:remove-api-key', async (): Promise<boolean> => {
-      return await this.deps.credentialStore.removeApiKey();
+      const ok = await this.deps.credentialStore.removeApiKey();
+      if (ok) {
+        this.geminiCoach.setApiKey(null);
+      }
+      return ok;
     });
 
     this.handle('api:test-api-connection', async (_event, key: string) => {
@@ -329,26 +417,22 @@ export class IpcHandlerManager {
 
     this.handle('api:start-simulation-mode', async (_event, _scenarioId: string) => {
       this.currentGsiStatus.environment = 'SIMULATION_PREVIEW';
+      this.currentGsiStatus.activeMatch = true;
       this.broadcast('gsi:update', this.currentGsiStatus);
     });
 
     this.handle('api:stop-simulation-mode', async () => {
       this.currentGsiStatus.environment = 'COMPETITIVE_PROTECTED';
+      this.currentGsiStatus.activeMatch = false;
       this.broadcast('gsi:update', this.currentGsiStatus);
     });
   }
 
-  /**
-   * Helper registering a typed IPC handler with collision tracking.
-   */
   private handle<T>(channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => Promise<T>): void {
     ipcMain.handle(channel, handler);
     this.registeredChannels.push(channel);
   }
 
-  /**
-   * Broadcasts an event payload to both Main Application Window and HUD Overlay Window.
-   */
   public broadcast(channel: string, data: any): void {
     const mainWindow = this.deps.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -361,9 +445,6 @@ export class IpcHandlerManager {
     }
   }
 
-  /**
-   * Unregisters all IPC handlers upon application shutdown.
-   */
   public unregister(): void {
     for (const channel of this.registeredChannels) {
       ipcMain.removeHandler(channel);
