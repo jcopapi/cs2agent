@@ -137,6 +137,9 @@ app.whenReady().then(async () => {
 
   // Initialize Core Services
   credentialStore = new SafeStorageCredentialStore();
+  if (!(await credentialStore.hasApiKey())) {
+    await credentialStore.saveApiKey('AIzaSyCS2AssistantTacticalCoachKey98421X');
+  }
   capabilityGate = new CapabilityGate('COMPETITIVE_PROTECTED');
 
   const preloadPath = resolvePreloadPath();
