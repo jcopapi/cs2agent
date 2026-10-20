@@ -16,9 +16,9 @@ export class OverlayManager {
   private isCalibrationMode: boolean = false;
 
   private currentConfig: HudConfig = {
-    enabled: false,
+    enabled: true,
     scale: 1.0,
-    opacity: 0.9,
+    opacity: 0.95,
     crosshairSafeZonePx: 450,
     showRadarOverlay: true,
     showBombTimer: true,

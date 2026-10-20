@@ -644,6 +644,262 @@ export const COMPETITIVE_STRATEGIES: Strategy[] = [
     isCustom: false,
     favorite: false,
   },
+
+  // --------------------------------------------------------------------------
+  // DUST II: A Long Control & Catwalk Split (COORDINATED)
+  // --------------------------------------------------------------------------
+  {
+    id: 'strat-dust2-a-split',
+    name: 'Dust II A Site Long & Short Coordinated Split',
+    map: 'de_dust2',
+    side: 'T',
+    objective: 'Pincer attack on A Site via Long and Short simultaneously after smoking CT Cross and flashing Long Corner',
+    difficulty: 'COORDINATED',
+    requiredUtility: ['SMOKE', 'FLASHBANG', 'MOLOTOV_INCENDIARY'],
+    recommendedRoles: ['Long Entry', 'Long Support', 'Short Flanker', 'Lurk'],
+    phases: [
+      {
+        phaseNumber: 1,
+        name: 'Long Corner Breach & Cross Smoke',
+        timingSeconds: 0,
+        linkedLineupIds: ['lineup-dust2-long-corner-smoke', 'lineup-dust2-long-corner-flash'],
+        instructions: 'Smoke Long Corner and throw double high popflash over Long House to clear CT AWP peek.',
+        steps: [
+          {
+            stepId: 'step-d2-long-smoke',
+            phaseNumber: 1,
+            timingOffsetSeconds: 0,
+            durationSeconds: 2.0,
+            role: 'Long Support',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-dust2-long-corner-smoke',
+            targetCallout: 'A Long Corner',
+            description: 'Deploy Long Corner smoke from T Spawn.',
+          },
+        ],
+      },
+      {
+        phaseNumber: 2,
+        name: 'CT Cross Smoke & Short Synchronization',
+        timingSeconds: 8,
+        linkedLineupIds: ['lineup-dust2-ct-cross-smoke', 'lineup-dust2-short-car-moly'],
+        instructions: 'Deploy CT Cross smoke from Blue Box. Short team molotovs Goose and pushes onto Site simultaneously.',
+        steps: [
+          {
+            stepId: 'step-d2-ct-cross',
+            phaseNumber: 2,
+            timingOffsetSeconds: 8,
+            durationSeconds: 2.0,
+            role: 'Long Support',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-dust2-ct-cross-smoke',
+            targetCallout: 'A Cross / CT Spawn',
+            description: 'Deploy CT Cross smoke.',
+          },
+        ],
+      },
+    ],
+    contingencies: [
+      { trigger: 'CT smokes Long Doors early', action: 'Wait out smoke or spam with flash assist.' },
+    ],
+    coordinationNotes: 'Short push must wait for CT Cross smoke to bloom before swinging.',
+    sourceAttribution: 'CSNADES Verified / Pro Meta',
+    tags: ['A-Split', 'Long', 'Short', 'Coordinated'],
+    isCustom: false,
+    favorite: true,
+  },
+
+  // --------------------------------------------------------------------------
+  // INFERNO: A Site Moto & Arch Execute (ADVANCED)
+  // --------------------------------------------------------------------------
+  {
+    id: 'strat-inferno-a-execute',
+    name: 'Inferno A Site Full Execute (Moto & Arch Smokes)',
+    map: 'de_inferno',
+    side: 'T',
+    objective: 'Cut off CT rotations from Arch and Moto with dual smokes while clearing Pit with molotov',
+    difficulty: 'ADVANCED',
+    requiredUtility: ['SMOKE', 'FLASHBANG', 'MOLOTOV_INCENDIARY'],
+    recommendedRoles: ['Entry', 'Support', 'Pit Clearer'],
+    phases: [
+      {
+        phaseNumber: 1,
+        name: 'Dual Smokes Deployment (Moto & Arch)',
+        timingSeconds: 0,
+        linkedLineupIds: ['lineup-inferno-a-moto-smoke', 'lineup-inferno-a-arch-smoke'],
+        instructions: 'Deploy Moto and Arch smokes simultaneously from Second Mid and Alt Mid.',
+        steps: [
+          {
+            stepId: 'step-inf-moto',
+            phaseNumber: 1,
+            timingOffsetSeconds: 0,
+            durationSeconds: 2.0,
+            role: 'Support',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-inferno-a-moto-smoke',
+            targetCallout: 'A Moto',
+            description: 'Deploy Moto smoke.',
+          },
+        ],
+      },
+      {
+        phaseNumber: 2,
+        name: 'Balcony Molotov & Pit Flush',
+        timingSeconds: 4,
+        linkedLineupIds: ['lineup-inferno-pit-molotov'],
+        instructions: 'Flush Big Pit with molotov from Apps while Short team takes Site control.',
+        steps: [
+          {
+            stepId: 'step-inf-pit-moly',
+            phaseNumber: 2,
+            timingOffsetSeconds: 4,
+            durationSeconds: 2.0,
+            role: 'Pit Clearer',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-inferno-pit-molotov',
+            targetCallout: 'A Big Pit',
+            description: 'Deploy Pit molotov.',
+          },
+        ],
+      },
+    ],
+    contingencies: [
+      { trigger: 'CT aggressive push down Mid', action: 'Fall back to Second Mid and trade.' },
+    ],
+    coordinationNotes: 'Smokes must bloom before Balcony team jumps out.',
+    sourceAttribution: 'CSNADES Verified',
+    tags: ['A-Execute', 'Moto', 'Arch', 'Advanced'],
+    isCustom: false,
+    favorite: true,
+  },
+
+  // --------------------------------------------------------------------------
+  // ANCIENT: Mid Control to B Cave Split (COORDINATED)
+  // --------------------------------------------------------------------------
+  {
+    id: 'strat-ancient-mid-to-b',
+    name: 'Ancient Mid Control & B Cave Pincer Split',
+    map: 'de_ancient',
+    side: 'T',
+    objective: 'Secure Mid with Red Room smoke, then execute synchronized pincer on B Site from Ramp and Cave',
+    difficulty: 'COORDINATED',
+    requiredUtility: ['SMOKE', 'FLASHBANG', 'MOLOTOV_INCENDIARY'],
+    recommendedRoles: ['Mid Anchor', 'Cave Entry', 'Ramp Support'],
+    phases: [
+      {
+        phaseNumber: 1,
+        name: 'Red Room Smoke & Mid Domination',
+        timingSeconds: 0,
+        linkedLineupIds: ['lineup-ancient-mid-redroom-smoke'],
+        instructions: 'Smoke Red Room from T Spawn to deny CT AWP sniper window.',
+        steps: [
+          {
+            stepId: 'step-anc-redroom',
+            phaseNumber: 1,
+            timingOffsetSeconds: 0,
+            durationSeconds: 2.0,
+            role: 'Mid Anchor',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-ancient-mid-redroom-smoke',
+            targetCallout: 'Red Room / Window',
+            description: 'Deploy Red Room smoke.',
+          },
+        ],
+      },
+      {
+        phaseNumber: 2,
+        name: 'B Long Smoke & Cave Flash Entry',
+        timingSeconds: 6,
+        linkedLineupIds: ['lineup-ancient-b-short-long-smokes', 'lineup-ancient-b-ninja-moly'],
+        instructions: 'Smoke B Long and molotov Totem Pillar while Cave team enters on popflash.',
+        steps: [
+          {
+            stepId: 'step-anc-b-long',
+            phaseNumber: 2,
+            timingOffsetSeconds: 6,
+            durationSeconds: 2.0,
+            role: 'Ramp Support',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-ancient-b-short-long-smokes',
+            targetCallout: 'B Long',
+            description: 'Deploy B Long smoke.',
+          },
+        ],
+      },
+    ],
+    contingencies: [
+      { trigger: 'CT pushes Cheetah / Cave early', action: 'Pre-molotov Cheetah entrance.' },
+    ],
+    coordinationNotes: 'Cave and Ramp entries must push on the exact same flashbang.',
+    sourceAttribution: 'CSNADES Verified / HLTV',
+    tags: ['Mid-to-B', 'Cave', 'Split', 'Coordinated'],
+    isCustom: false,
+    favorite: true,
+  },
+
+  // --------------------------------------------------------------------------
+  // ANUBIS: B Site Double Smoke Execute (ADVANCED)
+  // --------------------------------------------------------------------------
+  {
+    id: 'strat-anubis-b-execute',
+    name: 'Anubis B Site Wall-of-Smokes & Canal Drop',
+    map: 'de_anubis',
+    side: 'T',
+    objective: 'Execute B Site with dual smokes on Connector and Temple Street, clearing Ninja with molotov',
+    difficulty: 'ADVANCED',
+    requiredUtility: ['SMOKE', 'MOLOTOV_INCENDIARY', 'FLASHBANG'],
+    recommendedRoles: ['B Main Entry', 'Support', 'Canal Flanker'],
+    phases: [
+      {
+        phaseNumber: 1,
+        name: 'B Street & Connector Smokes',
+        timingSeconds: 0,
+        linkedLineupIds: ['lineup-anubis-b-connector-smoke', 'lineup-anubis-b-street-ct-smoke'],
+        instructions: 'Deploy dual smokes to cut off CT rotations from Temple and Connector.',
+        steps: [
+          {
+            stepId: 'step-anu-b-smokes',
+            phaseNumber: 1,
+            timingOffsetSeconds: 0,
+            durationSeconds: 2.0,
+            role: 'Support',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-anubis-b-connector-smoke',
+            targetCallout: 'B Connector',
+            description: 'Deploy B Connector smoke.',
+          },
+        ],
+      },
+      {
+        phaseNumber: 2,
+        name: 'Ninja Pillar Molotov & Site Entry',
+        timingSeconds: 4,
+        linkedLineupIds: ['lineup-anubis-b-palace-moly'],
+        instructions: 'Flush CT pillar anchor with molotov and flood site from B Main and Canal.',
+        steps: [
+          {
+            stepId: 'step-anu-b-moly',
+            phaseNumber: 2,
+            timingOffsetSeconds: 4,
+            durationSeconds: 2.0,
+            role: 'B Main Entry',
+            actionType: 'THROW_UTILITY',
+            lineupId: 'lineup-anubis-b-palace-moly',
+            targetCallout: 'B Pillar / Ninja',
+            description: 'Deploy Ninja Pillar molotov.',
+          },
+        ],
+      },
+    ],
+    contingencies: [
+      { trigger: 'CT spamming through smoke with M4', action: 'Wait 2 seconds and flash over Obelisk.' },
+    ],
+    coordinationNotes: 'Smokes must bloom before crossing water canal.',
+    sourceAttribution: 'CSNADES Verified / HLTV',
+    tags: ['B-Execute', 'Wall-of-Smokes', 'Advanced'],
+    isCustom: false,
+    favorite: true,
+  },
 ];
 
 // ----------------------------------------------------------------------------

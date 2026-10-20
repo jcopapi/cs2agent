@@ -163,6 +163,15 @@ export class IpcHandlerManager {
     for (const ev of result.events) {
       if (ev.eventType === 'ROUND_START') {
         this.tacticalMemory.onRoundChange(ev.roundId);
+        this.tacticalMemory.recordObservation({
+          type: 'POSITION_REPORT',
+          timestamp: now,
+          roundId: ev.roundId,
+          map: result.map || 'de_mirage',
+          source: 'GSI_TELEMETRY',
+          location: { callout: `Início do Round ${ev.roundId}` },
+          confidence: 'CONFIRMED',
+        });
       } else if (ev.eventType === 'BOMB_PLANTED') {
         this.tacticalMemory.recordObservation({
           type: 'BOMB_PLANT',
@@ -175,6 +184,30 @@ export class IpcHandlerManager {
         });
       }
     }
+
+    // Auto-generate AI Tactical Coach recommendation for live round
+    const side = raw.player?.team === 'T' ? 'T' : 'CT';
+    const activeMap = result.map || this.currentGsiStatus.map || 'de_mirage';
+    this.geminiCoach.analyzeContext({
+      map: activeMap,
+      round: result.roundNumber || 1,
+      score: {
+        ct: raw.map?.team_ct?.score ?? 0,
+        t: raw.map?.team_t?.score ?? 0,
+      },
+      side,
+      alivePlayers: { ct: 4, t: 4 },
+      economy: {
+        teamMoney: raw.player?.state?.money ?? 4000,
+        enemyEstimatedEconomy: 'FULL_BUY',
+      },
+      bombPlanted: Boolean(rawBomb === 'planted'),
+      recentObservations: this.tacticalMemory.getActiveObservations(now),
+    }).then((rec) => {
+      if (rec) {
+        this.broadcast('tactical:recommendation', rec);
+      }
+    }).catch(() => {});
 
     const activeObs = this.tacticalMemory.getActiveObservations(now);
     this.broadcast('tactical:observation-updated', activeObs);
