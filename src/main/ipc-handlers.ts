@@ -125,7 +125,7 @@ export class IpcHandlerManager {
       playerArmor: raw.player?.state?.armor ?? 0,
       playerHelmet: Boolean(raw.player?.state?.helmet),
       playerMoney: raw.player?.state?.money ?? 0,
-      playerEquipValue: raw.player?.state?.equip_value ?? 0,
+      playerEquipValue: (raw.player?.state as any)?.equip_value ?? 0,
       playerKills: raw.player?.match_stats?.kills ?? 0,
       playerAssists: raw.player?.match_stats?.assists ?? 0,
       playerDeaths: raw.player?.match_stats?.deaths ?? 0,

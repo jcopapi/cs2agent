@@ -215,20 +215,23 @@ export const LiveMatchView: React.FC = () => {
   const handleRequestAiAdvice = useCallback(async () => {
     setLoadingAdvice(true);
     try {
-      const activeMap = (gsiStatus.map as any) || 'de_mirage';
+      const activeMap = gsiStatus.map || 'de_mirage';
       const side = gsiStatus.playerTeam === 'T' ? 'T' : 'CT';
       if (window.cs2Assistant?.gemini) {
         const rec = await window.cs2Assistant.gemini.requestAdvice({
           map: activeMap,
-          roundNumber: gsiStatus.round || 1,
-          roundPhase: (gsiStatus.roundPhase as any) || 'live',
-          playerSide: side,
-          teamAliveCount: 4,
-          enemyAliveCount: 4,
+          round: gsiStatus.round || 1,
+          score: {
+            ct: gsiStatus.ctScore ?? 7,
+            t: gsiStatus.tScore ?? 5,
+          },
+          side,
+          alivePlayers: { ct: 4, t: 4 },
+          economy: {
+            teamMoney: gsiStatus.playerMoney || 4500,
+            enemyEstimatedEconomy: 'FULL_BUY',
+          },
           bombPlanted: Boolean(bombState?.planted),
-          bombSite: bombState?.site || null,
-          teamEconomy: gsiStatus.playerMoney || 4500,
-          equippedUtilities: ['SMOKE', 'FLASHBANG'],
           recentObservations: observations,
         });
         if (rec) {
@@ -764,7 +767,7 @@ export const LiveMatchView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="rounded bg-tactical-cyan/20 px-1.5 py-0.5 font-mono text-[9px] font-bold text-tactical-cyan uppercase">
                     {recommendation
-                      ? `${recommendation.urgency} // ${Math.round(recommendation.confidence * 100)}% CONFIANÇA`
+                      ? `${recommendation.priority} // ${Math.round(recommendation.confidence * 100)}% CONFIANÇA`
                       : 'TACTICAL ENGINE READY'}
                   </span>
                   <span className="font-mono text-[10px] text-zinc-400">gemini-3.8-flash</span>
@@ -773,7 +776,7 @@ export const LiveMatchView: React.FC = () => {
                 <div className="text-xs font-semibold text-zinc-100">
                   &ldquo;
                   {recommendation
-                    ? recommendation.headline
+                    ? recommendation.shortDisplayText
                     : isBombPlanted
                     ? 'POST-PLANT: JOGUE NO TEMPO DA C4 E CROSSFIRE'
                     : 'CONTROLE DE MEIO E EXECUÇÃO SINCRONIZADA DE SMOKES'}
@@ -782,7 +785,7 @@ export const LiveMatchView: React.FC = () => {
 
                 <p className="text-[11px] leading-relaxed text-zinc-400">
                   {recommendation
-                    ? recommendation.reasoning
+                    ? recommendation.detailedExplanation
                     : 'Clique em "Gerar Recomendação Tática" para analisar o estado atual do round, economia da equipe e callouts registrados na Memória Tática.'}
                 </p>
               </div>
