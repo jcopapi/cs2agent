@@ -94,6 +94,13 @@ async function createMainWindow(): Promise<BrowserWindow> {
     mainWindow?.show();
   });
 
+  // Guarantee window is displayed even if ready-to-show event timing diverges
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  }, 800);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -114,6 +121,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
 app.on('second-instance', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
     mainWindow.focus();
   }
 });

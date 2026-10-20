@@ -7,6 +7,7 @@
  */
 
 import { BrowserWindow, screen } from 'electron';
+import * as url from 'url';
 import type { Rect, SafeZones, HudConfig } from '../shared/ipc-types';
 
 export class OverlayManager {
@@ -43,10 +44,11 @@ export class OverlayManager {
   public updateConfig(patch: Partial<HudConfig>): HudConfig {
     this.currentConfig = { ...this.currentConfig, ...patch };
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      this.overlayWindow.setIgnoreMouseEvents(true);
+      this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
       this.overlayWindow.setFocusable(false);
       if (this.currentConfig.enabled) {
         this.overlayWindow.showInactive();
+        this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
       } else {
         this.overlayWindow.hide();
       }
@@ -87,6 +89,7 @@ export class OverlayManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        additionalArguments: ['--window-type=overlay'],
       },
     });
 
@@ -95,24 +98,25 @@ export class OverlayManager {
     this.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
     // Strict OS-level click-through (WS_EX_TRANSPARENT) so mouse is never blocked
-    this.overlayWindow.setIgnoreMouseEvents(true);
+    this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
 
     // Overlay URL routes to the overlay destination in the renderer
-    const targetUrl = this.rendererUrl.includes('localhost')
-      ? `${this.rendererUrl}#overlay`
-      : `file://${this.rendererUrl}#overlay`;
-
+    let targetUrl: string;
     if (this.rendererUrl.startsWith('http')) {
-      this.overlayWindow.loadURL(targetUrl);
+      targetUrl = `${this.rendererUrl}?mode=overlay#overlay`;
     } else {
-      this.overlayWindow.loadFile(this.rendererUrl, { hash: 'overlay' });
+      const fileUrl = url.pathToFileURL(this.rendererUrl).href;
+      targetUrl = `${fileUrl}?mode=overlay#overlay`;
     }
+
+    this.overlayWindow.loadURL(targetUrl);
 
     this.overlayWindow.once('ready-to-show', () => {
       if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-        this.overlayWindow.setIgnoreMouseEvents(true);
+        this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
         if (this.currentConfig.enabled) {
           this.overlayWindow.showInactive();
+          this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
         }
       }
     });
@@ -138,11 +142,12 @@ export class OverlayManager {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
 
     // Never disable ignoreMouseEvents on fullscreen Windows overlay
-    this.overlayWindow.setIgnoreMouseEvents(true);
+    this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
     this.overlayWindow.setFocusable(false);
 
     if (this.currentConfig.enabled) {
       this.overlayWindow.showInactive();
+      this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
     } else {
       this.overlayWindow.hide();
     }

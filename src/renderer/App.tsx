@@ -20,8 +20,9 @@ export type PrimaryDestination = 'LIVE_MATCH' | 'UTILITY_ROOM' | 'HISTORY';
 export default function App(): JSX.Element {
   // 1. Overlay Window Detection (for Electron transparent window)
   const isOverlayMode =
+    Boolean(window.cs2Assistant?.isOverlay) ||
     window.location.hash.includes('overlay') ||
-    window.location.search.includes('overlay=true');
+    window.location.search.includes('overlay');
 
   if (isOverlayMode) {
     return <HudOverlayView />;

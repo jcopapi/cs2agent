@@ -29,7 +29,14 @@ import type {
   EnvironmentMode,
 } from '../shared/ipc-types';
 
+const isOverlay =
+  process.argv.includes('--window-type=overlay') ||
+  (typeof globalThis !== 'undefined' &&
+    'location' in globalThis &&
+    String((globalThis as { location?: { href?: string } }).location?.href || '').includes('overlay'));
+
 const api: ICS2AssistantAPI = {
+  isOverlay,
   // ----------------------------------------------------
   // GSI & Simulation
   // ----------------------------------------------------

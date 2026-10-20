@@ -287,6 +287,9 @@ export interface ICS2AssistantAPI {
     setActiveProfile(profile: MatchPreparationProfile | null): Promise<void>;
   };
 
+  // --- Global Overlay Flag ---
+  isOverlay?: boolean;
+
   // --- Match History & Performance Analytics ---
   history: {
     getAll(): Promise<MatchRecord[]>;
