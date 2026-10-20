@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   ChevronRight,
   ShieldAlert,
+  MapPin,
 } from 'lucide-react';
 import type {
   GsiStatus,
@@ -345,6 +346,20 @@ export const LiveMatchView: React.FC = () => {
           <div className="font-mono text-sm font-bold">
             PLACAR: <span className="text-tactical-cyan">CT {ctScore}</span> - <span className="text-tactical-amber">{tScore} T</span>
           </div>
+
+          <div className="h-4 w-px bg-border-subtle" />
+
+          {/* Real CS2 In-Game Detected Position */}
+          <div className="flex items-center gap-2 rounded bg-zinc-900 border border-zinc-700/60 px-3 py-1">
+            <MapPin className="h-3.5 w-3.5 text-tactical-cyan" />
+            <span className="font-mono text-xs font-bold text-zinc-200">
+              {gsiStatus.playerPlace
+                ? `POSIÇÃO: ${gsiStatus.playerPlace.toUpperCase()}`
+                : gsiStatus.playerPosition
+                ? `POSIÇÃO: (${Math.round(gsiStatus.playerPosition.x)}, ${Math.round(gsiStatus.playerPosition.y)})`
+                : 'POSIÇÃO: EM JOGO'}
+            </span>
+          </div>
         </div>
 
         {/* BOMB TIMER DISPLAY (When Planted: Huge, Instant Glanceability) */}
@@ -424,15 +439,47 @@ export const LiveMatchView: React.FC = () => {
             </div>
           </div>
 
-          {/* GIANT PIXEL CARD (3-PANEL FIRST-PERSON + 4X ZOOM LOUPE) */}
+          {/* GIANT PIXEL CARD (REAL CSNADES FIRST-PERSON SCREENSHOT & BLOOM THUMBNAIL) */}
           {activeLineup && (
             <div className="flex-1 flex flex-col justify-between overflow-hidden gap-2">
-              {/* Full-width Realistic SVG Container */}
-              <div className="flex-1 rounded-lg bg-[#0e0e11] border border-border-subtle/70 p-2 flex items-center justify-center overflow-hidden">
-                <div
-                  className="w-full h-full max-h-[340px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:max-h-[340px]"
-                  dangerouslySetInnerHTML={{ __html: activeLineup.svgReference }}
-                />
+              {/* Photo Container: Real CS2 In-Game Lineup Screenshot */}
+              <div className="relative flex-1 rounded-lg bg-zinc-950 border border-border-subtle/80 p-2 flex items-center justify-center overflow-hidden">
+                {activeLineup.imageUrl ? (
+                  <div className="relative w-full h-full max-h-[350px] flex items-center justify-center">
+                    <img
+                      src={activeLineup.imageUrl}
+                      alt={activeLineup.title}
+                      className="w-full h-full max-h-[350px] object-contain rounded-lg"
+                    />
+                    {/* Picture-in-picture: Landing Bloom Result */}
+                    {activeLineup.thumbnailUrl && (
+                      <div className="absolute top-2 right-2 rounded-lg border-2 border-tactical-cyan/60 bg-zinc-950/90 backdrop-blur-md p-1 shadow-2xl flex flex-col items-center">
+                        <span className="font-mono text-[9px] font-black text-tactical-cyan uppercase tracking-wider mb-0.5">
+                          IMPACTO / BLOOM
+                        </span>
+                        <img
+                          src={activeLineup.thumbnailUrl}
+                          alt="Landing bloom"
+                          className="w-32 h-20 object-cover rounded"
+                        />
+                      </div>
+                    )}
+                    {/* Badge: Official CSNADES Foto */}
+                    <div className="absolute top-2 left-2 flex items-center gap-2">
+                      <span className="rounded bg-tactical-cyan text-zinc-950 px-2 py-0.5 font-mono text-[10px] font-black uppercase">
+                        FOTO REAL CSNADES
+                      </span>
+                      <span className="rounded bg-zinc-900/90 backdrop-blur-md text-zinc-200 px-2 py-0.5 font-mono text-[10px] font-bold border border-zinc-700">
+                        {activeLineup.aimReference.crosshairPlacement}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="w-full h-full max-h-[340px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:max-h-[340px]"
+                    dangerouslySetInnerHTML={{ __html: activeLineup.svgReference }}
+                  />
+                )}
               </div>
 
               {/* Instructions & Execution Action Bar */}

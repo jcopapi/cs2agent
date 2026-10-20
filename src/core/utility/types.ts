@@ -79,6 +79,8 @@ export interface Lineup {
     visualLandmark: string;
   };
   svgReference: string; // Standalone SVG string
+  imageUrl?: string; // Real CSNADES first-person screenshot
+  thumbnailUrl?: string; // Real CSNADES result/landing screenshot
 
   // Landing Target
   landingArea: LandingArea;

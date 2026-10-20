@@ -54,6 +54,15 @@ export class BombTimerEngine {
   }
 
   /**
+   * Synchronizes with authoritative CS2 phase_countdowns telemetry without resetting.
+   */
+  public syncRemainingSeconds(exactSeconds: number): void {
+    if (this.planted && Number.isFinite(exactSeconds) && exactSeconds >= 0) {
+      this.remainingSeconds = Number(exactSeconds.toFixed(1));
+    }
+  }
+
+  /**
    * Advances the countdown timer by `deltaSeconds`.
    */
   public tick(deltaSeconds: number): BombTimerSnapshot {

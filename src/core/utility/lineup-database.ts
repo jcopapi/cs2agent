@@ -7,7 +7,8 @@
  * and high-fidelity SVG visual landmark overlays.
  */
 
-import type { Lineup, CS2Map, LineupFilter } from './types';
+import type { Lineup, CS2Map, LineupFilter, TeamSide, UtilityType } from './types';
+import csnadesData from '../lineup-fsm/csnades-data.json';
 
 export const COMPETITIVE_LINEUPS: Lineup[] = [
   // ==========================================================================
@@ -2358,8 +2359,120 @@ export function buildCsnadesVisualSvg(lineup: Lineup): string {
 </svg>`;
 }
 
-// Automatically upgrade all pre-populated lineups with the 3-panel CSNADES-style visual pixel card
+// ----------------------------------------------------------------------------
+// CSNADES Live Photographic Lineup Ingestion & Normalization
+// ----------------------------------------------------------------------------
+
+function buildCsnadesLineups(): Lineup[] {
+  const result: Lineup[] = [];
+  const mapEntries = Object.entries(csnadesData as Record<string, any[]>);
+
+  for (const [mapShort, nades] of mapEntries) {
+    const csMap: CS2Map = ('de_' + mapShort) as CS2Map;
+    for (const n of nades) {
+      if (!n.assets?.lineup && !n.assets?.thumbnail) continue;
+      const isJump = n.movement === 'jumpthrow' || (n.technique && String(n.technique).includes('jump'));
+      const throwType = isJump ? 'JUMPTHROW' : 'STANDING';
+      const side = (n.team === 'ct' ? 'CT' : 'T') as TeamSide;
+      const uType: UtilityType =
+        n.type === 'smoke' ? 'SMOKE' :
+        n.type === 'flash' ? 'FLASHBANG' :
+        n.type === 'molotov' ? 'MOLOTOV' :
+        'HE_GRENADE';
+
+      const fromCallout = n.titleFrom || 'Spawn';
+      const toCallout = n.titleTo || 'Alvo';
+      const title = `${toCallout} de ${fromCallout}`;
+      const img = n.assets.lineup || n.assets.thumbnail;
+      const thumb = n.assets.thumbnail || n.assets.lineup;
+
+      result.push({
+        id: `csnades-${mapShort}-${n.slug || n.id}`,
+        map: csMap,
+        title,
+        side,
+        utilityType: uType,
+        technique: isJump ? 'JUMPTHROW' : 'STAND',
+        throwType,
+        throwPosition: {
+          x: n.throwFrom?.x ?? 0,
+          y: n.throwFrom?.y ?? 0,
+          z: 0,
+          callout: fromCallout,
+          description: `Posicione-se exatamente em ${fromCallout}`,
+          toleranceUnits: 8,
+        },
+        startPosition: {
+          x: n.throwFrom?.x ?? 0,
+          y: n.throwFrom?.y ?? 0,
+          z: 0,
+          callout: fromCallout,
+          toleranceUnits: 8,
+        },
+        crosshairTarget: {
+          pitch: 0,
+          yaw: 0,
+          description: `Alinhe a mira exatamente no pixel mostrado na foto real do CS2`,
+          visualLandmark: toCallout,
+          svgAlignment: '',
+        },
+        aimReference: {
+          crosshairPlacement: `Alinhamento exato na foto oficial`,
+          visualLandmark: toCallout,
+        },
+        svgReference: '',
+        imageUrl: img,
+        thumbnailUrl: thumb,
+        landingArea: {
+          x: n.throwTo?.x ?? 0,
+          y: n.throwTo?.y ?? 0,
+          z: 0,
+          callout: toCallout,
+          description: `Desabrocha em ${toCallout}`,
+        },
+        targetDestination: {
+          x: n.throwTo?.x ?? 0,
+          y: n.throwTo?.y ?? 0,
+          z: 0,
+          callout: toCallout,
+        },
+        movementKey: isJump ? 'JUMPTHROW' : 'NONE',
+        movementRequirements: isJump ? 'Pule e solte a granada no ápice do salto' : 'Fique imóvel e solte com clique esquerdo',
+        tickrate: 'SUBTICK_CS2',
+        tags: [toCallout, fromCallout, uType, 'CSNADES', 'Foto Real'],
+        isCustom: false,
+        favorite: false,
+        instructions: [
+          `Posicione-se em ${fromCallout}`,
+          `Mire no pixel exato indicado pela foto do jogo`,
+          isJump ? 'Execute Jumpthrow (soltar ao pular)' : 'Solte com botão esquerdo parado',
+        ],
+        difficulty: n.beginner ? 'EASY' : 'MEDIUM',
+        sourceAttribution: 'CSNADES.gg Official Screenshots',
+        verified: true,
+        gameVersion: '1.40.2.1',
+        lastVerificationDate: '2026-10-19',
+      });
+    }
+  }
+
+  return result;
+}
+
+const CSNADES_REAL_LINEUPS = buildCsnadesLineups();
+
+// Automatically link real CSNADES screenshots to pre-populated lineups
 for (const item of COMPETITIVE_LINEUPS) {
+  const match = CSNADES_REAL_LINEUPS.find(
+    (c) =>
+      c.map === item.map &&
+      (c.title.toLowerCase().includes(item.targetDestination.callout.toLowerCase().split(' ')[0]) ||
+        item.title.toLowerCase().includes(c.landingArea.callout.toLowerCase().split(' ')[0]))
+  );
+  if (match) {
+    item.imageUrl = match.imageUrl;
+    item.thumbnailUrl = match.thumbnailUrl;
+  }
   const richSvg = buildCsnadesVisualSvg(item);
   item.svgReference = richSvg;
   if (item.crosshairTarget) {
@@ -2367,20 +2480,22 @@ for (const item of COMPETITIVE_LINEUPS) {
   }
 }
 
+export const ALL_COMBINED_LINEUPS: Lineup[] = [...CSNADES_REAL_LINEUPS, ...COMPETITIVE_LINEUPS];
+
 // ----------------------------------------------------------------------------
 // Query and Helper Functions
 // ----------------------------------------------------------------------------
 
 export function getAllLineups(): Lineup[] {
-  return COMPETITIVE_LINEUPS.map((l) => ({ ...l }));
+  return ALL_COMBINED_LINEUPS.map((l) => ({ ...l }));
 }
 
 export function getLineupsByMap(map: CS2Map): Lineup[] {
-  return COMPETITIVE_LINEUPS.filter((l) => l.map === map).map((l) => ({ ...l }));
+  return ALL_COMBINED_LINEUPS.filter((l) => l.map === map).map((l) => ({ ...l }));
 }
 
 export function getLineupById(id: string): Lineup | null {
-  const found = COMPETITIVE_LINEUPS.find((l) => l.id === id);
+  const found = ALL_COMBINED_LINEUPS.find((l) => l.id === id);
   return found ? { ...found } : null;
 }
 

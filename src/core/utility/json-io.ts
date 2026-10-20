@@ -297,6 +297,8 @@ const LINEUP_ALLOWED_KEYS = new Set([
   'isCustom',
   'favorite',
   'tickrate',
+  'imageUrl',
+  'thumbnailUrl',
 ]);
 
 export function validateLineup(candidate: unknown, path: string = 'lineup'): ValidationResult<Lineup> {
@@ -537,6 +539,8 @@ export function validateLineup(candidate: unknown, path: string = 'lineup'): Val
     isCustom,
     favorite,
     tickrate,
+    imageUrl: typeof obj.imageUrl === 'string' ? sanitizeText(obj.imageUrl, 500) : undefined,
+    thumbnailUrl: typeof obj.thumbnailUrl === 'string' ? sanitizeText(obj.thumbnailUrl, 500) : undefined,
   };
 
   return { valid: true, errors: [], warnings, sanitizedData };

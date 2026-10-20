@@ -81,6 +81,7 @@ export class IpcHandlerManager {
 
   private activeProfile: MatchPreparationProfile | null = null;
   private gsiListener: GsiHttpListener;
+  private lastBombTickMs: number = 0;
 
   constructor(deps: IpcDependencies) {
     this.deps = deps;
@@ -132,6 +133,9 @@ export class IpcHandlerManager {
       activeWeapon: result.activeWeapon,
       weapons: weaponsList,
       hasDefuseKit: result.hasDefuseKit,
+      playerPosition: result.playerPosition,
+      playerAngles: result.playerAngles,
+      playerPlace: result.playerPlace,
     };
 
     // Bomb transitions from real CS2 GSI
@@ -145,6 +149,16 @@ export class IpcHandlerManager {
           hasKit: result.hasDefuseKit,
           initialSecondsRemaining: result.bombState?.countdownSeconds ?? 40.0,
         });
+        this.lastBombTickMs = now;
+      } else if (result.bombState?.countdownSeconds) {
+        this.bombTimer.syncRemainingSeconds(result.bombState.countdownSeconds);
+        this.lastBombTickMs = now;
+      } else {
+        const delta = Math.max(0, (now - (this.lastBombTickMs || now)) / 1000);
+        if (delta > 0) {
+          this.bombTimer.tick(delta);
+        }
+        this.lastBombTickMs = now;
       }
       this.broadcast('tactical:bomb-updated', this.bombTimer.getSnapshot());
     } else if (
@@ -153,6 +167,7 @@ export class IpcHandlerManager {
       result.roundPhase === 'freezetime' ||
       !result.eligibleMatchDetected
     ) {
+      this.lastBombTickMs = 0;
       if (this.bombTimer.getSnapshot().planted) {
         this.bombTimer.clear();
         this.broadcast('tactical:bomb-updated', null);

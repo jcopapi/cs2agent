@@ -485,60 +485,69 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     <div
                       key={lineup.id}
                       onClick={() => setSelectedLineupId(lineup.id)}
-                      className={`rounded border p-2.5 cursor-pointer transition-colors relative ${
+                      className={`rounded border p-2.5 cursor-pointer transition-colors relative flex gap-2.5 ${
                         isSelected
                           ? 'border-tactical-cyan bg-background-elevated'
                           : 'border-border-subtle bg-background hover:border-border-elevated'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-xs text-zinc-200 truncate pr-6">
-                          {lineup.title}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={(e) => handleToggleFavoriteLineup(lineup.id, e)}
-                            className="text-zinc-500 hover:text-tactical-amber transition-colors p-0.5 cursor-pointer"
-                          >
-                            <Star
-                              className={`h-3.5 w-3.5 ${
-                                lineup.favorite ? 'fill-tactical-amber text-tactical-amber' : ''
+                      {lineup.thumbnailUrl && (
+                        <img
+                          src={lineup.thumbnailUrl}
+                          alt={lineup.title}
+                          className="w-14 h-14 object-cover rounded border border-border-subtle flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-xs text-zinc-200 truncate pr-2">
+                            {lineup.title}
+                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={(e) => handleToggleFavoriteLineup(lineup.id, e)}
+                              className="text-zinc-500 hover:text-tactical-amber transition-colors p-0.5 cursor-pointer"
+                            >
+                              <Star
+                                className={`h-3.5 w-3.5 ${
+                                  lineup.favorite ? 'fill-tactical-amber text-tactical-amber' : ''
+                                }`}
+                              />
+                            </button>
+                            <span
+                              className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                lineup.side === 'CT'
+                                  ? 'bg-tactical-cyan/20 text-tactical-cyan'
+                                  : 'bg-tactical-amber/20 text-tactical-amber'
                               }`}
-                            />
-                          </button>
-                          <span
-                            className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                              lineup.side === 'CT'
-                                ? 'bg-tactical-cyan/20 text-tactical-cyan'
-                                : 'bg-tactical-amber/20 text-tactical-amber'
-                            }`}
-                          >
-                            {lineup.side}
+                            >
+                              {lineup.side}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1">
+                          <span className="truncate">De: {lineup.startPosition.callout}</span>
+                          <span className="truncate">Para: {lineup.targetDestination.callout}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          <span className="rounded bg-background-panel border border-border-subtle px-1.5 py-0.5 font-mono text-[9px] text-zinc-400">
+                            {lineup.throwType}
+                          </span>
+                          <span className="rounded bg-background-panel border border-border-subtle px-1.5 py-0.5 font-mono text-[9px] text-zinc-400">
+                            {lineup.difficulty}
+                          </span>
+                          {lineup.isCustom && (
+                            <span className="rounded bg-tactical-purple/20 border border-tactical-purple/30 px-1.5 py-0.5 font-mono text-[9px] text-tactical-purple">
+                              CUSTOM
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 font-mono text-[9px] text-tactical-emerald ml-auto">
+                            <CheckCircle className="h-2.5 w-2.5" />
+                            <span>CSNADES</span>
                           </span>
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1">
-                        <span>From: {lineup.startPosition.callout}</span>
-                        <span>To: {lineup.targetDestination.callout}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <span className="rounded bg-background-panel border border-border-subtle px-1.5 py-0.5 font-mono text-[9px] text-zinc-400">
-                          {lineup.throwType}
-                        </span>
-                        <span className="rounded bg-background-panel border border-border-subtle px-1.5 py-0.5 font-mono text-[9px] text-zinc-400">
-                          {lineup.difficulty}
-                        </span>
-                        {lineup.isCustom && (
-                          <span className="rounded bg-tactical-purple/20 border border-tactical-purple/30 px-1.5 py-0.5 font-mono text-[9px] text-tactical-purple">
-                            CUSTOM
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1 font-mono text-[9px] text-tactical-emerald ml-auto">
-                          <CheckCircle className="h-2.5 w-2.5" />
-                          <span>{lineup.sourceAttribution.split('/')[0]}</span>
-                        </span>
                       </div>
                     </div>
                   );
@@ -620,18 +629,40 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                   <p className="text-xs text-zinc-400 mt-0.5">{activeLineup.movementRequirements}</p>
                 </div>
 
-                {/* SVG Landmark Visual Reference Box */}
+                {/* Photo & Crosshair Landmark Visual Reference Box */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span className="font-mono text-[10px] uppercase">SVG Crosshair Landmark</span>
+                    <span className="font-mono text-[10px] uppercase font-bold text-tactical-cyan">
+                      {activeLineup.imageUrl ? 'FOTO REAL CSNADES (PIXEL & MIRA)' : 'SVG Crosshair Landmark'}
+                    </span>
                     <span className="font-mono text-[10px] text-zinc-500">
-                      TOLERANCE: ±{activeLineup.startPosition.toleranceUnits || 6} UNITS
+                      TOLERÂNCIA: ±{activeLineup.startPosition.toleranceUnits || 6} UNITS
                     </span>
                   </div>
-                  <div
-                    className="flex items-center justify-center rounded border border-border-subtle bg-background p-4 min-h-[160px]"
-                    dangerouslySetInnerHTML={{ __html: activeLineup.svgReference }}
-                  />
+                  {activeLineup.imageUrl ? (
+                    <div className="relative flex flex-col items-center justify-center rounded-lg border border-border-subtle bg-zinc-950 p-2 overflow-hidden">
+                      <img
+                        src={activeLineup.imageUrl}
+                        alt={activeLineup.title}
+                        className="w-full max-h-[300px] object-contain rounded"
+                      />
+                      {activeLineup.thumbnailUrl && (
+                        <div className="absolute bottom-3 right-3 rounded border border-tactical-cyan/60 bg-zinc-950/90 backdrop-blur-md p-1 shadow-xl flex flex-col items-center">
+                          <span className="text-[9px] font-mono font-bold text-tactical-cyan mb-0.5">ONDE CAI (BLOOM)</span>
+                          <img
+                            src={activeLineup.thumbnailUrl}
+                            alt="Landing bloom"
+                            className="w-28 h-18 object-cover rounded"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className="flex items-center justify-center rounded border border-border-subtle bg-background p-4 min-h-[160px]"
+                      dangerouslySetInnerHTML={{ __html: activeLineup.svgReference }}
+                    />
+                  )}
                 </div>
 
                 {/* Aim Reference */}

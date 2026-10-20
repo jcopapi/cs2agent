@@ -46,6 +46,9 @@ export interface GsiStatus {
   activeWeapon?: string;
   weapons?: string[];
   hasDefuseKit?: boolean;
+  playerPosition?: { x: number; y: number; z: number };
+  playerAngles?: { pitch: number; yaw: number };
+  playerPlace?: string;
   cfgInstalled?: boolean;
   cfgPath?: string;
 }
@@ -86,6 +89,8 @@ export interface Lineup {
   movementRequirements: string;
   aimReference: { crosshairPlacement: string; visualLandmark: string };
   svgReference: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
   instructions: string[];
   tags: string[];
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';

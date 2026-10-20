@@ -26,6 +26,7 @@ export interface GsiParseResult {
   events: NormalizedGameEvent[];
   playerPosition?: { x: number; y: number; z: number };
   playerAngles?: { pitch: number; yaw: number };
+  playerPlace?: string;
   activeWeapon?: string;
   hasDefuseKit: boolean;
   bombState?: {
@@ -289,16 +290,33 @@ export function parseGsiPayload(
     }
   }
 
+  // Parse official CS2 phase_countdowns (authoritative bomb & defuse timing)
+  const phaseCountdowns = (payload as Record<string, any>).phase_countdowns;
+  let countdownSeconds: number | undefined;
+  let isBombCountdown = false;
+
+  if (phaseCountdowns && typeof phaseCountdowns === 'object') {
+    const endsIn = Number(phaseCountdowns.phase_ends_in);
+    if (Number.isFinite(endsIn) && endsIn >= 0) {
+      countdownSeconds = endsIn;
+    }
+    if (phaseCountdowns.phase === 'bomb' || phaseCountdowns.phase === 'defuse') {
+      isBombCountdown = true;
+    }
+  }
+
   let bombState: GsiParseResult['bombState'];
-  const rawBombState = payload.bomb?.state || payload.round?.bomb;
+  const rawBombState = isBombCountdown ? 'planted' : (payload.bomb?.state || payload.round?.bomb);
   if (rawBombState) {
-    const parsedCountdown = payload.bomb?.countdown ? Number(payload.bomb.countdown) : undefined;
+    const parsedCountdown = countdownSeconds ?? (payload.bomb?.countdown ? Number(payload.bomb.countdown) : undefined);
     bombState = {
       state: rawBombState,
       countdownSeconds: Number.isFinite(parsedCountdown) ? parsedCountdown : undefined,
       site: null,
     };
   }
+
+  const playerPlace = (payload.player as Record<string, any> | undefined)?.place || undefined;
 
   return {
     valid: true,
@@ -311,6 +329,7 @@ export function parseGsiPayload(
     events,
     playerPosition,
     playerAngles,
+    playerPlace,
     activeWeapon,
     hasDefuseKit: Boolean(payload.player?.state?.defusekit),
     bombState,
