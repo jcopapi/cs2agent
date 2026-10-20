@@ -28,6 +28,26 @@ export interface GsiStatus {
   activeMatch: boolean;
   map?: string;
   mode?: string;
+  mapPhase?: string;
+  round?: number;
+  roundPhase?: string;
+  ctScore?: number;
+  tScore?: number;
+  playerName?: string;
+  playerTeam?: TeamSide;
+  playerHealth?: number;
+  playerArmor?: number;
+  playerHelmet?: boolean;
+  playerMoney?: number;
+  playerEquipValue?: number;
+  playerKills?: number;
+  playerAssists?: number;
+  playerDeaths?: number;
+  activeWeapon?: string;
+  weapons?: string[];
+  hasDefuseKit?: boolean;
+  cfgInstalled?: boolean;
+  cfgPath?: string;
 }
 
 export interface TacticalObservation {

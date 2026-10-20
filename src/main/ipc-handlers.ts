@@ -43,6 +43,9 @@ import { LineupExecutionEngine } from '../core/lineup-fsm/lineup-engine';
 import { BombTimerEngine } from '../core/bomb-timer/bomb-timer-engine';
 import { GeminiTacticalCoach } from '../core/ai/gemini-coach';
 import { HistoryAnalyticsEngine } from '../core/history/history-analytics';
+import { GsiHttpListener } from './gsi-listener';
+import type { GsiParseResult } from '../core/match/gsi-parser';
+import type { RawGsiPayload } from '../core/match/types';
 
 export interface IpcDependencies {
   credentialStore: ICredentialStore;
@@ -77,13 +80,119 @@ export class IpcHandlerManager {
   };
 
   private activeProfile: MatchPreparationProfile | null = null;
+  private gsiListener: GsiHttpListener;
 
   constructor(deps: IpcDependencies) {
     this.deps = deps;
     this.lineupEngine.setSequence(this.lineups.slice(0, 5).map((l) => l.id));
+    this.gsiListener = new GsiHttpListener({
+      port: 3001,
+      secondaryPort: 3000,
+      onPayloadParsed: (result, raw) => this.handleLiveGsiPayload(result, raw),
+    });
+  }
+
+  private handleLiveGsiPayload(result: GsiParseResult, raw: RawGsiPayload): void {
+    const now = Date.now();
+    const isSim = this.currentGsiStatus.environment === 'SIMULATION_PREVIEW';
+
+    const weaponsList: string[] = [];
+    if (raw.player?.weapons && typeof raw.player.weapons === 'object') {
+      for (const w of Object.values(raw.player.weapons)) {
+        if (w && w.name) {
+          weaponsList.push(w.name);
+        }
+      }
+    }
+
+    this.currentGsiStatus = {
+      ...this.currentGsiStatus,
+      listening: true,
+      clientConnected: true,
+      authenticated: result.authenticated,
+      lastHeartbeat: now,
+      activeMatch: result.eligibleMatchDetected || isSim,
+      map: result.map || this.currentGsiStatus.map,
+      mode: raw.map?.mode || this.currentGsiStatus.mode,
+      mapPhase: raw.map?.phase,
+      round: result.roundNumber,
+      roundPhase: result.roundPhase,
+      ctScore: raw.map?.team_ct?.score ?? this.currentGsiStatus.ctScore ?? 0,
+      tScore: raw.map?.team_t?.score ?? this.currentGsiStatus.tScore ?? 0,
+      playerName: raw.player?.name || this.currentGsiStatus.playerName,
+      playerTeam: raw.player?.team || this.currentGsiStatus.playerTeam,
+      playerHealth: raw.player?.state?.health ?? 100,
+      playerArmor: raw.player?.state?.armor ?? 0,
+      playerHelmet: Boolean(raw.player?.state?.helmet),
+      playerMoney: raw.player?.state?.money ?? 0,
+      playerEquipValue: raw.player?.state?.equip_value ?? 0,
+      playerKills: raw.player?.match_stats?.kills ?? 0,
+      playerAssists: raw.player?.match_stats?.assists ?? 0,
+      playerDeaths: raw.player?.match_stats?.deaths ?? 0,
+      activeWeapon: result.activeWeapon,
+      weapons: weaponsList,
+      hasDefuseKit: result.hasDefuseKit,
+    };
+
+    // Bomb transitions from real CS2 GSI
+    const rawBomb = result.bombState?.state;
+    if (rawBomb === 'planted') {
+      const currentSnap = this.bombTimer.getSnapshot();
+      if (!currentSnap.planted) {
+        this.bombTimer.onBombPlanted({
+          plantTimestampMs: now,
+          site: result.bombState?.site || 'A',
+          hasKit: result.hasDefuseKit,
+          initialSecondsRemaining: result.bombState?.countdownSeconds ?? 40.0,
+        });
+      }
+      this.broadcast('tactical:bomb-updated', this.bombTimer.getSnapshot());
+    } else if (
+      rawBomb === 'defused' ||
+      rawBomb === 'exploded' ||
+      result.roundPhase === 'freezetime' ||
+      !result.eligibleMatchDetected
+    ) {
+      if (this.bombTimer.getSnapshot().planted) {
+        this.bombTimer.clear();
+        this.broadcast('tactical:bomb-updated', null);
+      }
+    }
+
+    // Record GSI events in Tactical Memory
+    for (const ev of result.events) {
+      if (ev.eventType === 'ROUND_START') {
+        this.tacticalMemory.onRoundChange(ev.roundId);
+      } else if (ev.eventType === 'BOMB_PLANTED') {
+        this.tacticalMemory.recordObservation({
+          type: 'BOMB_PLANT',
+          timestamp: now,
+          roundId: result.roundNumber,
+          map: result.map || 'de_mirage',
+          source: 'GSI_TELEMETRY',
+          location: { callout: 'Bombsite' },
+          confidence: 'CONFIRMED',
+        });
+      }
+    }
+
+    const activeObs = this.tacticalMemory.getActiveObservations(now);
+    this.broadcast('tactical:observation-updated', activeObs);
+    this.broadcast('tactical:observations-updated', activeObs);
+    this.broadcast('gsi:status-changed', this.currentGsiStatus);
+    this.broadcast('gsi:update', this.currentGsiStatus);
   }
 
   public register(): void {
+    // Auto-start real HTTP GSI listener on 127.0.0.1:3001 & 127.0.0.1:3000
+    const cfgRes = this.gsiListener.autoInstallCfg();
+    this.currentGsiStatus.cfgInstalled = cfgRes.installed;
+    this.currentGsiStatus.cfgPath = cfgRes.cfgPath;
+    this.gsiListener.start(3001).then((res) => {
+      this.currentGsiStatus.listening = res.success;
+      this.currentGsiStatus.port = res.port;
+      this.broadcast('gsi:status-changed', this.currentGsiStatus);
+    }).catch(() => {});
     // ----------------------------------------------------
     // GSI & Simulation Channels
     // ----------------------------------------------------
@@ -94,14 +203,22 @@ export class IpcHandlerManager {
     this.handle('gsi:set-simulation-mode', async (_event, enabled: boolean): Promise<void> => {
       this.currentGsiStatus.environment = enabled ? 'SIMULATION_PREVIEW' : 'COMPETITIVE_PROTECTED';
       this.currentGsiStatus.activeMatch = enabled;
+      if (!enabled) {
+        this.bombTimer.clear();
+        this.broadcast('tactical:bomb-updated', null);
+      }
       if (this.deps.capabilityGate) {
         this.deps.capabilityGate.setEnvironment(this.currentGsiStatus.environment);
       }
       this.broadcast('gsi:status-changed', this.currentGsiStatus);
+      this.broadcast('gsi:update', this.currentGsiStatus);
     });
 
     this.handle('gsi:inject-scenario', async (_event, scenarioId: string): Promise<void> => {
       const now = Date.now();
+      const currentMap = this.currentGsiStatus.map || 'de_mirage';
+      const currentRound = this.currentGsiStatus.round || 13;
+
       if (scenarioId === 'palace-killer-invariance') {
         this.tacticalMemory.recordElimination({
           victimName: 'Player X',
@@ -109,8 +226,8 @@ export class IpcHandlerManager {
           victimCallout: 'Palace',
           killerName: 'Player Y',
           killerTeam: 'CT',
-          roundId: 13,
-          map: 'de_mirage',
+          roundId: currentRound,
+          map: currentMap,
           timestamp: now,
         });
       } else if (scenarioId === 'bomb-plant-retake') {
@@ -120,8 +237,25 @@ export class IpcHandlerManager {
           hasKit: true,
         });
         this.broadcast('tactical:bomb-updated', this.bombTimer.getSnapshot());
+      } else if (scenarioId === 'bomb-defuse' || scenarioId === 'reset-round') {
+        this.bombTimer.clear();
+        this.broadcast('tactical:bomb-updated', null);
+      } else if (scenarioId.startsWith('callout:')) {
+        const callout = scenarioId.replace('callout:', '').trim() || 'Mid';
+        this.tacticalMemory.recordObservation({
+          type: 'POSITION_REPORT',
+          timestamp: now,
+          roundId: currentRound,
+          map: currentMap,
+          source: 'MANUAL_REPORT',
+          playerIdentity: { team: 'T', name: 'Enemy Spotted', slot: 1 },
+          location: { callout },
+          confidence: 'REPORTED',
+        });
       }
-      this.broadcast('tactical:observations-updated', this.tacticalMemory.getActiveObservations(now));
+      const obs = this.tacticalMemory.getActiveObservations(now);
+      this.broadcast('tactical:observation-updated', obs);
+      this.broadcast('tactical:observations-updated', obs);
     });
 
     // ----------------------------------------------------
@@ -446,6 +580,7 @@ export class IpcHandlerManager {
   }
 
   public unregister(): void {
+    this.gsiListener.stop().catch(() => {});
     for (const channel of this.registeredChannels) {
       ipcMain.removeHandler(channel);
     }
