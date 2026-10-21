@@ -681,8 +681,46 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                         alt={activeLineup.title}
                         className="w-full max-h-[300px] object-contain rounded"
                       />
+
+                      {/* 1. HIGH-CONTRAST CENTER AIM RETICLE */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20">
+                        <div className="w-9 h-9 rounded-full border-2 border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
+                          <div className="w-2 h-2 bg-rose-500 rounded-full" />
+                        </div>
+                        <div className="absolute -left-3.5 w-3 h-0.5 bg-emerald-400" />
+                        <div className="absolute -right-3.5 w-3 h-0.5 bg-emerald-400" />
+                        <div className="absolute -top-3.5 h-3 w-0.5 bg-emerald-400" />
+                        <div className="absolute -bottom-3.5 h-3 w-0.5 bg-emerald-400" />
+                        <span className="absolute -bottom-5 rounded bg-black/95 border border-rose-500/80 px-1.5 py-0.2 text-[9px] font-mono font-black text-rose-400 uppercase tracking-widest whitespace-nowrap shadow-lg">
+                          MIRAR NO CENTRO
+                        </span>
+                      </div>
+
+                      {/* 2. 4.5X PRECISION ZOOM LOUPE */}
+                      <div className="absolute bottom-2 left-2 rounded-lg border-2 border-tactical-cyan/80 bg-zinc-950/95 p-1.5 shadow-2xl flex flex-col items-center z-20">
+                        <span className="text-[9px] font-mono font-black text-tactical-cyan px-1 mb-0.5 uppercase tracking-wider">
+                          LUPA ZOOM 4X (PIXEL EXATO)
+                        </span>
+                        <div
+                          className="relative w-36 h-28 rounded border border-zinc-700 overflow-hidden"
+                          style={{
+                            backgroundImage: `url(${activeLineup.imageUrl})`,
+                            backgroundPosition: 'center center',
+                            backgroundSize: '450%',
+                            backgroundRepeat: 'no-repeat',
+                          }}
+                        >
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-full h-px bg-emerald-400/90 absolute" />
+                            <div className="h-full w-px bg-emerald-400/90 absolute" />
+                            <div className="w-2 h-2 rounded-full bg-rose-500 absolute ring-2 ring-emerald-400" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Picture-in-picture Landing Bloom Result */}
                       {activeLineup.thumbnailUrl && (
-                        <div className="absolute bottom-3 right-3 rounded border border-tactical-cyan/60 bg-zinc-950/90 backdrop-blur-md p-1 shadow-xl flex flex-col items-center">
+                        <div className="absolute bottom-2 right-2 rounded border border-tactical-cyan/60 bg-zinc-950/90 backdrop-blur-md p-1 shadow-xl flex flex-col items-center z-20">
                           <span className="text-[9px] font-mono font-bold text-tactical-cyan mb-0.5">ONDE CAI (BLOOM)</span>
                           <img
                             src={activeLineup.thumbnailUrl}

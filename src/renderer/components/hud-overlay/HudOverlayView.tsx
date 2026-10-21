@@ -145,90 +145,136 @@ export const HudOverlayView: React.FC = () => {
       }}
     >
       {/* ==================================================================== */}
-      {/* 1. TOP-CENTER: C4 BOMB COUNTDOWN (Appears ONLY when planted)         */}
+      {/* 1. TOP-CENTER: C4 BOMB COUNTDOWN (Ultra-minimalist, low opacity)     */}
       {/* ==================================================================== */}
       {isBombActive && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-50">
-          <div className="rounded-lg border-2 border-rose-500 bg-[#09090b] px-6 py-2.5 shadow-2xl flex items-center gap-5 pointer-events-none">
-            <div className="flex flex-col">
-              <span className="font-mono text-[11px] text-rose-500 font-black uppercase tracking-widest leading-tight">
-                C4 EXPLOSÃO {bombState?.site ? `// SITE ${bombState.site}` : ''}
-              </span>
-              <span
-                className={`font-mono text-3xl font-black tabular-nums leading-none mt-0.5 ${
-                  remainingSeconds > 20
-                    ? 'text-emerald-400'
-                    : remainingSeconds > 10
-                    ? 'text-amber-400'
-                    : 'text-rose-500'
-                }`}
-              >
-                00:{remainingSeconds.toFixed(1).padStart(4, '0')}
-              </span>
-            </div>
-
-            <div className="flex flex-col text-[11px] font-mono font-bold leading-snug border-l border-zinc-800 pl-4">
-              <span className={remainingSeconds >= 5 ? 'text-emerald-400' : 'text-rose-500'}>
-                KIT (5s): {remainingSeconds >= 5 ? '✓ TEMPO DE SOBRA' : '✕ SEM TEMPO'}
-              </span>
-              <span className={remainingSeconds >= 10 ? 'text-emerald-400' : 'text-rose-500'}>
-                SEM KIT (10s): {remainingSeconds >= 10 ? '✓ TEMPO DE SOBRA' : '✕ GUARDE A ARMA'}
-              </span>
-            </div>
+        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-none z-50">
+          <div className="flex items-center gap-2.5 rounded-full border border-white/15 bg-black/50 px-4 py-1 shadow-lg">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                remainingSeconds > 10
+                  ? 'bg-emerald-400'
+                  : remainingSeconds > 5
+                  ? 'bg-amber-400 animate-pulse'
+                  : 'bg-rose-500 animate-ping'
+              }`}
+            />
+            <span
+              className={`font-mono text-2xl font-black tabular-nums tracking-wider leading-none ${
+                remainingSeconds > 10
+                  ? 'text-emerald-400'
+                  : remainingSeconds > 5
+                  ? 'text-amber-400'
+                  : 'text-rose-400'
+              }`}
+            >
+              {remainingSeconds.toFixed(1)}s
+            </span>
+            <span className="font-mono text-[10px] text-zinc-300 font-bold uppercase tracking-wider pl-2 border-l border-white/15">
+              C4 {bombState?.site ? `(${bombState.site})` : ''}
+            </span>
           </div>
         </div>
       )}
 
       {/* ==================================================================== */}
-      {/* 2. TOP-RIGHT: FOTO DO PIXEL NA TELA (Real CS2 Screenshot)            */}
+      {/* 2. TOP-RIGHT: FOTO DO PIXEL NA TELA (Real CS2 Screenshot + Lupa 4x)  */}
       {/* ==================================================================== */}
       {isPhotoActive && activeLineupPhoto && (
-        <div className="absolute top-4 right-4 flex flex-col gap-1.5 pointer-events-none z-50 max-w-[440px] rounded-lg border-2 border-cyan-500 bg-[#09090b] p-2.5 shadow-2xl">
+        <div className="absolute top-3 right-3 flex flex-col gap-1.5 pointer-events-none z-50 max-w-[420px] rounded-lg border border-cyan-500/70 bg-black/80 p-2 shadow-2xl">
           {/* Header */}
-          <div className="flex items-center justify-between text-xs font-mono font-black border-b border-zinc-800 pb-1.5">
-            <div className="flex items-center gap-2 truncate max-w-[320px]">
+          <div className="flex items-center justify-between text-xs font-mono font-black border-b border-zinc-800 pb-1">
+            <div className="flex items-center gap-2 truncate max-w-[300px]">
               <span className="h-2 w-2 rounded-full bg-cyan-400" />
-              <span className="text-cyan-400 uppercase tracking-wide truncate">
+              <span className="text-cyan-400 uppercase tracking-wide truncate text-[11px]">
                 {activeLineupPhoto.title}
               </span>
             </div>
-            <span className="rounded bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 text-[10px] font-bold">
+            <span className="rounded bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 px-2 py-0.2 text-[9px] font-bold">
               {activeLineupPhoto.throwType}
             </span>
           </div>
 
-          {/* Real CSNADES In-Game Photo */}
-          <div className="relative w-full h-[250px] bg-black rounded overflow-hidden flex items-center justify-center my-0.5">
+          {/* Real CSNADES In-Game Photo with Aim Reticle & 4x Zoom Loupe */}
+          <div className="relative w-full h-[240px] bg-black/95 rounded overflow-hidden flex items-center justify-center my-0.5 border border-zinc-800/80">
             <img
               src={activeLineupPhoto.imageUrl || activeLineupPhoto.thumbnailUrl}
               alt={activeLineupPhoto.title}
               className="w-full h-full object-contain rounded"
             />
-            {/* Picture-in-picture Landing Bloom Result */}
+
+            {/* A. HIGH-CONTRAST CENTER AIM RETICLE (Exact Pixel Landmark) */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20">
+              <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
+                <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+              </div>
+              <div className="absolute -left-3 w-2 h-0.5 bg-emerald-400" />
+              <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
+              <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
+              <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
+              <span className="absolute -bottom-4.5 rounded bg-black/95 border border-rose-500/80 px-1 py-0.2 text-[8px] font-mono font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
+                MIRAR AQUI
+              </span>
+            </div>
+
+            {/* B. 4.5X PRECISION ZOOM LOUPE (Magnifies exact landmark at center) */}
+            {activeLineupPhoto.imageUrl && (
+              <div className="absolute bottom-1.5 left-1.5 rounded border border-cyan-400 bg-black/95 p-1 shadow-2xl flex flex-col items-center z-20">
+                <span className="text-[8px] font-mono font-black text-cyan-400 px-1 mb-0.5 uppercase tracking-wider">
+                  LUPA 4X (PIXEL)
+                </span>
+                <div
+                  className="relative w-24 h-20 rounded border border-zinc-700 overflow-hidden"
+                  style={{
+                    backgroundImage: `url(${activeLineupPhoto.imageUrl})`,
+                    backgroundPosition: 'center center',
+                    backgroundSize: '450%',
+                    backgroundRepeat: 'no-repeat',
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-full h-px bg-emerald-400/80 absolute" />
+                    <div className="h-full w-px bg-emerald-400/80 absolute" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute ring-1 ring-emerald-400" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* C. PICTURE-IN-PICTURE BLOOM (Where it lands) */}
             {activeLineupPhoto.thumbnailUrl && (
-              <div className="absolute bottom-1.5 right-1.5 rounded border border-cyan-500 bg-[#09090b] p-0.5 shadow-md flex flex-col items-center">
-                <span className="text-[8px] font-mono font-bold text-cyan-400 px-1">BLOOM</span>
+              <div className="absolute bottom-1.5 right-1.5 rounded border border-zinc-700 bg-black/95 p-1 shadow-md flex flex-col items-center z-20">
+                <span className="text-[8px] font-mono font-bold text-zinc-400 px-1 mb-0.5">ONDE CAI</span>
                 <img
                   src={activeLineupPhoto.thumbnailUrl}
                   alt="Bloom"
-                  className="w-20 h-13 object-cover rounded"
+                  className="w-18 h-12 object-cover rounded"
                 />
               </div>
             )}
-            <div className="absolute top-1.5 left-1.5 bg-[#09090b]/90 border border-zinc-700 px-2 py-0.5 rounded font-mono text-[9px] text-zinc-300 font-bold">
-              PIXEL CS2 OFICIAL
+
+            <div className="absolute top-1.5 left-1.5 bg-black/85 border border-zinc-700 px-2 py-0.5 rounded font-mono text-[9px] text-zinc-300 font-bold z-20">
+              FOTO REAL CS2
             </div>
           </div>
 
           {/* Alignment instruction & position */}
           <div className="flex flex-col text-[11px] font-mono text-zinc-300 pt-1 border-t border-zinc-800 gap-0.5">
-            <div className="flex items-center justify-between text-zinc-400">
+            <div className="flex items-center justify-between text-zinc-400 text-[10px]">
               <span>Posição: <strong className="text-zinc-200">{activeLineupPhoto.startPosition?.callout || 'Spawn'}</strong></span>
-              <span className="text-cyan-400 font-bold text-[10px]">[ESC] FECHAR</span>
+              <span className="text-cyan-400 font-bold">[ESC] FECHAR</span>
             </div>
-            <div className="text-zinc-300 font-semibold truncate">
-              {activeLineupPhoto.aimReference?.crosshairPlacement || activeLineupPhoto.instructions?.[1] || 'Alinhe a mira no pixel indicado'}
+            <div className="text-zinc-100 font-bold text-xs leading-snug flex items-center gap-1.5">
+              <span className="text-rose-400 font-black shrink-0">🎯 MIRA:</span>
+              <span className="truncate">
+                {activeLineupPhoto.aimReference?.crosshairPlacement || activeLineupPhoto.instructions?.[1] || 'Alinhe a mira no centro indicado pela retícula'}
+              </span>
             </div>
+            {activeLineupPhoto.aimReference?.visualLandmark && (
+              <div className="text-[10px] text-zinc-400 truncate">
+                Referência: <span className="text-cyan-300 font-semibold">{activeLineupPhoto.aimReference.visualLandmark}</span>
+              </div>
+            )}
           </div>
         </div>
       )}

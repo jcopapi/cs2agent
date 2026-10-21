@@ -2412,13 +2412,13 @@ function buildCsnadesLineups(): Lineup[] {
         crosshairTarget: {
           pitch: 0,
           yaw: 0,
-          description: `Alinhe a mira exatamente no pixel mostrado na foto real do CS2`,
-          visualLandmark: toCallout,
+          description: `Mire no centro exato indicado pelo retículo vermelho e pela Lupa 4x em direção a ${toCallout}`,
+          visualLandmark: `${toCallout} (veja a Lupa 4x)`,
           svgAlignment: '',
         },
         aimReference: {
-          crosshairPlacement: `Alinhamento exato na foto oficial`,
-          visualLandmark: toCallout,
+          crosshairPlacement: `Mire no centro exato da tela (retículo vermelho / Lupa 4x) em direção a ${toCallout}`,
+          visualLandmark: `${toCallout} (centro da tela)`,
         },
         svgReference: '',
         imageUrl: img,
@@ -2480,7 +2480,7 @@ for (const item of COMPETITIVE_LINEUPS) {
   }
 }
 
-export const ALL_COMBINED_LINEUPS: Lineup[] = [...CSNADES_REAL_LINEUPS, ...COMPETITIVE_LINEUPS];
+export const ALL_COMBINED_LINEUPS: Lineup[] = [...COMPETITIVE_LINEUPS, ...CSNADES_REAL_LINEUPS];
 
 // ----------------------------------------------------------------------------
 // Query and Helper Functions
