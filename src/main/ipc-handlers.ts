@@ -53,6 +53,8 @@ export interface IpcDependencies {
   capabilityGate?: ICapabilityGate;
   getMainWindow: () => BrowserWindow | null;
   getOverlayWindow: () => BrowserWindow | null;
+  getHotkeyConfig?: () => any;
+  setHotkeyConfig?: (cfg: any) => void;
 }
 
 export class IpcHandlerManager {
@@ -205,32 +207,21 @@ export class IpcHandlerManager {
       }
     }
 
-    // Auto-generate AI Tactical Coach recommendation ONLY on ROUND_START event (never hammer every 100ms)
-    const hasRoundStartEvent = result.events.some((e) => e.eventType === 'ROUND_START');
-    if (hasRoundStartEvent && now - this.lastAiCoachRequestMs >= 15000) {
-      this.lastAiCoachRequestMs = now;
-      const side = raw.player?.team === 'T' ? 'T' : 'CT';
-      const activeMap = result.map || this.currentGsiStatus.map || 'de_mirage';
-      this.geminiCoach.analyzeContext({
-        map: activeMap,
-        round: result.roundNumber || 1,
-        score: {
-          ct: raw.map?.team_ct?.score ?? 0,
-          t: raw.map?.team_t?.score ?? 0,
-        },
-        side,
-        alivePlayers: { ct: 4, t: 4 },
-        economy: {
-          teamMoney: raw.player?.state?.money ?? 4000,
-          enemyEstimatedEconomy: 'FULL_BUY',
-        },
-        bombPlanted: Boolean(rawBomb === 'planted'),
-        recentObservations: this.tacticalMemory.getActiveObservations(now),
-      }).then((rec) => {
-        if (rec) {
-          this.broadcast('tactical:recommendation', rec);
+    // Auto-hide the heavy main application window when a CS2 match begins, leaving ONLY
+    // the ultra-lightweight click-through overlay window running to prevent any game lag.
+    // When the match ends, automatically restore the main window.
+    const mainWin = this.deps.getMainWindow();
+    const isNowActive = Boolean(this.currentGsiStatus.activeMatch);
+    if (this.lastBroadcastStatus && this.lastBroadcastStatus.activeMatch !== isNowActive) {
+      if (isNowActive) {
+        if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
+          mainWin.hide();
         }
-      }).catch(() => {});
+      } else {
+        if (mainWin && !mainWin.isDestroyed() && !mainWin.isVisible()) {
+          mainWin.show();
+        }
+      }
     }
 
     // Throttled GSI broadcasts: Avoid sending 4 IPC messages every 100ms
@@ -530,6 +521,28 @@ export class IpcHandlerManager {
 
     this.handle('play:next-pixel', async (): Promise<void> => {
       this.broadcast('play:next-pixel', null);
+    });
+
+    this.handle('hud:get-hotkey-config', async (): Promise<any> => {
+      return this.deps.getHotkeyConfig?.() || { key: 'F1', mode: 'TOGGLE' };
+    });
+
+    this.handle('hud:set-hotkey-config', async (_event, cfg: any): Promise<any> => {
+      this.deps.setHotkeyConfig?.(cfg);
+      this.broadcast('hud:hotkey-config-changed', cfg);
+      return cfg;
+    });
+
+    this.handle('hud:set-main-window-visible', async (_event, visible: boolean): Promise<void> => {
+      const win = this.deps.getMainWindow();
+      if (win && !win.isDestroyed()) {
+        if (visible) {
+          win.show();
+          win.focus();
+        } else {
+          win.hide();
+        }
+      }
     });
 
     // ----------------------------------------------------

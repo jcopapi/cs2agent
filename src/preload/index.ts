@@ -170,6 +170,19 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.invoke('hud:get-active-lineup-photo'),
     toggleActiveLineupPhoto: (): Promise<void> =>
       ipcRenderer.invoke('hud:toggle-active-lineup-photo'),
+    getHotkeyConfig: (): Promise<any> =>
+      ipcRenderer.invoke('hud:get-hotkey-config'),
+    setHotkeyConfig: (config: any): Promise<any> =>
+      ipcRenderer.invoke('hud:set-hotkey-config', config),
+    setMainWindowVisible: (visible: boolean): Promise<void> =>
+      ipcRenderer.invoke('hud:set-main-window-visible', visible),
+    onHotkeyConfigChange: (callback: (config: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('hud:hotkey-config-changed', handler);
+      return () => {
+        ipcRenderer.removeListener('hud:hotkey-config-changed', handler);
+      };
+    },
     onActiveLineupPhotoChange: (callback: (lineup: Lineup | null) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: Lineup | null) => callback(data);
       ipcRenderer.on('hud:active-lineup-photo-changed', handler);

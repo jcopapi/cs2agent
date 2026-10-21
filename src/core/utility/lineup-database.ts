@@ -2366,11 +2366,16 @@ export function buildCsnadesVisualSvg(lineup: Lineup): string {
 function buildCsnadesLineups(): Lineup[] {
   const result: Lineup[] = [];
   const mapEntries = Object.entries(csnadesData as Record<string, any[]>);
+  const seenImages = new Set<string>();
 
   for (const [mapShort, nades] of mapEntries) {
     const csMap: CS2Map = ('de_' + mapShort) as CS2Map;
     for (const n of nades) {
       if (!n.assets?.lineup && !n.assets?.thumbnail) continue;
+      const img = n.assets.lineup || n.assets.thumbnail;
+      if (!img || seenImages.has(img)) continue;
+      seenImages.add(img);
+
       const isJump = n.movement === 'jumpthrow' || (n.technique && String(n.technique).includes('jump'));
       const throwType = isJump ? 'JUMPTHROW' : 'STANDING';
       const side = (n.team === 'ct' ? 'CT' : 'T') as TeamSide;
@@ -2381,9 +2386,8 @@ function buildCsnadesLineups(): Lineup[] {
         'HE_GRENADE';
 
       const fromCallout = n.titleFrom || 'Spawn';
-      const toCallout = n.titleTo || 'Alvo';
-      const title = `${toCallout} de ${fromCallout}`;
-      const img = n.assets.lineup || n.assets.thumbnail;
+      const toCallout = n.titleTo || 'Target';
+      const title = `${toCallout} from ${fromCallout}`;
       const thumb = n.assets.thumbnail || n.assets.lineup;
 
       result.push({
@@ -2399,7 +2403,7 @@ function buildCsnadesLineups(): Lineup[] {
           y: n.throwFrom?.y ?? 0,
           z: 0,
           callout: fromCallout,
-          description: `Posicione-se exatamente em ${fromCallout}`,
+          description: `Stand at ${fromCallout}`,
           toleranceUnits: 8,
         },
         startPosition: {
@@ -2412,13 +2416,13 @@ function buildCsnadesLineups(): Lineup[] {
         crosshairTarget: {
           pitch: 0,
           yaw: 0,
-          description: `Mire no centro exato indicado pelo retículo vermelho e pela Lupa 4x em direção a ${toCallout}`,
-          visualLandmark: `${toCallout} (veja a Lupa 4x)`,
+          description: `Align crosshair with intersection guide toward ${toCallout}`,
+          visualLandmark: `${toCallout} landmark`,
           svgAlignment: '',
         },
         aimReference: {
-          crosshairPlacement: `Mire no centro exato da tela (retículo vermelho / Lupa 4x) em direção a ${toCallout}`,
-          visualLandmark: `${toCallout} (centro da tela)`,
+          crosshairPlacement: `Align crosshair with intersection guide toward ${toCallout}`,
+          visualLandmark: `${toCallout}`,
         },
         svgReference: '',
         imageUrl: img,
@@ -2428,7 +2432,7 @@ function buildCsnadesLineups(): Lineup[] {
           y: n.throwTo?.y ?? 0,
           z: 0,
           callout: toCallout,
-          description: `Desabrocha em ${toCallout}`,
+          description: `Blooms at ${toCallout}`,
         },
         targetDestination: {
           x: n.throwTo?.x ?? 0,
@@ -2437,15 +2441,15 @@ function buildCsnadesLineups(): Lineup[] {
           callout: toCallout,
         },
         movementKey: isJump ? 'JUMPTHROW' : 'NONE',
-        movementRequirements: isJump ? 'Pule e solte a granada no ápice do salto' : 'Fique imóvel e solte com clique esquerdo',
+        movementRequirements: isJump ? 'Jumpthrow (release at jump peak)' : 'Stationary standard left-click',
         tickrate: 'SUBTICK_CS2',
-        tags: [toCallout, fromCallout, uType, 'CSNADES', 'Foto Real'],
+        tags: [toCallout, fromCallout, uType, 'CSNADES', 'Verified'],
         isCustom: false,
         favorite: false,
         instructions: [
-          `Posicione-se em ${fromCallout}`,
-          `Mire no pixel exato indicado pela foto do jogo`,
-          isJump ? 'Execute Jumpthrow (soltar ao pular)' : 'Solte com botão esquerdo parado',
+          `Position at ${fromCallout}`,
+          `Align crosshair with intersection guide`,
+          isJump ? 'Jumpthrow' : 'Release with left-click',
         ],
         difficulty: n.beginner ? 'EASY' : 'MEDIUM',
         sourceAttribution: 'CSNADES.gg Official Screenshots',
@@ -2461,17 +2465,21 @@ function buildCsnadesLineups(): Lineup[] {
 
 const CSNADES_REAL_LINEUPS = buildCsnadesLineups();
 
-// Automatically link real CSNADES screenshots to pre-populated lineups
+// Automatically link real CSNADES screenshots to pre-populated lineups without duplicate sharing
+const assignedImages = new Set<string>();
 for (const item of COMPETITIVE_LINEUPS) {
   const match = CSNADES_REAL_LINEUPS.find(
     (c) =>
       c.map === item.map &&
-      (c.title.toLowerCase().includes(item.targetDestination.callout.toLowerCase().split(' ')[0]) ||
-        item.title.toLowerCase().includes(c.landingArea.callout.toLowerCase().split(' ')[0]))
+      c.imageUrl &&
+      !assignedImages.has(c.imageUrl) &&
+      (c.landingArea.callout.toLowerCase() === item.targetDestination.callout.toLowerCase() ||
+        c.title.toLowerCase().includes(item.targetDestination.callout.toLowerCase()))
   );
-  if (match) {
+  if (match && match.imageUrl) {
     item.imageUrl = match.imageUrl;
     item.thumbnailUrl = match.thumbnailUrl;
+    assignedImages.add(match.imageUrl);
   }
   const richSvg = buildCsnadesVisualSvg(item);
   item.svgReference = richSvg;
@@ -2480,7 +2488,12 @@ for (const item of COMPETITIVE_LINEUPS) {
   }
 }
 
-export const ALL_COMBINED_LINEUPS: Lineup[] = [...COMPETITIVE_LINEUPS, ...CSNADES_REAL_LINEUPS];
+// In ALL_COMBINED_LINEUPS, filter out CSNADES items that were already assigned to COMPETITIVE_LINEUPS
+const unassignedCsnades = CSNADES_REAL_LINEUPS.filter(
+  (c) => !c.imageUrl || !assignedImages.has(c.imageUrl)
+);
+
+export const ALL_COMBINED_LINEUPS: Lineup[] = [...COMPETITIVE_LINEUPS, ...unassignedCsnades];
 
 // ----------------------------------------------------------------------------
 // Local Persistence & Custom Lineup Management

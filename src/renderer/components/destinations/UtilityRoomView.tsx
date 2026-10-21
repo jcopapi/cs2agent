@@ -5,15 +5,15 @@
  * Implements the precision cyber-brutalist strategic playbook:
  * - 6 Active Duty competitive map selector
  * - 3 Dedicated Modes: [LINEUPS] | [PLAYS] | [STRATEGIES]
+ * - Direct [ + ADD TO PLAY ] from both lineup card and inspector
  * - [PLAYS] Sequencer: Create plays, order pixel routines (▲ / ▼), and set active in-game routine
- * - [LINEUPS] Manager: Screenshot previews, 4.5x zoom loupe, favorites, and [ + ADD CUSTOM PIXEL ]
+ * - Clean Crossing Lines landmark alignment preview (zero useless loupe)
  * - 100% English language, monospace typography, corner notches, and zero GPU bloat
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search,
-  CheckCircle,
   ExternalLink,
   Target,
   Play,
@@ -22,13 +22,13 @@ import {
   Download,
   Layers,
   Clock,
-  AlertTriangle,
-  Radio,
   X,
   Pin,
   ArrowUp,
   ArrowDown,
   Trash2,
+  Check,
+  FolderPlus,
 } from 'lucide-react';
 import type {
   CS2Map,
@@ -37,7 +37,6 @@ import type {
   StrategyTier,
   Lineup,
   Strategy,
-  MatchPreparationProfile,
 } from '../../../core/utility/types';
 import type { Play as TacticalPlay } from '../../../shared/ipc-types';
 import { generateCsnadesUrl, generateScopeGgUrl } from '../../../core/utility/external-providers';
@@ -92,6 +91,10 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(initialStrategyId || null);
   const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
 
+  // Add to Play Popover State
+  const [playSelectorLineup, setPlaySelectorLineup] = useState<Lineup | null>(null);
+  const [addedToast, setAddedToast] = useState<string | null>(null);
+
   // Play Creator State
   const [isCreatingPlay, setIsCreatingPlay] = useState<boolean>(false);
   const [newPlayName, setNewPlayName] = useState<string>('');
@@ -118,13 +121,20 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
     return () => unsubPhoto?.();
   }, []);
 
-  // Filter Lineups
+  // Filter Lineups with unique image/title deduplication
   const filteredLineups = useMemo(() => {
+    const seen = new Set<string>();
     return lineups.filter((l) => {
       if (l.map !== selectedMap) return false;
       if (selectedSide !== 'ALL' && l.side !== selectedSide && l.side !== 'BOTH') return false;
       if (selectedUtility !== 'ALL' && l.utilityType !== selectedUtility) return false;
       if (showFavoritesOnly && !l.favorite) return false;
+
+      // Deduplicate items with identical image and title
+      const dedupeKey = `${l.title}__${l.imageUrl || l.id}`;
+      if (seen.has(dedupeKey)) return false;
+      seen.add(dedupeKey);
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
@@ -259,10 +269,15 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const handleAddLineupToPlay = (playId: string, lineupId: string) => {
     const play = plays.find((p) => p.id === playId);
     if (!play || !lineupId) return;
-    if (play.lineupIds.includes(lineupId)) return;
-    const updatedIds = [...play.lineupIds, lineupId];
-    dbReorderLineups(playId, updatedIds);
-    setPlays(getAllPlays());
+    if (!play.lineupIds.includes(lineupId)) {
+      const updatedIds = [...play.lineupIds, lineupId];
+      dbReorderLineups(playId, updatedIds);
+      setPlays(getAllPlays());
+    }
+
+    setAddedToast(`Added to [${play.name}]`);
+    setTimeout(() => setAddedToast(null), 2500);
+    setPlaySelectorLineup(null);
   };
 
   // Delete Play
@@ -305,6 +320,11 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {addedToast && (
+            <span className="border border-emerald-500/60 bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-400 animate-pulse">
+              {addedToast}
+            </span>
+          )}
           <span className="text-[10px] text-zinc-500">ACTIVE PLAY:</span>
           <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-400 truncate max-w-[220px]">
             {plays.find((p) => p.id === activePlayIdState)?.name || 'Default Execute'}
@@ -315,7 +335,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
       {/* 2. NAVIGATION & FILTER TOOLBAR */}
       <div className="flex items-center justify-between border border-zinc-800 bg-[#0c0c0e] px-3 py-2 text-xs gap-3 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Main Sub-Modes: [LINEUPS] | [PLAYS] | [STRATEGIES] */}
+          {/* Main Sub-Modes */}
           <div className="flex items-center border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
             <button
               onClick={() => setViewMode('LINEUPS')}
@@ -405,7 +425,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
 
         {/* Search & Actions */}
         <div className="flex items-center gap-2">
-          <div className="relative w-52">
+          <div className="relative w-48">
             <input
               type="text"
               value={searchQuery}
@@ -483,7 +503,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                       type="text"
                       value={newPlayName}
                       onChange={(e) => setNewPlayName(e.target.value)}
-                      placeholder="Play Name (e.g. B Site Fast Split)"
+                      placeholder="Play Name (e.g. B Fast Retake)"
                       className="flex-1 border border-zinc-800 bg-black px-2.5 py-1 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
                       required
                     />
@@ -500,7 +520,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     type="text"
                     value={newPlayDescription}
                     onChange={(e) => setNewPlayDescription(e.target.value)}
-                    placeholder="Short description / tactical objective"
+                    placeholder="Short description"
                     className="w-full border border-zinc-800 bg-black px-2.5 py-1 text-xs text-zinc-300 focus:outline-none focus:border-cyan-500"
                   />
                   <button
@@ -516,7 +536,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
               <div className="space-y-3">
                 {mapPlays.length === 0 ? (
                   <div className="text-center text-zinc-500 text-xs py-8">
-                    No plays registered for {selectedMap}. Click &quot;[ + CREATE PLAY ]&quot; to build one.
+                    No plays registered. Click &quot;[ + CREATE PLAY ]&quot; to build one.
                   </div>
                 ) : (
                   mapPlays.map((play) => {
@@ -538,7 +558,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                             </span>
                             {isActive && (
                               <span className="border border-emerald-500/60 bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 text-[9px] font-bold">
-                                ACTIVE IN-GAME
+                                ACTIVE
                               </span>
                             )}
                           </div>
@@ -567,7 +587,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                         {/* Pixel sequence ordered list */}
                         <div className="space-y-1 pt-1 border-t border-zinc-900">
                           <span className="text-[10px] text-zinc-500 font-bold uppercase">
-                            ORDERED PIXEL SEQUENCE ({play.lineupIds.length}):
+                            SEQUENCE ({play.lineupIds.length}):
                           </span>
                           {play.lineupIds.length === 0 ? (
                             <div className="text-[10px] text-zinc-600 py-1">
@@ -583,7 +603,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                                 >
                                   <div className="flex items-center gap-2 truncate">
                                     <span className="text-[10px] text-zinc-500 font-bold">
-                                      # {String(idx + 1).padStart(2, '0')}.
+                                      #{idx + 1}.
                                     </span>
                                     <span className="truncate text-zinc-200">
                                       {l ? l.title : lId}
@@ -634,7 +654,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                             defaultValue=""
                           >
                             <option value="" disabled>
-                              Select pixel to add...
+                              Select pixel to append...
                             </option>
                             {lineups
                               .filter((l) => l.map === selectedMap)
@@ -666,7 +686,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
               </div>
             </div>
 
-            {/* Right: Active Routine In-Game Guidance */}
+            {/* Right: In-Game Play Workflow Guidance */}
             <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-4 gap-3 overflow-y-auto relative">
               <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
               <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
@@ -675,35 +695,25 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
 
               <div className="border-b border-zinc-800 pb-2">
                 <span className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
-                  [IN-GAME PLAY OVERLAY WORKFLOW]
+                  [IN-GAME TACTICAL PLAY WORKFLOW]
                 </span>
               </div>
 
               <div className="space-y-3 text-xs text-zinc-400 leading-relaxed">
                 <p>
-                  # Once a Play is set as <strong className="text-emerald-400">Active</strong>, it synchronizes directly with the in-game transparent HUD overlay.
+                  # Once a Play is active, it connects directly to your transparent in-game overlay.
                 </p>
-                <div className="border border-zinc-800 bg-black/60 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="border border-cyan-500 bg-cyan-950 px-2 py-0.5 font-bold text-cyan-300">
-                      F1
-                    </span>
-                    <span className="text-zinc-200 font-semibold">TOGGLE OVERLAY PHOTO</span>
-                  </div>
+                <div className="border border-zinc-800 bg-black/60 p-3 space-y-1.5">
+                  <div className="text-cyan-400 font-bold">[HOTKEY] TOGGLE / HOLD OVERLAY</div>
                   <p className="text-[11px] text-zinc-400">
-                    Shows or hides the current pixel screenshot with high-contrast reticle and 4.5x zoom loupe right over CS2 without losing window focus.
+                    Displays full-screen crossing lines intersecting at the landmark target without leaving CS2.
                   </p>
                 </div>
 
-                <div className="border border-zinc-800 bg-black/60 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="border border-emerald-500 bg-emerald-950 px-2 py-0.5 font-bold text-emerald-300">
-                      F2
-                    </span>
-                    <span className="text-zinc-200 font-semibold">NEXT PIXEL IN ROUTINE</span>
-                  </div>
+                <div className="border border-zinc-800 bg-black/60 p-3 space-y-1.5">
+                  <div className="text-emerald-400 font-bold">[F2] NEXT PIXEL IN PLAY</div>
                   <p className="text-[11px] text-zinc-400">
-                    After throwing a smoke or flash, press F2 anywhere in Windows to instantly step to the next pixel in your active tactical routine.
+                    After throwing a smoke, press F2 anywhere in Windows to advance to the next pixel in your routine.
                   </p>
                 </div>
               </div>
@@ -760,10 +770,22 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                           <span className="font-bold text-xs text-zinc-100 truncate pr-2">
                             {lineup.title}
                           </span>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Direct Add to Play button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPlaySelectorLineup(lineup);
+                              }}
+                              className="border border-zinc-700 bg-zinc-900 hover:border-cyan-400 hover:text-cyan-300 px-1.5 py-0.5 text-[10px] font-bold text-zinc-300 cursor-pointer"
+                              title="Add to a Tactical Play"
+                            >
+                              + PLAY
+                            </button>
+
                             <button
                               onClick={(e) => handleToggleFavoriteLineup(lineup.id, e)}
-                              className="text-zinc-500 hover:text-amber-400 p-0.5 cursor-pointer"
+                              className="text-zinc-500 hover:text-amber-400 p-0.5 cursor-pointer ml-1"
                             >
                               <Star
                                 className={`h-3.5 w-3.5 ${
@@ -791,7 +813,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                           </span>
                           {lineup.isCustom && (
                             <span className="border border-purple-500/60 bg-purple-500/20 px-1.5 py-0.2 text-[9px] text-purple-300 font-bold">
-                              CUSTOM PRINT
+                              CUSTOM
                             </span>
                           )}
                         </div>
@@ -802,7 +824,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
               )}
             </div>
 
-            {/* Right: Screenshot Inspector with Reticle and Zoom Loupe */}
+            {/* Right: Screenshot Inspector with Clean Crossing Lines */}
             <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2 overflow-y-auto relative">
               <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
               <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
@@ -816,30 +838,41 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                       [INSPECTOR & OVERLAY PREVIEW]
                     </span>
 
-                    <button
-                      onClick={async () => {
-                        const isPinned = pinnedLineup?.id === activeLineup.id;
-                        if (isPinned) {
-                          await window.cs2Assistant?.hud.setActiveLineupPhoto(null);
-                          setPinnedLineup(null);
-                        } else {
-                          await window.cs2Assistant?.hud.setActiveLineupPhoto(activeLineup);
-                          setPinnedLineup(activeLineup);
-                        }
-                      }}
-                      className={`flex items-center gap-1.5 border px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
-                        pinnedLineup?.id === activeLineup.id
-                          ? 'border-emerald-500/80 bg-emerald-500/20 text-emerald-300'
-                          : 'border-cyan-500/80 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60'
-                      }`}
-                    >
-                      <Pin className="h-3 w-3" />
-                      <span>
-                        {pinnedLineup?.id === activeLineup.id
-                          ? '[ PINNED ON OVERLAY ]'
-                          : '[ PIN TO IN-GAME OVERLAY (F1) ]'}
-                      </span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {/* Direct Add to Play button from inspector */}
+                      <button
+                        onClick={() => setPlaySelectorLineup(activeLineup)}
+                        className="flex items-center gap-1 border border-zinc-700 bg-zinc-900 hover:border-cyan-400 hover:text-cyan-300 px-2 py-1 text-xs font-bold text-zinc-200 cursor-pointer"
+                      >
+                        <FolderPlus className="h-3 w-3" />
+                        <span>[ + ADD TO PLAY ]</span>
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          const isPinned = pinnedLineup?.id === activeLineup.id;
+                          if (isPinned) {
+                            await window.cs2Assistant?.hud.setActiveLineupPhoto(null);
+                            setPinnedLineup(null);
+                          } else {
+                            await window.cs2Assistant?.hud.setActiveLineupPhoto(activeLineup);
+                            setPinnedLineup(activeLineup);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 border px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                          pinnedLineup?.id === activeLineup.id
+                            ? 'border-emerald-500/80 bg-emerald-500/20 text-emerald-300'
+                            : 'border-cyan-500/80 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60'
+                        }`}
+                      >
+                        <Pin className="h-3 w-3" />
+                        <span>
+                          {pinnedLineup?.id === activeLineup.id
+                            ? '[ PINNED ON OVERLAY ]'
+                            : '[ PIN TO OVERLAY ]'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -847,65 +880,40 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     <p className="text-xs text-zinc-400">{activeLineup.movementRequirements}</p>
                   </div>
 
-                  {/* Photo with Reticle and Loupe */}
+                  {/* Clean Photo with Crossing Alignment Lines (Zero Loupe) */}
                   <div className="relative flex flex-col items-center justify-center border border-zinc-800 bg-black min-h-[220px] overflow-hidden">
                     <img
                       src={activeLineup.imageUrl || activeLineup.thumbnailUrl}
                       alt={activeLineup.title}
-                      className="w-full max-h-[260px] object-contain"
+                      className="w-full max-h-[280px] object-contain"
                     />
 
-                    {/* Aim Reticle */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
-                      <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
-                        <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
-                      </div>
-                      <div className="absolute -left-3 w-2 h-0.5 bg-emerald-400" />
-                      <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
-                      <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
-                      <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
-                      <span className="absolute -bottom-4.5 bg-black/90 border border-rose-500 px-1 py-0.2 text-[8px] font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
-                        AIM TARGET
-                      </span>
+                    {/* Crossing Lines Representation */}
+                    <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-cyan-400/80 pointer-events-none" />
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[1.5px] bg-cyan-400/80 pointer-events-none" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-cyan-300 flex items-center justify-center pointer-events-none shadow-[0_0_6px_rgba(6,182,212,0.9)]">
+                      <div className="w-1 h-1 bg-rose-500 rounded-full" />
                     </div>
 
-                    {/* 4.5x Zoom Loupe */}
-                    {activeLineup.imageUrl && (
-                      <div className="absolute bottom-2 left-2 border border-cyan-400 bg-black/95 p-1 flex flex-col items-center">
-                        <span className="text-[8px] font-bold text-cyan-400 px-1 mb-0.5 uppercase tracking-wider">
-                          4.5X LOUPE
-                        </span>
-                        <div
-                          className="w-28 h-20 border border-zinc-700 relative overflow-hidden"
-                          style={{
-                            backgroundImage: `url(${activeLineup.imageUrl})`,
-                            backgroundPosition: 'center center',
-                            backgroundSize: '450%',
-                            backgroundRepeat: 'no-repeat',
-                          }}
-                        >
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-full h-px bg-emerald-400/80 absolute" />
-                            <div className="h-full w-px bg-emerald-400/80 absolute" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute ring-1 ring-emerald-400" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <div className="absolute bottom-2 left-2 bg-black/85 border border-zinc-700 px-2 py-0.5 text-[9px] text-zinc-300 font-bold">
+                      IN-GAME CROSSHAIR INTERSECTION
+                    </div>
                   </div>
 
                   {/* Aim Reference and Details */}
                   <div className="border border-zinc-800 bg-black/60 p-2.5 text-xs space-y-1">
                     <div className="text-zinc-400">
-                      <span className="text-zinc-200 font-bold">AIM PLACEMENT: </span>
+                      <span className="text-zinc-200 font-bold">STAND: </span>
+                      {activeLineup.startPosition?.callout || 'Position'}
+                    </div>
+                    <div className="text-zinc-400">
+                      <span className="text-zinc-200 font-bold">AIM: </span>
                       {activeLineup.aimReference?.crosshairPlacement || activeLineup.instructions?.[1]}
                     </div>
-                    {activeLineup.aimReference?.visualLandmark && (
-                      <div className="text-zinc-400">
-                        <span className="text-zinc-200 font-bold">VISUAL LANDMARK: </span>
-                        {activeLineup.aimReference.visualLandmark}
-                      </div>
-                    )}
+                    <div className="text-zinc-400">
+                      <span className="text-zinc-200 font-bold">THROW: </span>
+                      {activeLineup.throwType}
+                    </div>
                   </div>
 
                   {/* External links */}
@@ -1033,7 +1041,64 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
         )}
       </div>
 
-      {/* 4. CUSTOM LINEUP CREATOR MODAL WITH SCREENSHOT / CLIPBOARD PASTE */}
+      {/* 4. MODAL: ADD PIXEL DIRECTLY TO TACTICAL PLAY */}
+      {playSelectorLineup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <div className="w-full max-w-sm border border-zinc-700 bg-[#0c0c0e] p-4 shadow-2xl space-y-3 relative">
+            <span className="absolute -top-1 -left-1 text-cyan-400 text-xs select-none">┌</span>
+            <span className="absolute -top-1 -right-1 text-cyan-400 text-xs select-none">┐</span>
+            <span className="absolute -bottom-1 -left-1 text-cyan-400 text-xs select-none">└</span>
+            <span className="absolute -bottom-1 -right-1 text-cyan-400 text-xs select-none">┘</span>
+
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+              <span className="text-xs font-bold text-zinc-100 uppercase truncate pr-2">
+                ADD TO PLAY
+              </span>
+              <button
+                onClick={() => setPlaySelectorLineup(null)}
+                className="text-zinc-500 hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-400 truncate">
+              Lineup: <span className="text-cyan-300 font-bold">{playSelectorLineup.title}</span>
+            </p>
+
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {mapPlays.length === 0 ? (
+                <div className="text-xs text-zinc-500 py-3 text-center">
+                  No plays created for {selectedMap}. Create one in the [PLAYS] tab first.
+                </div>
+              ) : (
+                mapPlays.map((p) => {
+                  const alreadyIn = p.lineupIds.includes(playSelectorLineup.id);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => handleAddLineupToPlay(p.id, playSelectorLineup.id)}
+                      disabled={alreadyIn}
+                      className={`w-full flex items-center justify-between p-2 border text-xs text-left transition-colors cursor-pointer ${
+                        alreadyIn
+                          ? 'border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed'
+                          : 'border-zinc-800 bg-zinc-900 hover:border-cyan-400 hover:text-cyan-300 text-zinc-200'
+                      }`}
+                    >
+                      <span className="font-bold truncate">{p.name} ({p.side})</span>
+                      <span className="text-[10px] text-zinc-500 shrink-0 ml-2">
+                        {alreadyIn ? 'ALREADY IN PLAY' : `[ + ADD ]`}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. CUSTOM LINEUP CREATOR MODAL WITH SCREENSHOT / CLIPBOARD PASTE */}
       {isCreatorOpen && (
         <LineupCreatorModal
           currentMap={selectedMap}
@@ -1047,7 +1112,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
         />
       )}
 
-      {/* 5. JSON IMPORT / EXPORT MODAL */}
+      {/* 6. JSON IMPORT / EXPORT MODAL */}
       {isImportExportOpen && (
         <ImportExportModal
           defaultTab={importExportTab}

@@ -228,6 +228,11 @@ export interface Rect {
   height: number;
 }
 
+export interface HotkeyConfig {
+  key: string; // e.g. 'F1', 'CapsLock', 'F3', 'F4', 'ScrollLock'
+  mode: 'TOGGLE' | 'HOLD';
+}
+
 export interface HudConfig {
   enabled: boolean;
   scale: number;
@@ -240,6 +245,7 @@ export interface HudConfig {
   showLastSeen: boolean;
   showTacticalFeed: boolean;
   calibrationMode: boolean;
+  hotkey?: HotkeyConfig;
 }
 
 export interface SafeZones {
@@ -335,6 +341,10 @@ export interface ICS2AssistantAPI {
     setActiveLineupPhoto(lineup: Lineup | null): Promise<void>;
     getActiveLineupPhoto(): Promise<Lineup | null>;
     toggleActiveLineupPhoto(): Promise<void>;
+    getHotkeyConfig?(): Promise<HotkeyConfig>;
+    setHotkeyConfig?(config: HotkeyConfig): Promise<HotkeyConfig>;
+    onHotkeyConfigChange?(callback: (config: HotkeyConfig) => void): () => void;
+    setMainWindowVisible?(visible: boolean): Promise<void>;
     onActiveLineupPhotoChange?(callback: (lineup: Lineup | null) => void): () => void;
     onConfigChange?(callback: (config: HudConfig) => void): () => void;
   };

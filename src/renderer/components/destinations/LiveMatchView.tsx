@@ -1,42 +1,37 @@
 /**
- * CS2 Assistant - Live Game Destination View (Second Monitor Optimized)
+ * CS2 Assistant - Live Game Destination View (Ultra-Lightweight & Performance Focused)
  * File: src/renderer/components/destinations/LiveMatchView.tsx
  *
- * Implements the cyber-brutalist monospace tactical dashboard for the secondary screen:
- * - Minimalist top status bar (Zero HP/Armor/Money clutter)
- * - Tactical Play Sequencer: active routine, ordered pixel steps (# 01, # 02), hotkey hints (F1, F2)
- * - In-game overlay photo status & quick selector
- * - Gemini AI Coach with real-time round analysis toggle & instant strategy terminal
- * - Ultra-lightweight with zero Gaussian blur passes
+ * Designed for maximum in-game FPS and secondary monitor precision:
+ * - Zero AI/Gemini overhead or background queries
+ * - Full-Screen Crossing Lines Overlay Controller
+ * - Customizable Overlay Hotkey (F1 / CapsLock / F3 / F4) with TOGGLE or HOLD trigger modes
+ * - Active Tactical Play Sequencer (# 01, # 02, etc.)
+ * - C4 Bomb Countdown & Defusal Viability Telemetry
+ * - One-Click "Switch to Overlay-Only Mode" (closes heavy window during matches)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Crosshair,
   Play,
-  Sparkles,
-  Radio,
   Clock,
-  ChevronRight,
-  ShieldAlert,
   ArrowRight,
-  Check,
-  Flame,
   Layers,
-  Terminal,
+  Settings,
+  Minimize2,
+  Check,
 } from 'lucide-react';
 import type {
   GsiStatus,
   BombState,
   Lineup,
-  TacticalRecommendation,
   Play as TacticalPlay,
+  HotkeyConfig,
 } from '../../../shared/ipc-types';
-import { getAllLineups, getLineupById } from '../../../core/utility/lineup-database';
+import { getLineupById } from '../../../core/utility/lineup-database';
 import {
   getAllPlays,
   getActivePlay,
-  getActivePlayId,
   setActivePlayId,
   getActivePlayStepIndex,
   setActivePlayStepIndex,
@@ -65,13 +60,11 @@ export const LiveMatchView: React.FC = () => {
   const [activeStepIndex, setActiveStepIndexState] = useState<number>(() => getActivePlayStepIndex());
   const [activeLineupPhoto, setActiveLineupPhoto] = useState<Lineup | null>(null);
 
-  // Gemini AI Coach State
-  const [realtimeCoachEnabled, setRealtimeCoachEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('cs2_assistant_realtime_coach') === 'true';
+  // Hotkey & Trigger Configuration State
+  const [hotkeyConfig, setHotkeyConfigState] = useState<HotkeyConfig>({
+    key: 'F1',
+    mode: 'TOGGLE',
   });
-  const [recommendation, setRecommendation] = useState<TacticalRecommendation | null>(null);
-  const [loadingAdvice, setLoadingAdvice] = useState<boolean>(false);
-  const [adviceLog, setAdviceLog] = useState<string[]>([]);
 
   // Subscribe to IPC channels
   useEffect(() => {
@@ -96,6 +89,10 @@ export const LiveMatchView: React.FC = () => {
       setActiveLineupPhoto(photo);
     }).catch(() => {});
 
+    api.hud.getHotkeyConfig?.().then((cfg) => {
+      if (cfg) setHotkeyConfigState(cfg);
+    }).catch(() => {});
+
     const unsubGsi = api.gsi.onStatusChange((st) => {
       setGsiStatus(st);
     });
@@ -109,15 +106,15 @@ export const LiveMatchView: React.FC = () => {
       setActiveLineupPhoto(photo);
     });
 
-    const unsubRec = api.onTacticalRecommendation?.((rec) => {
-      setRecommendation(rec);
+    const unsubHotkey = api.hud.onHotkeyConfigChange?.((cfg) => {
+      setHotkeyConfigState(cfg);
     });
 
     return () => {
       unsubGsi();
       unsubBomb();
       unsubPhoto?.();
-      unsubRec?.();
+      unsubHotkey?.();
     };
   }, []);
 
@@ -147,7 +144,6 @@ export const LiveMatchView: React.FC = () => {
       .filter((l): l is Lineup => l !== null);
   }, [currentPlay]);
 
-  // Current active lineup in the play sequence
   const currentStepLineup = playLineups[activeStepIndex] || playLineups[0] || null;
 
   // Change active Play
@@ -177,7 +173,7 @@ export const LiveMatchView: React.FC = () => {
     }
   };
 
-  // Select specific step directly
+  // Select step directly
   const handleSelectStep = (idx: number) => {
     setActivePlayStepIndex(idx);
     setActiveStepIndexState(idx);
@@ -190,61 +186,30 @@ export const LiveMatchView: React.FC = () => {
     }
   };
 
-  // Toggle in-game overlay photo (F1 action)
+  // Toggle overlay photo manually
   const handleToggleOverlayPhoto = () => {
     if (window.cs2Assistant?.hud) {
       window.cs2Assistant.hud.toggleActiveLineupPhoto();
     }
   };
 
-  // Toggle Real-Time Gemini Round Coach
-  const handleToggleRealtimeCoach = () => {
-    const nextVal = !realtimeCoachEnabled;
-    setRealtimeCoachEnabled(nextVal);
-    localStorage.setItem('cs2_assistant_realtime_coach', String(nextVal));
+  // Update Hotkey or Trigger Mode
+  const handleUpdateHotkeyConfig = async (patch: Partial<HotkeyConfig>) => {
+    const updated: HotkeyConfig = { ...hotkeyConfig, ...patch };
+    setHotkeyConfigState(updated);
+    if (window.cs2Assistant?.hud?.setHotkeyConfig) {
+      await window.cs2Assistant.hud.setHotkeyConfig(updated);
+    }
   };
 
-  // Request Strategic Advice from Gemini
-  const handleRequestAdvice = useCallback(async (promptModifier?: string) => {
-    setLoadingAdvice(true);
-    const activeMap = gsiStatus.map || currentPlay.map || 'de_mirage';
-    const side = gsiStatus.playerTeam === 'T' ? 'T' : 'CT';
-    const round = gsiStatus.round || 1;
-
-    try {
-      if (window.cs2Assistant?.gemini) {
-        const rec = await window.cs2Assistant.gemini.requestAdvice({
-          map: activeMap,
-          round,
-          score: {
-            ct: gsiStatus.ctScore ?? 7,
-            t: gsiStatus.tScore ?? 5,
-          },
-          side,
-          alivePlayers: { ct: 4, t: 4 },
-          economy: {
-            teamMoney: gsiStatus.playerMoney || 4200,
-            enemyEstimatedEconomy: 'FULL_BUY',
-          },
-          bombPlanted: Boolean(bombState?.planted),
-          recentObservations: [],
-          instructions: promptModifier || `Optimize execution for Play: ${currentPlay.name}`,
-        });
-
-        if (rec) {
-          setRecommendation(rec);
-          setAdviceLog((prev) => [
-            `[ROUND ${round}]: ${rec.summary} -> ${rec.suggestedExecution.join(' ')}`,
-            ...prev.slice(0, 5),
-          ]);
-        }
-      }
-    } finally {
-      setLoadingAdvice(false);
+  // Close main heavy window and leave only lightweight overlay running
+  const handleEnterOverlayOnlyMode = async () => {
+    if (window.cs2Assistant?.hud?.setMainWindowVisible) {
+      await window.cs2Assistant.hud.setMainWindowVisible(false);
     }
-  }, [gsiStatus, currentPlay, bombState]);
+  };
 
-  // Simulation Preview Mode Toggles
+  // Simulation Preview Mode
   const handleEnterSimulation = async () => {
     setIsSimulationMode(true);
     if (window.cs2Assistant?.gsi) {
@@ -266,56 +231,43 @@ export const LiveMatchView: React.FC = () => {
   const isBombPlanted = Boolean(bombState?.planted && bombCountdown > 0);
 
   // ==========================================================================
-  // VIEW A: STANDBY SCREEN (WHEN NO CS2 MATCH IS ACTIVE)
+  // VIEW A: STANDBY
   // ==========================================================================
   if (!isMatchLive) {
     return (
       <div
         data-testid="view-live-match"
-        className="flex h-full w-full flex-col items-center justify-center bg-[#09090b] p-8 select-none font-mono text-zinc-100"
+        className="flex h-full w-full flex-col items-center justify-center bg-[#09090b] p-6 select-none font-mono text-zinc-100"
       >
-        <div className="w-full max-w-2xl border border-zinc-800 bg-[#0c0c0e] p-6 shadow-2xl space-y-6 relative">
-          {/* Cyber-brutalist Corner Notches */}
+        <div className="w-full max-w-xl border border-zinc-800 bg-[#0c0c0e] p-6 shadow-2xl space-y-5 relative">
           <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
           <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
           <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
           <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
 
           <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-sm font-bold tracking-widest uppercase text-zinc-200">
-                [LIVE GAME // STANDBY]
-              </span>
-            </div>
-            <span className="border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] uppercase text-zinc-400 tracking-wider">
-              AWAITING CS2 TELEMETRY
+            <span className="text-sm font-bold tracking-widest uppercase text-zinc-100">
+              [LIVE GAME // STANDBY]
+            </span>
+            <span className="border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] text-zinc-400">
+              AWAITING CS2 MATCH
             </span>
           </div>
 
-          <div className="space-y-3 text-xs text-zinc-400 leading-relaxed">
-            <p>
-              # CS2 Assistant automatically opens Live Game and suspends all other views when a match starts.
-            </p>
-            <p>
-              # Zero CPU and RAM are wasted in the background during live competitive gameplay.
-            </p>
-            <p>
-              # GSI Telemetry Listener active on <span className="text-zinc-200 font-bold">127.0.0.1:3001</span>.
-            </p>
+          <div className="space-y-2 text-xs text-zinc-400 leading-relaxed">
+            <p># When you enter a match, this window automatically minimizes to maximize CS2 FPS.</p>
+            <p># Only the ultra-lightweight overlay remains active on screen.</p>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
-            <span className="text-[11px] text-zinc-500">
-              Preview the 2nd monitor tactical interface right now:
-            </span>
+          <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
+            <span className="text-[11px] text-zinc-500">Preview without starting CS2:</span>
             <button
               data-testid="enter-simulation-btn"
               onClick={handleEnterSimulation}
-              className="flex items-center gap-2 border border-emerald-500/60 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-2 text-xs font-bold text-emerald-400 transition-colors cursor-pointer"
+              className="flex items-center gap-2 border border-emerald-500/80 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 transition-colors cursor-pointer"
             >
               <Play className="h-3.5 w-3.5" />
-              <span>[ LAUNCH SIMULATION PREVIEW ]</span>
+              <span>[ LAUNCH SIMULATION ]</span>
             </button>
           </div>
         </div>
@@ -324,14 +276,14 @@ export const LiveMatchView: React.FC = () => {
   }
 
   // ==========================================================================
-  // VIEW B: ACTIVE LIVE GAME INTERFACE (OPTIMIZED FOR 2ND MONITOR)
+  // VIEW B: ACTIVE LIVE GAME INTERFACE
   // ==========================================================================
   return (
     <div
       data-testid="view-live-match"
       className="flex h-full w-full flex-col overflow-hidden bg-[#09090b] p-3 gap-2.5 select-none font-mono text-zinc-100"
     >
-      {/* 1. TOP MINIMALIST STATUS BAR (NO HP/MONEY/ARMOR CLUTTER) */}
+      {/* 1. TOP MINIMAL STATUS BAR */}
       <div className="flex items-center justify-between border border-zinc-800 bg-[#0c0c0e] px-4 py-2 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -344,7 +296,7 @@ export const LiveMatchView: React.FC = () => {
           <span className="text-zinc-600">|</span>
 
           <span className="text-xs font-bold text-zinc-300">
-            ROUND {gsiStatus.round || 1} <span className="text-zinc-500">({(gsiStatus.roundPhase || 'LIVE').toUpperCase()})</span>
+            ROUND {gsiStatus.round || 1}
           </span>
 
           <span className="text-zinc-600">|</span>
@@ -356,15 +308,15 @@ export const LiveMatchView: React.FC = () => {
           </span>
         </div>
 
-        {/* C4 BOMB STATUS (Ultra-minimalist pill) */}
+        {/* C4 BOMB STATUS */}
         {isBombPlanted ? (
-          <div className="flex items-center gap-3 border border-rose-500/60 bg-rose-500/10 px-3 py-1">
+          <div className="flex items-center gap-2.5 border border-rose-500/60 bg-rose-500/10 px-3 py-1">
             <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
             <span className="text-xs font-black text-rose-400 uppercase tracking-wider">
               C4 {bombState?.site ? `[SITE ${bombState.site}]` : ''} // {bombCountdown.toFixed(1)}s
             </span>
             <span className="text-[10px] text-zinc-300 font-bold border-l border-rose-500/40 pl-2">
-              KIT: {bombCountdown >= 5 ? <span className="text-emerald-400">VIABLE</span> : <span className="text-rose-400">NO TIME</span>}
+              {bombCountdown >= 5 ? <span className="text-emerald-400">KIT: VIABLE</span> : <span className="text-rose-400">NO TIME</span>}
             </span>
           </div>
         ) : (
@@ -374,47 +326,60 @@ export const LiveMatchView: React.FC = () => {
           </div>
         )}
 
-        {/* Hotkey Guide Pill */}
-        <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-          <span className="border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-zinc-300 font-bold">F1</span>
-          <span>Toggle Overlay</span>
-          <span className="text-zinc-600">/</span>
-          <span className="border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-zinc-300 font-bold">F2</span>
-          <span>Next Pixel</span>
+        {/* Hotkey Indicators & Close Heavy Window Action */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+            <span className="border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-zinc-200 font-bold">
+              {hotkeyConfig.key}
+            </span>
+            <span>{hotkeyConfig.mode === 'HOLD' ? 'Hold Overlay' : 'Toggle Overlay'}</span>
+            <span className="text-zinc-600">/</span>
+            <span className="border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-zinc-200 font-bold">
+              F2
+            </span>
+            <span>Next Pixel</span>
+          </div>
+
+          <button
+            onClick={handleEnterOverlayOnlyMode}
+            className="flex items-center gap-1.5 border border-cyan-500/60 bg-cyan-950/40 hover:bg-cyan-900/60 px-2.5 py-1 text-xs font-bold text-cyan-300 transition-colors cursor-pointer"
+            title="Minimizes this heavy window to give CS2 100% native FPS with zero lag"
+          >
+            <Minimize2 className="h-3 w-3" />
+            <span>[ OVERLAY-ONLY MODE ]</span>
+          </button>
 
           {isSimulationMode && (
             <button
               onClick={handleExitSimulation}
-              className="ml-2 border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 cursor-pointer"
+              className="border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 cursor-pointer"
             >
-              [EXIT PREVIEW]
+              [EXIT]
             </button>
           )}
         </div>
       </div>
 
-      {/* 2. MAIN 2-COLUMN TACTICAL WORKSPACE */}
+      {/* 2. MAIN WORKSPACE */}
       <div className="grid grid-cols-12 gap-2.5 flex-1 min-h-0 overflow-hidden">
         {/* ================================================================== */}
         {/* LEFT COLUMN: TACTICAL PLAY SEQUENCER (7 Cols)                      */}
         {/* ================================================================== */}
-        <div className="col-span-7 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-3 overflow-hidden relative">
-          {/* Cyber-brutalist Corner Notches */}
+        <div className="col-span-7 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2.5 overflow-hidden relative">
           <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
           <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
           <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
           <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
 
-          {/* Section Header & Play Selector */}
+          {/* Play Selector */}
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2 shrink-0">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-cyan-400" />
-              <span className="text-xs font-bold tracking-wider uppercase text-zinc-100">
+              <span className="text-xs font-bold uppercase text-zinc-100">
                 [TACTICAL PLAY SEQUENCER]
               </span>
             </div>
 
-            {/* Play Selector Dropdown */}
             <select
               value={currentPlay.id}
               onChange={(e) => handleSelectPlay(e.target.value)}
@@ -428,149 +393,75 @@ export const LiveMatchView: React.FC = () => {
             </select>
           </div>
 
-          {/* Play Sequence Steps List */}
-          <div className="flex flex-col gap-1.5 shrink-0">
-            <div className="flex items-center justify-between text-[11px] text-zinc-400">
-              <span>ORDERED PIXEL SEQUENCE:</span>
-              <span className="text-cyan-400 font-bold">
-                STEP {activeStepIndex + 1} OF {playLineups.length || 1}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              {playLineups.map((lineup, idx) => {
-                const isActive = idx === activeStepIndex;
-                return (
-                  <button
-                    key={lineup.id}
-                    onClick={() => handleSelectStep(idx)}
-                    className={`flex items-center justify-between px-2.5 py-1.5 border text-left text-xs transition-colors cursor-pointer ${
-                      isActive
-                        ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 font-bold'
-                        : 'border-zinc-800 bg-zinc-950/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="text-[10px] text-zinc-500 font-bold">
-                        # {String(idx + 1).padStart(2, '0')}.
-                      </span>
-                      <span className="truncate">{lineup.title}</span>
-                    </div>
-                    <span className="text-[9px] px-1 py-0.2 border border-zinc-800 bg-zinc-900 text-zinc-400 ml-1 shrink-0">
-                      {lineup.utilityType}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Steps List */}
+          <div className="grid grid-cols-2 gap-1.5 shrink-0">
+            {playLineups.map((lineup, idx) => {
+              const isActive = idx === activeStepIndex;
+              return (
+                <button
+                  key={lineup.id}
+                  onClick={() => handleSelectStep(idx)}
+                  className={`flex items-center justify-between px-2 py-1.5 border text-left text-xs transition-colors cursor-pointer ${
+                    isActive
+                      ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 font-bold'
+                      : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="text-[10px] text-zinc-500 font-bold">#{idx + 1}.</span>
+                    <span className="truncate">{lineup.title}</span>
+                  </div>
+                  <span className="text-[9px] border border-zinc-800 px-1 text-zinc-500 shrink-0 ml-1">
+                    {lineup.utilityType}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Active Pixel Card & Alignment Photo Preview */}
+          {/* Active Pixel Preview */}
           {currentStepLineup ? (
             <div className="flex-1 flex flex-col border border-zinc-800 bg-black/60 p-2.5 gap-2 min-h-0 overflow-hidden">
               <div className="flex items-center justify-between text-xs font-bold shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                  <span className="text-zinc-100 uppercase tracking-wide">
-                    {currentStepLineup.title}
-                  </span>
-                  <span className="text-[10px] border border-cyan-800 bg-cyan-950 px-1.5 py-0.2 text-cyan-400">
-                    {currentStepLineup.throwType}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-zinc-400">
-                    OVERLAY:{' '}
-                    {activeLineupPhoto?.id === currentStepLineup.id ? (
-                      <span className="text-emerald-400 font-bold">ACTIVE</span>
-                    ) : (
-                      <span className="text-zinc-500">STANDBY</span>
-                    )}
-                  </span>
-                </div>
+                <span className="text-zinc-100 truncate">{currentStepLineup.title}</span>
+                <span className="text-[10px] border border-cyan-800 bg-cyan-950 text-cyan-400 px-1.5 py-0.2">
+                  {currentStepLineup.throwType}
+                </span>
               </div>
 
-              {/* In-Game Photo with Aim Target and Loupe */}
-              <div className="flex-1 relative bg-black rounded border border-zinc-800 overflow-hidden flex items-center justify-center min-h-[160px]">
+              {/* Landmark Screenshot Preview */}
+              <div className="flex-1 relative bg-black border border-zinc-800 overflow-hidden flex items-center justify-center min-h-[160px]">
                 <img
                   src={currentStepLineup.imageUrl || currentStepLineup.thumbnailUrl}
                   alt={currentStepLineup.title}
                   className="w-full h-full object-contain"
                 />
 
-                {/* High-Contrast Aim Reticle */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
-                  <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
-                    <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
-                  </div>
-                  <div className="absolute -left-3 w-2 h-0.5 bg-emerald-400" />
-                  <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
-                  <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
-                  <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
-                  <span className="absolute -bottom-4.5 bg-black/90 border border-rose-500 px-1 py-0.2 text-[8px] font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
-                    AIM HERE
-                  </span>
+                {/* High-Contrast Crosshair Center Reference */}
+                <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-cyan-400/80 pointer-events-none" />
+                <div className="absolute left-1/2 top-0 bottom-0 w-[1.5px] bg-cyan-400/80 pointer-events-none" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-cyan-300 flex items-center justify-center pointer-events-none">
+                  <div className="w-1 h-1 bg-rose-500 rounded-full" />
                 </div>
-
-                {/* 4.5x Zoom Loupe */}
-                {currentStepLineup.imageUrl && (
-                  <div className="absolute bottom-2 left-2 border border-cyan-400 bg-black/95 p-1 shadow-2xl flex flex-col items-center">
-                    <span className="text-[8px] font-black text-cyan-400 px-1 mb-0.5 uppercase tracking-wider">
-                      4.5X LOUPE
-                    </span>
-                    <div
-                      className="w-24 h-16 border border-zinc-700 relative overflow-hidden"
-                      style={{
-                        backgroundImage: `url(${currentStepLineup.imageUrl})`,
-                        backgroundPosition: 'center center',
-                        backgroundSize: '450%',
-                        backgroundRepeat: 'no-repeat',
-                      }}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-full h-px bg-emerald-400/80 absolute" />
-                        <div className="h-full w-px bg-emerald-400/80 absolute" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute ring-1 ring-emerald-400" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Landing preview */}
-                {currentStepLineup.thumbnailUrl && (
-                  <div className="absolute bottom-2 right-2 border border-zinc-700 bg-black/95 p-1 flex flex-col items-center">
-                    <span className="text-[8px] text-zinc-400 px-1 mb-0.5">LANDING</span>
-                    <img
-                      src={currentStepLineup.thumbnailUrl}
-                      alt="Landing"
-                      className="w-20 h-14 object-cover"
-                    />
-                  </div>
-                )}
               </div>
 
               {/* Instructions and Controls */}
               <div className="flex items-center justify-between pt-1 border-t border-zinc-800 text-xs shrink-0">
-                <div className="flex items-center gap-2 truncate text-zinc-300">
-                  <span className="text-zinc-500 font-bold">AIM:</span>
-                  <span className="truncate">
-                    {currentStepLineup.aimReference?.crosshairPlacement ||
-                      currentStepLineup.instructions?.[1] ||
-                      'Align crosshair at reticle target'}
-                  </span>
+                <div className="text-zinc-300 truncate text-[11px]">
+                  <span className="text-zinc-500 font-bold">STAND: </span>
+                  <span className="font-semibold">{currentStepLineup.startPosition?.callout || 'Position'}</span>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={handleToggleOverlayPhoto}
-                    className="border border-zinc-700 bg-zinc-900 hover:border-zinc-500 px-3 py-1 text-xs font-bold text-zinc-200 transition-colors cursor-pointer"
+                    className="border border-zinc-700 bg-zinc-900 hover:border-zinc-500 px-2.5 py-1 text-xs font-bold text-zinc-200 cursor-pointer"
                   >
-                    [F1: TOGGLE]
+                    [{hotkeyConfig.key}: TOGGLE]
                   </button>
                   <button
                     onClick={handleAdvanceStep}
-                    className="border border-cyan-500/60 bg-cyan-950/40 hover:bg-cyan-900/60 px-3 py-1 text-xs font-bold text-cyan-300 transition-colors cursor-pointer flex items-center gap-1"
+                    className="border border-cyan-500/80 bg-cyan-950/40 hover:bg-cyan-900/60 px-3 py-1 text-xs font-bold text-cyan-300 cursor-pointer flex items-center gap-1"
                   >
                     <span>[F2: NEXT]</span>
                     <ArrowRight className="h-3 w-3" />
@@ -586,120 +477,108 @@ export const LiveMatchView: React.FC = () => {
         </div>
 
         {/* ================================================================== */}
-        {/* RIGHT COLUMN: GEMINI AI COACH & LIVE STRATEGY (5 Cols)             */}
+        {/* RIGHT COLUMN: HOTKEY & OVERLAY CONTROLS (5 Cols)                   */}
         {/* ================================================================== */}
         <div className="col-span-5 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-3 overflow-hidden relative">
-          {/* Cyber-brutalist Corner Notches */}
           <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
           <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
           <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
           <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
 
-          {/* Section Header & Real-Time Coach Toggle */}
+          {/* Section Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2 shrink-0">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-bold tracking-wider uppercase text-zinc-100">
-                [GEMINI COACH // LIVE ADVICE]
+              <Settings className="h-4 w-4 text-cyan-400" />
+              <span className="text-xs font-bold uppercase text-zinc-100">
+                [OVERLAY HOTKEY CONFIGURATION]
               </span>
             </div>
-
-            <button
-              onClick={handleToggleRealtimeCoach}
-              className={`flex items-center gap-1.5 border px-2 py-0.5 text-[10px] font-bold uppercase transition-colors cursor-pointer ${
-                realtimeCoachEnabled
-                  ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-400'
-                  : 'border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${realtimeCoachEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
-              <span>LIVE COACH: {realtimeCoachEnabled ? 'ON' : 'OFF'}</span>
-            </button>
           </div>
 
-          {/* Action Button: Request Advice (Hatched Cyber-Brutalist Button) */}
-          <button
-            onClick={() => handleRequestAdvice()}
-            disabled={loadingAdvice}
-            className={`w-full py-2 px-3 border border-emerald-500/80 text-xs font-black uppercase tracking-wider text-emerald-300 hatched-bg transition-opacity cursor-pointer ${
-              loadingAdvice ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
-            }`}
-          >
-            {loadingAdvice ? '[ GENERATING STRATEGY... ]' : '[ REQUEST PLAY STRATEGY ]'}
-          </button>
-
-          {/* Quick Tactical Prompt Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 text-[10px]">
-            <button
-              onClick={() => handleRequestAdvice('Recommend A Site Execute coordination')}
-              className="border border-zinc-800 bg-zinc-900/80 hover:border-zinc-700 px-2 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer whitespace-nowrap"
-            >
-              # A EXECUTE
-            </button>
-            <button
-              onClick={() => handleRequestAdvice('Recommend Mid Control & Split')}
-              className="border border-zinc-800 bg-zinc-900/80 hover:border-zinc-700 px-2 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer whitespace-nowrap"
-            >
-              # MID SPLIT
-            </button>
-            <button
-              onClick={() => handleRequestAdvice('Recommend Retake Strategy')}
-              className="border border-zinc-800 bg-zinc-900/80 hover:border-zinc-700 px-2 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer whitespace-nowrap"
-            >
-              # RETAKE
-            </button>
-            <button
-              onClick={() => handleRequestAdvice('Eco round save and stack advice')}
-              className="border border-zinc-800 bg-zinc-900/80 hover:border-zinc-700 px-2 py-1 text-zinc-400 hover:text-zinc-200 cursor-pointer whitespace-nowrap"
-            >
-              # ECO STACK
-            </button>
-          </div>
-
-          {/* Tactical Advice Terminal Output */}
-          <div className="flex-1 flex flex-col border border-zinc-800 bg-black/80 p-3 min-h-0 overflow-y-auto font-mono text-xs text-zinc-300 gap-2">
-            <div className="flex items-center gap-2 text-[10px] text-zinc-500 border-b border-zinc-900 pb-1.5 shrink-0">
-              <Terminal className="h-3 w-3 text-emerald-400" />
-              <span>TACTICAL TERMINAL OUTPUT:</span>
+          {/* Hotkey Key Selector (F1 / CapsLock / F3 / F4) */}
+          <div className="space-y-1.5 text-xs">
+            <span className="text-[10px] text-zinc-500 font-bold uppercase">
+              SELECT OVERLAY HOTKEY:
+            </span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['F1', 'CapsLock', 'F3', 'F4'] as const).map((k) => {
+                const isSelected = hotkeyConfig.key === k;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => handleUpdateHotkeyConfig({ key: k })}
+                    className={`py-1.5 px-2 border text-xs font-bold transition-colors cursor-pointer text-center ${
+                      isSelected
+                        ? 'border-cyan-400 bg-cyan-950/60 text-cyan-300'
+                        : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                    }`}
+                  >
+                    [{k === 'CapsLock' ? 'CAPS' : k}]
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {loadingAdvice ? (
-              <div className="flex items-center gap-2 text-emerald-400 py-4 animate-pulse">
-                <span>&gt; Processing live telemetry with Gemini...</span>
-              </div>
-            ) : recommendation ? (
-              <div className="space-y-2.5 text-xs">
-                <div>
-                  <span className="text-emerald-400 font-bold">&gt; PLAN: </span>
-                  <span className="text-zinc-100 font-semibold">{recommendation.summary}</span>
-                </div>
+          {/* Trigger Mode Selector (TOGGLE vs HOLD) */}
+          <div className="space-y-1.5 text-xs">
+            <span className="text-[10px] text-zinc-500 font-bold uppercase">
+              TRIGGER BEHAVIOR:
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleUpdateHotkeyConfig({ mode: 'TOGGLE' })}
+                className={`py-2 px-3 border text-xs font-bold transition-colors cursor-pointer text-center ${
+                  hotkeyConfig.mode === 'TOGGLE'
+                    ? 'border-cyan-400 bg-cyan-950/60 text-cyan-300'
+                    : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                [TOGGLE (Press On/Off)]
+              </button>
+              <button
+                onClick={() => handleUpdateHotkeyConfig({ mode: 'HOLD' })}
+                className={`py-2 px-3 border text-xs font-bold transition-colors cursor-pointer text-center ${
+                  hotkeyConfig.mode === 'HOLD'
+                    ? 'border-cyan-400 bg-cyan-950/60 text-cyan-300'
+                    : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                [HOLD (Hold to Show)]
+              </button>
+            </div>
+          </div>
 
-                {recommendation.suggestedExecution && recommendation.suggestedExecution.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-zinc-500 text-[10px] font-bold">EXECUTION SEQUENCE:</span>
-                    {recommendation.suggestedExecution.map((step, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-zinc-300">
-                        <span className="text-cyan-400 shrink-0"># {i + 1}.</span>
-                        <span>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {/* In-Game Overlay Crossing Lines Visual Guide Card */}
+          <div className="border border-zinc-800 bg-black/60 p-3 space-y-2 text-xs">
+            <span className="text-[10px] text-zinc-500 font-bold uppercase">
+              LINEUP OVERLAY SYSTEM:
+            </span>
+            <p className="text-[11px] text-zinc-300 leading-relaxed">
+              # Two crossing lines span the entire screen, crossing at the exact center crosshair.
+            </p>
+            <p className="text-[11px] text-zinc-300 leading-relaxed">
+              # A compact reference card appears in the top-right showing position and landmark.
+            </p>
+            <p className="text-[11px] text-zinc-300 leading-relaxed">
+              # Zero obstruction in the center of your view.
+            </p>
+          </div>
 
-                {recommendation.economyNote && (
-                  <div className="border-t border-zinc-900 pt-1.5 text-[11px] text-amber-300/90">
-                    <span className="font-bold text-amber-400">ECONOMY: </span>
-                    <span>{recommendation.economyNote}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center text-zinc-500 text-xs p-4 space-y-2">
-                <Sparkles className="h-5 w-5 text-zinc-600 mb-1" />
-                <p>Click &quot;[ REQUEST PLAY STRATEGY ]&quot; or enable Live Coach for automatic round advice.</p>
-                <p className="text-[10px] text-zinc-600">Requires configured Gemini API Key in Settings.</p>
-              </div>
-            )}
+          {/* Switch to Overlay-Only Mode Card */}
+          <div className="border border-emerald-500/40 bg-emerald-500/5 p-3 space-y-2 mt-auto text-xs">
+            <span className="text-emerald-400 font-bold text-xs uppercase block">
+              ZERO-LAG IN-GAME PERFORMANCE
+            </span>
+            <p className="text-[11px] text-zinc-400">
+              Entering a match automatically hides this application. Click below to hide it manually now:
+            </p>
+            <button
+              onClick={handleEnterOverlayOnlyMode}
+              className="w-full border border-emerald-500/80 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-black py-2 text-xs uppercase cursor-pointer"
+            >
+              [ MINIMIZE TO OVERLAY-ONLY MODE ]
+            </button>
           </div>
         </div>
       </div>

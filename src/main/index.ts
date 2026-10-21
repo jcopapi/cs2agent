@@ -155,6 +155,54 @@ app.whenReady().then(async () => {
 
   overlayManager = new OverlayManager(preloadPath, rendererUrl);
 
+  let hotkeyConfig: { key: string; mode: 'TOGGLE' | 'HOLD' } = {
+    key: 'F1',
+    mode: 'TOGGLE',
+  };
+
+  let holdTimeout: NodeJS.Timeout | null = null;
+
+  const registerGlobalHotkeys = (cfg?: { key: string; mode: 'TOGGLE' | 'HOLD' }) => {
+    if (cfg) {
+      hotkeyConfig = { ...cfg };
+    }
+
+    try {
+      globalShortcut.unregisterAll();
+    } catch {
+      // ignore
+    }
+
+    try {
+      globalShortcut.register(hotkeyConfig.key, () => {
+        if (hotkeyConfig.mode === 'HOLD') {
+          const current = overlayManager?.getActiveLineupPhoto();
+          if (!current) {
+            overlayManager?.toggleActiveLineupPhoto();
+            ipcManager?.broadcast('hud:active-lineup-photo-changed', overlayManager?.getActiveLineupPhoto() || null);
+          }
+          if (holdTimeout) clearTimeout(holdTimeout);
+          holdTimeout = setTimeout(() => {
+            if (overlayManager?.getActiveLineupPhoto()) {
+              overlayManager?.setActiveLineupPhoto(null);
+              ipcManager?.broadcast('hud:active-lineup-photo-changed', null);
+            }
+          }, 260);
+        } else {
+          overlayManager?.toggleActiveLineupPhoto();
+          const current = overlayManager?.getActiveLineupPhoto() || null;
+          ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
+        }
+      });
+
+      globalShortcut.register('F2', () => {
+        ipcManager?.broadcast('play:next-pixel', null);
+      });
+    } catch (err) {
+      console.warn(`[Main] Failed to register global shortcut ${hotkeyConfig.key}:`, err);
+    }
+  };
+
   // Initialize and register Typed IPC Handlers
   ipcManager = new IpcHandlerManager({
     credentialStore,
@@ -162,6 +210,8 @@ app.whenReady().then(async () => {
     capabilityGate,
     getMainWindow: () => mainWindow,
     getOverlayWindow: () => overlayManager?.getWindow() || null,
+    getHotkeyConfig: () => hotkeyConfig,
+    setHotkeyConfig: (cfg) => registerGlobalHotkeys(cfg),
   });
   ipcManager.register();
 
@@ -170,19 +220,7 @@ app.whenReady().then(async () => {
   overlayManager.createOverlayWindow();
 
   // Register Global Hotkeys (works even when CS2 has full exclusive OS focus)
-  try {
-    globalShortcut.register('F1', () => {
-      overlayManager?.toggleActiveLineupPhoto();
-      const current = overlayManager?.getActiveLineupPhoto() || null;
-      ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
-    });
-
-    globalShortcut.register('F2', () => {
-      ipcManager?.broadcast('play:next-pixel', null);
-    });
-  } catch (err) {
-    console.warn('[Main] Global shortcuts registration failed:', err);
-  }
+  registerGlobalHotkeys();
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {

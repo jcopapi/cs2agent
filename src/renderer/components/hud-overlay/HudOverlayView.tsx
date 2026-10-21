@@ -4,11 +4,12 @@
  *
  * Dedicated strictly to the two essential in-game features:
  * 1. C4 Bomb Countdown to Explosion (with 5s / 10s defusal viability)
- * 2. Real CSNADES Pixel Screenshot on Screen (with aim landmark & bloom)
+ * 2. Full-Screen Lineup Crosshair (two crossing lines, exactly like CS2 grenade pin hold)
+ *    + Compact corner reference card showing where to stand & aim.
  *
  * Optimized for ZERO lost FPS:
  * - 0 backdrop-blur / 0 Gaussian shader passes
- * - 0 CSS keyframe opacity animations
+ * - 0 center-screen giant obstructions
  * - 0 mouse-event forwarding
  * - Returns null when neither bomb nor photo is active
  */
@@ -18,7 +19,6 @@ import type {
   HudConfig,
   BombState,
   Lineup,
-  GsiStatus,
 } from '../../../shared/ipc-types';
 
 export const HudOverlayView: React.FC = () => {
@@ -137,7 +137,7 @@ export const HudOverlayView: React.FC = () => {
   return (
     <div
       data-testid="hud-overlay-container"
-      className="relative h-screen w-screen overflow-hidden bg-transparent select-none pointer-events-none font-sans"
+      className="relative h-screen w-screen overflow-hidden bg-transparent select-none pointer-events-none font-mono"
       style={{
         opacity: hudConfig.opacity,
         transform: `scale(${hudConfig.scale})`,
@@ -148,8 +148,8 @@ export const HudOverlayView: React.FC = () => {
       {/* 1. TOP-CENTER: C4 BOMB COUNTDOWN (Ultra-minimalist, low opacity)     */}
       {/* ==================================================================== */}
       {isBombActive && (
-        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-none z-50">
-          <div className="flex items-center gap-2.5 rounded-full border border-white/15 bg-black/50 px-4 py-1 shadow-lg">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none z-50">
+          <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-black/50 px-4 py-1 shadow-lg">
             <span
               className={`h-2.5 w-2.5 rounded-full ${
                 remainingSeconds > 10
@@ -160,7 +160,7 @@ export const HudOverlayView: React.FC = () => {
               }`}
             />
             <span
-              className={`font-mono text-2xl font-black tabular-nums tracking-wider leading-none ${
+              className={`text-2xl font-black tabular-nums tracking-wider leading-none ${
                 remainingSeconds > 10
                   ? 'text-emerald-400'
                   : remainingSeconds > 5
@@ -170,123 +170,104 @@ export const HudOverlayView: React.FC = () => {
             >
               {remainingSeconds.toFixed(1)}s
             </span>
-            <span className="font-mono text-[10px] text-zinc-300 font-bold uppercase tracking-wider pl-2 border-l border-white/15">
-              C4 {bombState?.site ? `(${bombState.site})` : ''}
+            <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider pl-2 border-l border-white/15">
+              C4 {bombState?.site ? `[SITE ${bombState.site}]` : ''}
+            </span>
+            <span className="text-[9px] font-bold pl-1">
+              {remainingSeconds >= 5 ? (
+                <span className="text-emerald-400">KIT: OK</span>
+              ) : (
+                <span className="text-rose-400">KIT: NO TIME</span>
+              )}
             </span>
           </div>
         </div>
       )}
 
       {/* ==================================================================== */}
-      {/* 2. TOP-RIGHT: IN-GAME PIXEL PHOTO OVERLAY (Reticle + 4.5x Zoom Loupe)*/}
+      {/* 2. FULL-SCREEN LINEUP CROSSHAIR (Two Crossing Alignment Lines)       */}
+      {/* Exactly like holding left-click with a grenade in CS2                */}
       {/* ==================================================================== */}
       {isPhotoActive && activeLineupPhoto && (
-        <div className="absolute top-3 right-3 flex flex-col gap-1.5 pointer-events-none z-50 max-w-[420px] border border-cyan-500/70 bg-[#09090b]/90 p-2.5 shadow-2xl relative font-mono">
-          {/* Cyber-brutalist Corner Notches */}
-          <span className="absolute -top-1 -left-1 text-cyan-400 font-mono text-xs select-none">┌</span>
-          <span className="absolute -top-1 -right-1 text-cyan-400 font-mono text-xs select-none">┐</span>
-          <span className="absolute -bottom-1 -left-1 text-cyan-400 font-mono text-xs select-none">└</span>
-          <span className="absolute -bottom-1 -right-1 text-cyan-400 font-mono text-xs select-none">┘</span>
+        <>
+          {/* Horizontal Line Across Screen */}
+          <div className="fixed top-1/2 left-0 w-screen h-[1.5px] bg-cyan-400/80 pointer-events-none z-30 shadow-[0_0_2px_rgba(0,0,0,0.9)]" />
 
-          {/* Header */}
-          <div className="flex items-center justify-between text-xs font-mono font-black border-b border-zinc-800 pb-1">
-            <div className="flex items-center gap-2 truncate max-w-[280px]">
-              <span className="h-2 w-2 rounded-full bg-cyan-400" />
-              <span className="text-cyan-400 uppercase tracking-wide truncate text-[11px]">
-                {activeLineupPhoto.title}
-              </span>
+          {/* Vertical Line Across Screen */}
+          <div className="fixed left-1/2 top-0 h-screen w-[1.5px] bg-cyan-400/80 pointer-events-none z-30 shadow-[0_0_2px_rgba(0,0,0,0.9)]" />
+
+          {/* High-Contrast Intersection Crosshair Reticle at Exact Center */}
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-40 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full border border-cyan-300/90 flex items-center justify-center shadow-[0_0_4px_rgba(6,182,212,0.8)]">
+              <div className="w-1 h-1 bg-rose-500 rounded-full" />
             </div>
-            <span className="border border-cyan-800/80 bg-cyan-950/80 text-cyan-400 px-1.5 py-0.2 text-[9px] font-bold">
-              {activeLineupPhoto.throwType}
-            </span>
           </div>
 
-          {/* Real In-Game Screenshot with Aim Reticle & 4.5x Zoom Loupe */}
-          <div className="relative w-full h-[240px] bg-black rounded overflow-hidden flex items-center justify-center my-0.5 border border-zinc-800">
-            <img
-              src={activeLineupPhoto.imageUrl || activeLineupPhoto.thumbnailUrl}
-              alt={activeLineupPhoto.title}
-              className="w-full h-full object-contain"
-            />
+          {/* ================================================================== */}
+          {/* 3. COMPACT CORNER REFERENCE CARD (Top-Right Docked, Leaves Center)  */}
+          {/* ================================================================== */}
+          <div className="absolute top-4 right-4 flex flex-col gap-1.5 pointer-events-none z-50 w-72 border border-zinc-800 bg-[#09090b]/90 p-2.5 shadow-2xl relative">
+            {/* Cyber-brutalist Corner Notches */}
+            <span className="absolute -top-1 -left-1 text-cyan-400 text-xs select-none">┌</span>
+            <span className="absolute -top-1 -right-1 text-cyan-400 text-xs select-none">┐</span>
+            <span className="absolute -bottom-1 -left-1 text-cyan-400 text-xs select-none">└</span>
+            <span className="absolute -bottom-1 -right-1 text-cyan-400 text-xs select-none">┘</span>
 
-            {/* A. HIGH-CONTRAST CENTER AIM RETICLE */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20">
-              <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
-                <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
-              </div>
-              <div className="absolute -left-3 w-2 h-0.5 bg-emerald-400" />
-              <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
-              <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
-              <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
-              <span className="absolute -bottom-4.5 bg-black/95 border border-rose-500/80 px-1 py-0.2 text-[8px] font-mono font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
-                AIM TARGET
-              </span>
-            </div>
-
-            {/* B. 4.5X PRECISION ZOOM LOUPE */}
-            {activeLineupPhoto.imageUrl && (
-              <div className="absolute bottom-1.5 left-1.5 border border-cyan-400 bg-black/95 p-1 shadow-2xl flex flex-col items-center z-20">
-                <span className="text-[8px] font-mono font-black text-cyan-400 px-1 mb-0.5 uppercase tracking-wider">
-                  4.5X LOUPE
+            {/* Title & Utility Type */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-1 text-xs font-bold">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                <span className="text-zinc-100 uppercase tracking-wide truncate text-[11px]">
+                  {activeLineupPhoto.title}
                 </span>
-                <div
-                  className="relative w-24 h-20 border border-zinc-700 overflow-hidden"
-                  style={{
-                    backgroundImage: `url(${activeLineupPhoto.imageUrl})`,
-                    backgroundPosition: 'center center',
-                    backgroundSize: '450%',
-                    backgroundRepeat: 'no-repeat',
-                  }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-full h-px bg-emerald-400/80 absolute" />
-                    <div className="h-full w-px bg-emerald-400/80 absolute" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute ring-1 ring-emerald-400" />
-                  </div>
-                </div>
               </div>
-            )}
-
-            {/* C. PICTURE-IN-PICTURE LANDING */}
-            {activeLineupPhoto.thumbnailUrl && (
-              <div className="absolute bottom-1.5 right-1.5 border border-zinc-700 bg-black/95 p-1 shadow-md flex flex-col items-center z-20">
-                <span className="text-[8px] font-mono font-bold text-zinc-400 px-1 mb-0.5">LANDING</span>
-                <img
-                  src={activeLineupPhoto.thumbnailUrl}
-                  alt="Landing"
-                  className="w-18 h-12 object-cover"
-                />
-              </div>
-            )}
-
-            <div className="absolute top-1.5 left-1.5 bg-black/85 border border-zinc-700 px-2 py-0.5 font-mono text-[9px] text-zinc-300 font-bold z-20">
-              ALIGNMENT GUIDE
-            </div>
-          </div>
-
-          {/* Alignment instructions, position, and hotkey hints */}
-          <div className="flex flex-col text-[11px] font-mono text-zinc-300 pt-1 border-t border-zinc-800 gap-0.5">
-            <div className="flex items-center justify-between text-zinc-400 text-[10px]">
-              <span>POS: <strong className="text-zinc-200">{activeLineupPhoto.startPosition?.callout || 'Spawn'}</strong></span>
-              <span className="text-cyan-400 font-bold">[F1] HIDE • [F2] NEXT</span>
-            </div>
-            <div className="text-zinc-100 font-bold text-xs leading-snug flex items-center gap-1.5">
-              <span className="text-rose-400 font-black shrink-0">AIM:</span>
-              <span className="truncate">
-                {activeLineupPhoto.aimReference?.crosshairPlacement || activeLineupPhoto.instructions?.[1] || 'Align crosshair with reticle landmark'}
+              <span className="border border-cyan-800 bg-cyan-950 text-cyan-400 px-1.5 py-0.2 text-[9px] font-bold">
+                {activeLineupPhoto.throwType}
               </span>
             </div>
-            {activeLineupPhoto.aimReference?.visualLandmark && (
-              <div className="text-[10px] text-zinc-400 truncate">
-                REF: <span className="text-cyan-300 font-semibold">{activeLineupPhoto.aimReference.visualLandmark}</span>
+
+            {/* Reference Screenshot showing Landmark Alignment */}
+            <div className="relative w-full h-36 bg-black rounded border border-zinc-800 overflow-hidden flex items-center justify-center">
+              <img
+                src={activeLineupPhoto.imageUrl || activeLineupPhoto.thumbnailUrl}
+                alt={activeLineupPhoto.title}
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute top-1 left-1 bg-black/85 border border-zinc-700 px-1.5 py-0.2 text-[8px] text-zinc-300 font-bold">
+                ALIGNMENT REFERENCE
               </div>
-            )}
+            </div>
+
+            {/* Where to Stand & Where to Aim */}
+            <div className="space-y-1 text-[11px] pt-1 border-t border-zinc-800 text-zinc-300">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500 font-bold">STAND:</span>
+                <span className="text-zinc-100 font-semibold truncate">
+                  {activeLineupPhoto.startPosition?.callout || 'Position'}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-1">
+                <span className="text-zinc-500 font-bold shrink-0">AIM:</span>
+                <span className="text-cyan-300 text-[10px] text-right truncate">
+                  {activeLineupPhoto.aimReference?.crosshairPlacement ||
+                    activeLineupPhoto.instructions?.[1] ||
+                    'Align crossing lines at landmark'}
+                </span>
+              </div>
+            </div>
+
+            {/* Hotkey Helpers */}
+            <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-500">
+              <span>[HOTKEY] TOGGLE</span>
+              <span className="text-cyan-400 font-bold">[F2] NEXT PIXEL</span>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* ==================================================================== */}
-      {/* 3. CALIBRATION SAFE-ZONE GUIDES (When Calibration Active)            */}
+      {/* 4. CALIBRATION SAFE-ZONE GUIDES                                      */}
       {/* ==================================================================== */}
       {hudConfig.calibrationMode && (
         <div className="absolute inset-0 pointer-events-none">
@@ -299,7 +280,7 @@ export const HudOverlayView: React.FC = () => {
               top: `calc(50% - ${chDim / 2}px)`,
             }}
           >
-            <span className="font-mono text-[10px] text-rose-500 bg-[#09090b] px-2 py-0.5 rounded border border-rose-500/40">
+            <span className="text-[10px] text-rose-500 bg-[#09090b] px-2 py-0.5 rounded border border-rose-500/40">
               CROSSHAIR SAFE ZONE ({chDim}x{chDim}px)
             </span>
           </div>

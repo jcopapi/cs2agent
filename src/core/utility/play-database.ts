@@ -17,8 +17,8 @@ export const DEFAULT_PLAYS: Play[] = [
     lineupIds: [
       'lineup-mirage-a-stairs',
       'lineup-mirage-a-jungle',
-      'lineup-mirage-a-ct',
-      'lineup-mirage-a-flash',
+      'lineup-mirage-a-ct-box',
+      'lineup-mirage-a-retake-flash',
     ],
     createdAt: '2026-10-20T00:00:00Z',
   },
@@ -31,7 +31,7 @@ export const DEFAULT_PLAYS: Play[] = [
     lineupIds: [
       'lineup-mirage-mid-window',
       'lineup-mirage-b-short',
-      'lineup-mirage-mid-connector',
+      'lineup-mirage-connector-from-spawn',
     ],
     createdAt: '2026-10-20T00:00:00Z',
   },
@@ -44,8 +44,8 @@ export const DEFAULT_PLAYS: Play[] = [
     lineupIds: [
       'lineup-inferno-banana-flash',
       'lineup-inferno-b-coffins',
-      'lineup-inferno-b-ct',
-      'lineup-inferno-b-newbox-molly',
+      'lineup-inferno-b-ct-smoke',
+      'lineup-inferno-banana-deep-ct-moly',
     ],
     createdAt: '2026-10-20T00:00:00Z',
   },
@@ -56,9 +56,9 @@ export const DEFAULT_PLAYS: Play[] = [
     side: 'T',
     description: 'Flushes Pit and Long corner, smoking off CT Spawn with zero-gap crossing',
     lineupIds: [
-      'lineup-dust2-long-flash',
-      'lineup-dust2-a-long-corner',
-      'lineup-dust2-a-long-cross',
+      'lineup-dust2-long-corner-flash',
+      'lineup-dust2-long-corner-smoke',
+      'lineup-dust2-ct-cross-smoke',
     ],
     createdAt: '2026-10-20T00:00:00Z',
   },
