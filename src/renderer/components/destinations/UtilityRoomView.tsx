@@ -2,9 +2,12 @@
  * CS2 Assistant - Utility Room Destination View
  * File: src/renderer/components/destinations/UtilityRoomView.tsx
  *
- * Implements the strategic playbook, 6 Active Duty competitive map selector,
- * filterable lineup library, SVG landmark visual reference preview,
- * multi-phase strategy timeline viewer, and Match Preparation Profiles.
+ * Implements the precision cyber-brutalist strategic playbook:
+ * - 6 Active Duty competitive map selector
+ * - 3 Dedicated Modes: [LINEUPS] | [PLAYS] | [STRATEGIES]
+ * - [PLAYS] Sequencer: Create plays, order pixel routines (▲ / ▼), and set active in-game routine
+ * - [LINEUPS] Manager: Screenshot previews, 4.5x zoom loupe, favorites, and [ + ADD CUSTOM PIXEL ]
+ * - 100% English language, monospace typography, corner notches, and zero GPU bloat
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -23,6 +26,9 @@ import {
   Radio,
   X,
   Pin,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
 } from 'lucide-react';
 import type {
   CS2Map,
@@ -33,9 +39,18 @@ import type {
   Strategy,
   MatchPreparationProfile,
 } from '../../../core/utility/types';
+import type { Play as TacticalPlay } from '../../../shared/ipc-types';
 import { generateCsnadesUrl, generateScopeGgUrl } from '../../../core/utility/external-providers';
-import { getAllLineups } from '../../../core/utility/lineup-database';
+import { getAllLineups, saveLineup as dbSaveLineup } from '../../../core/utility/lineup-database';
 import { getAllStrategies } from '../../../core/utility/strategy-database';
+import {
+  getAllPlays,
+  savePlay as dbSavePlay,
+  deletePlay as dbDeletePlay,
+  reorderLineups as dbReorderLineups,
+  getActivePlayId,
+  setActivePlayId,
+} from '../../../core/utility/play-database';
 import LineupCreatorModal from '../utility-room/LineupCreatorModal';
 import ImportExportModal from '../utility-room/ImportExportModal';
 
@@ -64,96 +79,44 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const [selectedTier, setSelectedTier] = useState<StrategyTier | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'LINEUPS' | 'STRATEGIES'>('LINEUPS');
+  const [viewMode, setViewMode] = useState<'LINEUPS' | 'PLAYS' | 'STRATEGIES'>('LINEUPS');
 
-  // Database State (initialized with verified pre-populated datasets)
+  // Database State
   const [lineups, setLineups] = useState<Lineup[]>(() => getAllLineups());
   const [strategies, setStrategies] = useState<Strategy[]>(() => getAllStrategies());
+  const [plays, setPlays] = useState<TacticalPlay[]>(() => getAllPlays());
+  const [activePlayIdState, setActivePlayIdState] = useState<string>(() => getActivePlayId());
+
+  // Selection State
   const [selectedLineupId, setSelectedLineupId] = useState<string | null>(null);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(initialStrategyId || null);
+  const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
 
-  // Preparation Profile State
-  const [activeProfile, setActiveProfile] = useState<MatchPreparationProfile | null>(null);
-  const [isProfileBound, setIsProfileBound] = useState<boolean>(false);
+  // Play Creator State
+  const [isCreatingPlay, setIsCreatingPlay] = useState<boolean>(false);
+  const [newPlayName, setNewPlayName] = useState<string>('');
+  const [newPlaySide, setNewPlaySide] = useState<TeamSide>('T');
+  const [newPlayDescription, setNewPlayDescription] = useState<string>('');
 
-  // Modal Visibility State
+  // Modals State
   const [isCreatorOpen, setIsCreatorOpen] = useState<boolean>(false);
   const [isImportExportOpen, setIsImportExportOpen] = useState<boolean>(false);
   const [importExportTab, setImportExportTab] = useState<'IMPORT' | 'EXPORT'>('IMPORT');
-  const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
 
-  // -------------------------------------------------------------------------
-  // Load Data from IPC if available, otherwise keep verified defaults
-  // -------------------------------------------------------------------------
+  // Load active HUD photo
   useEffect(() => {
-    async function loadData() {
-      try {
-        if (window.cs2Assistant?.lineup?.getAll) {
-          const loadedLineups = await window.cs2Assistant.lineup.getAll();
-          if (loadedLineups && loadedLineups.length > 0) {
-            setLineups(loadedLineups as unknown as Lineup[]);
-          }
-        }
-        if (window.cs2Assistant?.strategy?.getAll) {
-          const loadedStrategies = await window.cs2Assistant.strategy.getAll();
-          if (loadedStrategies && loadedStrategies.length > 0) {
-            setStrategies(loadedStrategies as unknown as Strategy[]);
-          }
-        }
-        if (window.cs2Assistant?.strategy?.getActiveProfile) {
-          const profile = await window.cs2Assistant.strategy.getActiveProfile();
-          if (profile) {
-            setActiveProfile(profile);
-            setIsProfileBound(profile.active);
-          }
-        }
-        if (window.cs2Assistant?.hud?.getActiveLineupPhoto) {
-          const photo = await window.cs2Assistant.hud.getActiveLineupPhoto();
-          if (photo) setPinnedLineup(photo);
-        }
-      } catch (err) {
-        console.error('[UtilityRoomView] Error loading data from IPC:', err);
-      }
+    if (window.cs2Assistant?.hud?.getActiveLineupPhoto) {
+      window.cs2Assistant.hud.getActiveLineupPhoto().then((photo) => {
+        if (photo) setPinnedLineup(photo);
+      }).catch(() => {});
     }
-    loadData();
 
     const unsubPhoto = window.cs2Assistant?.hud?.onActiveLineupPhotoChange?.((photo) => {
       setPinnedLineup(photo);
     });
 
-    return () => {
-      unsubPhoto?.();
-    };
+    return () => unsubPhoto?.();
   }, []);
-
-  // Synchronize when initial props change (e.g. from History closed loop trigger)
-  useEffect(() => {
-    if (initialMap) setSelectedMap(initialMap as CS2Map);
-    if (initialStrategyId) {
-      setSelectedStrategyId(initialStrategyId);
-      setViewMode('STRATEGIES');
-    }
-  }, [initialMap, initialStrategyId]);
-
-  // Compute Active Counts per map
-  const mapCounts = useMemo(() => {
-    const counts: Record<CS2Map, { lineups: number; strategies: number }> = {
-      de_mirage: { lineups: 0, strategies: 0 },
-      de_inferno: { lineups: 0, strategies: 0 },
-      de_dust2: { lineups: 0, strategies: 0 },
-      de_nuke: { lineups: 0, strategies: 0 },
-      de_ancient: { lineups: 0, strategies: 0 },
-      de_anubis: { lineups: 0, strategies: 0 },
-    };
-
-    for (const l of lineups) {
-      if (counts[l.map]) counts[l.map].lineups++;
-    }
-    for (const s of strategies) {
-      if (counts[s.map]) counts[s.map].strategies++;
-    }
-    return counts;
-  }, [lineups, strategies]);
 
   // Filter Lineups
   const filteredLineups = useMemo(() => {
@@ -194,7 +157,12 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
     });
   }, [strategies, selectedMap, selectedSide, selectedTier, showFavoritesOnly, searchQuery]);
 
-  // Active Selected Item
+  // Filter Plays for current map
+  const mapPlays = useMemo(() => {
+    return plays.filter((p) => p.map === selectedMap);
+  }, [plays, selectedMap]);
+
+  // Active Selected Items
   const activeLineup = useMemo(() => {
     if (selectedLineupId) {
       const found = filteredLineups.find((l) => l.id === selectedLineupId);
@@ -211,65 +179,111 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
     return filteredStrategies[0] || null;
   }, [filteredStrategies, selectedStrategyId]);
 
-  // Toggle Favorite Handler
-  const handleToggleFavoriteLineup = useCallback(
-    async (id: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      setLineups((prev) =>
-        prev.map((l) => {
-          if (l.id === id) {
-            const updated = { ...l, favorite: !l.favorite };
-            window.cs2Assistant?.lineup?.save?.(updated as any);
-            return updated;
-          }
-          return l;
-        })
-      );
-    },
-    []
-  );
+  // Favorite toggle
+  const handleToggleFavoriteLineup = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLineups((prev) =>
+      prev.map((l) => {
+        if (l.id === id) {
+          const updated = { ...l, favorite: !l.favorite };
+          dbSaveLineup(updated as Lineup);
+          return updated;
+        }
+        return l;
+      })
+    );
+  }, []);
 
-  // Toggle Profile Binding
-  const handleToggleProfileBinding = useCallback(async () => {
-    const nextBound = !isProfileBound;
-    setIsProfileBound(nextBound);
+  // Save new Play
+  const handleCreatePlay = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPlayName.trim()) return;
 
-    const profile: MatchPreparationProfile = activeProfile || {
-      profileId: `profile-${selectedMap}-custom`,
-      name: `Custom ${COMPETITIVE_MAPS.find((m) => m.id === selectedMap)?.label} Preparation`,
+    const newPlay: TacticalPlay = {
+      id: `play-${selectedMap}-${Date.now()}`,
+      name: newPlayName.trim(),
       map: selectedMap,
-      side: 'T',
-      selectedLineupIds: filteredLineups.map((l) => l.id),
-      selectedStrategyIds: filteredStrategies.map((s) => s.id),
-      active: nextBound,
+      side: newPlaySide,
+      description: newPlayDescription.trim() || `Tactical routine for ${selectedMap}`,
+      lineupIds: [],
       createdAt: new Date().toISOString(),
     };
 
-    profile.active = nextBound;
-    setActiveProfile(profile);
+    dbSavePlay(newPlay);
+    setPlays(getAllPlays());
+    setNewPlayName('');
+    setNewPlayDescription('');
+    setIsCreatingPlay(false);
+  };
 
-    try {
-      await window.cs2Assistant?.strategy?.setActiveProfile?.(nextBound ? profile : null);
-    } catch (err) {
-      console.error('[UtilityRoomView] Error setting active profile:', err);
+  // Set Play as Active in-game routine
+  const handleSetActivePlay = (playId: string) => {
+    setActivePlayId(playId);
+    setActivePlayIdState(playId);
+    const p = plays.find((x) => x.id === playId);
+    if (p && p.lineupIds && p.lineupIds[0] && window.cs2Assistant?.hud) {
+      const firstLineup = lineups.find((l) => l.id === p.lineupIds[0]);
+      if (firstLineup) {
+        window.cs2Assistant.hud.setActiveLineupPhoto(firstLineup);
+        setPinnedLineup(firstLineup);
+      }
     }
-  }, [isProfileBound, activeProfile, selectedMap, filteredLineups, filteredStrategies]);
+  };
+
+  // Reorder lineup in Play
+  const handleReorderPlayLineup = (playId: string, index: number, direction: 'UP' | 'DOWN') => {
+    const play = plays.find((p) => p.id === playId);
+    if (!play) return;
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= play.lineupIds.length) return;
+
+    const updatedIds = [...play.lineupIds];
+    const temp = updatedIds[index];
+    updatedIds[index] = updatedIds[targetIndex];
+    updatedIds[targetIndex] = temp;
+
+    dbReorderLineups(playId, updatedIds);
+    setPlays(getAllPlays());
+  };
+
+  // Remove lineup from Play
+  const handleRemovePlayLineup = (playId: string, lineupId: string) => {
+    const play = plays.find((p) => p.id === playId);
+    if (!play) return;
+    const updatedIds = play.lineupIds.filter((id) => id !== lineupId);
+    dbReorderLineups(playId, updatedIds);
+    setPlays(getAllPlays());
+  };
+
+  // Add lineup to Play
+  const handleAddLineupToPlay = (playId: string, lineupId: string) => {
+    const play = plays.find((p) => p.id === playId);
+    if (!play || !lineupId) return;
+    if (play.lineupIds.includes(lineupId)) return;
+    const updatedIds = [...play.lineupIds, lineupId];
+    dbReorderLineups(playId, updatedIds);
+    setPlays(getAllPlays());
+  };
+
+  // Delete Play
+  const handleDeletePlay = (playId: string) => {
+    dbDeletePlay(playId);
+    setPlays(getAllPlays());
+  };
 
   return (
     <div
       data-testid="view-utility-room"
-      className="flex h-full w-full flex-col overflow-hidden bg-background p-4 gap-3 select-none"
+      className="flex h-full w-full flex-col overflow-hidden bg-[#09090b] p-3 gap-2.5 select-none font-mono text-zinc-100"
     >
-      {/* 1. Header: 6 Active Duty Maps Tabs & Preparation Profile */}
-      <div className="flex items-center justify-between border-b border-border-subtle bg-background-panel px-4 py-2.5 rounded text-xs">
-        {/* Active Duty Maps */}
+      {/* 1. TOP HEADER: ACTIVE DUTY MAPS BAR & ACTIVE PLAY BADGE */}
+      <div className="flex items-center justify-between border border-zinc-800 bg-[#0c0c0e] px-3.5 py-2 shrink-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest mr-1">
-            ACTIVE DUTY:
+          <span className="text-[10px] text-zinc-500 uppercase tracking-widest mr-2">
+            [ACTIVE DUTY]:
           </span>
           {COMPETITIVE_MAPS.map((m) => {
             const isCurrent = selectedMap === m.id;
-            const count = mapCounts[m.id];
             return (
               <button
                 key={m.id}
@@ -278,96 +292,77 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                   setSelectedLineupId(null);
                   setSelectedStrategyId(null);
                 }}
-                className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold tracking-wide transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer border ${
                   isCurrent
-                    ? 'bg-tactical-cyan text-zinc-950 font-bold shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-background-elevated'
+                    ? 'border-cyan-400 bg-cyan-950/60 text-cyan-300'
+                    : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
                 }`}
               >
-                <span>{m.label}</span>
-                <span
-                  className={`rounded-full px-1.5 py-0.2 text-[9px] font-mono ${
-                    isCurrent ? 'bg-zinc-950/20 text-zinc-950' : 'bg-background-elevated text-zinc-500'
-                  }`}
-                >
-                  {count.lineups + count.strategies}
-                </span>
+                [{m.label.toUpperCase()}]
               </button>
             );
           })}
         </div>
 
-        {/* Match Preparation Profile Selector */}
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] text-zinc-400">ACTIVE PROFILE:</span>
-          <span className="rounded border border-border-subtle bg-background px-2.5 py-1 font-mono text-[11px] text-zinc-200">
-            {activeProfile?.name ||
-              `[${COMPETITIVE_MAPS.find((m) => m.id === selectedMap)?.label} Default Execution]`}
+          <span className="text-[10px] text-zinc-500">ACTIVE PLAY:</span>
+          <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-400 truncate max-w-[220px]">
+            {plays.find((p) => p.id === activePlayIdState)?.name || 'Default Execute'}
           </span>
-          <button
-            onClick={handleToggleProfileBinding}
-            className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              isProfileBound
-                ? 'bg-tactical-emerald text-zinc-950 font-bold shadow-sm'
-                : 'border border-border-elevated bg-background hover:bg-background-elevated text-zinc-200'
-            }`}
-          >
-            {isProfileBound ? (
-              <>
-                <CheckCircle className="h-3.5 w-3.5" />
-                <span>Bound to Live Context</span>
-              </>
-            ) : (
-              <>
-                <Radio className="h-3.5 w-3.5 text-zinc-400" />
-                <span>Bind to Live Match</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
 
-      {/* 2. Filter & Action Toolbar */}
-      <div className="flex items-center justify-between rounded border border-border-subtle bg-background-container p-2 text-xs gap-3">
+      {/* 2. NAVIGATION & FILTER TOOLBAR */}
+      <div className="flex items-center justify-between border border-zinc-800 bg-[#0c0c0e] px-3 py-2 text-xs gap-3 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* View Mode Toggle: Lineups vs Strategies */}
-          <div className="flex items-center rounded border border-border-subtle bg-background p-0.5 font-mono text-[11px]">
+          {/* Main Sub-Modes: [LINEUPS] | [PLAYS] | [STRATEGIES] */}
+          <div className="flex items-center border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
             <button
               onClick={() => setViewMode('LINEUPS')}
-              className={`rounded px-2.5 py-0.5 transition-colors cursor-pointer ${
+              className={`px-3 py-1 font-bold transition-colors cursor-pointer ${
                 viewMode === 'LINEUPS'
-                  ? 'bg-tactical-cyan text-zinc-950 font-bold'
+                  ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/80'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              LINEUPS ({filteredLineups.length})
+              [LINEUPS ({filteredLineups.length})]
+            </button>
+            <button
+              onClick={() => setViewMode('PLAYS')}
+              className={`px-3 py-1 font-bold transition-colors cursor-pointer ${
+                viewMode === 'PLAYS'
+                  ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/80'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              [PLAYS ({mapPlays.length})]
             </button>
             <button
               onClick={() => setViewMode('STRATEGIES')}
-              className={`rounded px-2.5 py-0.5 transition-colors cursor-pointer ${
+              className={`px-3 py-1 font-bold transition-colors cursor-pointer ${
                 viewMode === 'STRATEGIES'
-                  ? 'bg-tactical-cyan text-zinc-950 font-bold'
+                  ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/80'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              STRATEGIES ({filteredStrategies.length})
+              [STRATEGIES ({filteredStrategies.length})]
             </button>
           </div>
 
           {/* Side Filter */}
-          <div className="flex items-center rounded border border-border-subtle bg-background p-0.5 font-mono text-[11px]">
+          <div className="flex items-center border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
             {(['ALL', 'T', 'CT'] as const).map((side) => (
               <button
                 key={side}
                 onClick={() => setSelectedSide(side)}
-                className={`rounded px-2 py-0.5 transition-colors cursor-pointer ${
+                className={`px-2 py-0.5 transition-colors cursor-pointer font-bold ${
                   selectedSide === side
                     ? side === 'CT'
-                      ? 'bg-tactical-cyan/20 text-tactical-cyan font-bold'
+                      ? 'bg-cyan-950/80 text-cyan-300'
                       : side === 'T'
-                      ? 'bg-tactical-amber/20 text-tactical-amber font-bold'
-                      : 'bg-background-elevated text-zinc-100 font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-amber-950/80 text-amber-300'
+                      : 'bg-zinc-800 text-zinc-100'
+                    : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 {side}
@@ -375,39 +370,20 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
             ))}
           </div>
 
-          {/* Utility Filter (when in LINEUPS view) */}
+          {/* Utility Filter */}
           {viewMode === 'LINEUPS' && (
-            <div className="flex items-center rounded border border-border-subtle bg-background p-0.5 font-mono text-[11px]">
+            <div className="flex items-center border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
               {(['ALL', 'SMOKE', 'FLASHBANG', 'MOLOTOV_INCENDIARY'] as const).map((u) => (
                 <button
                   key={u}
                   onClick={() => setSelectedUtility(u as any)}
-                  className={`rounded px-2 py-0.5 transition-colors cursor-pointer ${
+                  className={`px-2 py-0.5 transition-colors cursor-pointer ${
                     selectedUtility === u
-                      ? 'bg-background-elevated text-zinc-100 font-semibold'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-zinc-800 text-zinc-100 font-bold'
+                      : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
-                  {u === 'MOLOTOV_INCENDIARY' ? 'MOLOTOV' : u}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Strategy Tier Filter (when in STRATEGIES view) */}
-          {viewMode === 'STRATEGIES' && (
-            <div className="flex items-center rounded border border-border-subtle bg-background p-0.5 font-mono text-[11px]">
-              {(['ALL', 'BASIC', 'INTERMEDIATE', 'ADVANCED', 'COORDINATED'] as const).map((tier) => (
-                <button
-                  key={tier}
-                  onClick={() => setSelectedTier(tier as any)}
-                  className={`rounded px-2 py-0.5 transition-colors cursor-pointer ${
-                    selectedTier === tier
-                      ? 'bg-background-elevated text-zinc-100 font-semibold'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  {tier}
+                  {u === 'MOLOTOV_INCENDIARY' ? 'MOLLY' : u}
                 </button>
               ))}
             </div>
@@ -416,29 +392,28 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
           {/* Favorites Filter */}
           <button
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`flex items-center gap-1 rounded border px-2 py-1 font-mono text-[11px] transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 border px-2 py-1 text-[11px] transition-colors cursor-pointer ${
               showFavoritesOnly
-                ? 'border-tactical-amber bg-tactical-amber/10 text-tactical-amber font-bold'
-                : 'border-border-subtle bg-background text-zinc-400 hover:text-zinc-200'
+                ? 'border-amber-400 bg-amber-400/10 text-amber-300 font-bold'
+                : 'border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-tactical-amber' : ''}`} />
-            <span>FAVORITES</span>
+            <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-amber-400' : ''}`} />
+            <span>[FAVORITES]</span>
           </button>
         </div>
 
-        {/* Search Bar & Actions */}
+        {/* Search & Actions */}
         <div className="flex items-center gap-2">
-          {/* Search Input */}
-          <div className="relative w-56">
+          <div className="relative w-52">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search playbook..."
-              className="w-full rounded border border-border-subtle bg-background px-3 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-border-active focus:outline-none pl-8"
+              placeholder="Search..."
+              className="w-full border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-600 focus:outline-none pl-7"
             />
-            <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-zinc-500" />
+            <Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-zinc-600" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
@@ -449,48 +424,315 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
             )}
           </div>
 
-          {/* Action: New Item */}
+          {/* Add Custom Pixel with Screenshot button */}
           <button
             onClick={() => setIsCreatorOpen(true)}
-            className="flex items-center gap-1 rounded border border-border-elevated bg-background hover:bg-background-elevated px-2.5 py-1 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 border border-cyan-500/80 bg-cyan-950/40 hover:bg-cyan-900/60 px-2.5 py-1 text-xs font-bold text-cyan-300 transition-colors cursor-pointer"
           >
-            <Plus className="h-3.5 w-3.5 text-tactical-cyan" />
-            <span>Create</span>
+            <Plus className="h-3.5 w-3.5" />
+            <span>[ + ADD CUSTOM PIXEL ]</span>
           </button>
 
-          {/* Action: Import / Export */}
+          {/* Import / Export */}
           <button
             onClick={() => {
               setImportExportTab('IMPORT');
               setIsImportExportOpen(true);
             }}
-            className="flex items-center gap-1 rounded border border-border-elevated bg-background hover:bg-background-elevated px-2.5 py-1 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer"
+            className="border border-zinc-800 bg-zinc-950 hover:border-zinc-700 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
           >
-            <Download className="h-3.5 w-3.5 text-zinc-400" />
-            <span>JSON I/O</span>
+            [JSON I/O]
           </button>
         </div>
       </div>
 
-      {/* 3. Main Two-Panel Layout */}
-      <div className="flex flex-1 gap-3 overflow-hidden">
-        {/* Left Panel (50%): Lineup or Strategy Playbook List */}
-        <div className="flex flex-col flex-1 rounded border border-border-subtle bg-background-panel p-3 overflow-hidden space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-border-subtle text-xs">
-            <span className="font-semibold text-zinc-200 uppercase tracking-wider">
-              {viewMode === 'LINEUPS' ? 'TACTICAL LINEUPS' : 'COORDINATED STRATEGIES'} (
-              {viewMode === 'LINEUPS' ? filteredLineups.length : filteredStrategies.length})
-            </span>
-            <span className="font-mono text-[10px] text-zinc-500">CSNADES & SCOPE.GG VERIFIED</span>
-          </div>
+      {/* 3. MAIN WORKSPACE */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {/* ================================================================== */}
+        {/* VIEW 1: PLAYS ROUTINE BUILDER                                      */}
+        {/* ================================================================== */}
+        {viewMode === 'PLAYS' && (
+          <div className="flex h-full gap-3 overflow-hidden">
+            {/* Left: Plays List & Creation Form */}
+            <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-3 overflow-y-auto relative">
+              <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
+              <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
+              <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
+              <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
 
-          {/* Cards List */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {viewMode === 'LINEUPS' ? (
-              filteredLineups.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-zinc-500 text-xs">
-                  <Target className="h-8 w-8 mb-2 opacity-40" />
-                  <span>No lineups match the selected criteria.</span>
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                <span className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                  [TACTICAL PLAYS // {selectedMap.toUpperCase().replace('DE_', '')}]
+                </span>
+                <button
+                  onClick={() => setIsCreatingPlay(!isCreatingPlay)}
+                  className="border border-emerald-500/80 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 text-xs font-bold text-emerald-400 transition-colors cursor-pointer"
+                >
+                  {isCreatingPlay ? '[ CANCEL ]' : '[ + CREATE PLAY ]'}
+                </button>
+              </div>
+
+              {/* Inline Create Form */}
+              {isCreatingPlay && (
+                <form
+                  onSubmit={handleCreatePlay}
+                  className="border border-zinc-800 bg-zinc-950 p-3 space-y-2 text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newPlayName}
+                      onChange={(e) => setNewPlayName(e.target.value)}
+                      placeholder="Play Name (e.g. B Site Fast Split)"
+                      className="flex-1 border border-zinc-800 bg-black px-2.5 py-1 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
+                      required
+                    />
+                    <select
+                      value={newPlaySide}
+                      onChange={(e) => setNewPlaySide(e.target.value as TeamSide)}
+                      className="border border-zinc-800 bg-black px-2 py-1 text-xs text-cyan-400 outline-none"
+                    >
+                      <option value="T">T SIDE</option>
+                      <option value="CT">CT SIDE</option>
+                    </select>
+                  </div>
+                  <input
+                    type="text"
+                    value={newPlayDescription}
+                    onChange={(e) => setNewPlayDescription(e.target.value)}
+                    placeholder="Short description / tactical objective"
+                    className="w-full border border-zinc-800 bg-black px-2.5 py-1 text-xs text-zinc-300 focus:outline-none focus:border-cyan-500"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full border border-emerald-500 bg-emerald-500/20 hover:bg-emerald-500/30 py-1.5 text-xs font-bold text-emerald-300 cursor-pointer"
+                  >
+                    [ SAVE PLAY ROUTINE ]
+                  </button>
+                </form>
+              )}
+
+              {/* Plays List */}
+              <div className="space-y-3">
+                {mapPlays.length === 0 ? (
+                  <div className="text-center text-zinc-500 text-xs py-8">
+                    No plays registered for {selectedMap}. Click &quot;[ + CREATE PLAY ]&quot; to build one.
+                  </div>
+                ) : (
+                  mapPlays.map((play) => {
+                    const isActive = play.id === activePlayIdState;
+                    return (
+                      <div
+                        key={play.id}
+                        className={`border p-3 space-y-2 text-xs transition-colors ${
+                          isActive
+                            ? 'border-cyan-400 bg-cyan-950/20'
+                            : 'border-zinc-800 bg-black/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-zinc-100 uppercase">{play.name}</span>
+                            <span className="border border-zinc-800 bg-zinc-900 px-1.5 py-0.2 text-[10px] text-zinc-400">
+                              {play.side}
+                            </span>
+                            {isActive && (
+                              <span className="border border-emerald-500/60 bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 text-[9px] font-bold">
+                                ACTIVE IN-GAME
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {!isActive && (
+                              <button
+                                onClick={() => handleSetActivePlay(play.id)}
+                                className="border border-cyan-500/80 bg-cyan-950/40 hover:bg-cyan-900/60 px-2 py-0.5 text-[10px] font-bold text-cyan-300 cursor-pointer"
+                              >
+                                [ SET ACTIVE ]
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeletePlay(play.id)}
+                              className="text-zinc-600 hover:text-rose-400 p-0.5 cursor-pointer"
+                              title="Delete Play"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-zinc-400">{play.description}</p>
+
+                        {/* Pixel sequence ordered list */}
+                        <div className="space-y-1 pt-1 border-t border-zinc-900">
+                          <span className="text-[10px] text-zinc-500 font-bold uppercase">
+                            ORDERED PIXEL SEQUENCE ({play.lineupIds.length}):
+                          </span>
+                          {play.lineupIds.length === 0 ? (
+                            <div className="text-[10px] text-zinc-600 py-1">
+                              No pixels added yet. Add from the selector below.
+                            </div>
+                          ) : (
+                            play.lineupIds.map((lId, idx) => {
+                              const l = lineups.find((item) => item.id === lId);
+                              return (
+                                <div
+                                  key={lId}
+                                  className="flex items-center justify-between border border-zinc-800 bg-zinc-950/80 px-2 py-1 text-xs"
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="text-[10px] text-zinc-500 font-bold">
+                                      # {String(idx + 1).padStart(2, '0')}.
+                                    </span>
+                                    <span className="truncate text-zinc-200">
+                                      {l ? l.title : lId}
+                                    </span>
+                                    {l && (
+                                      <span className="text-[9px] text-zinc-500 border border-zinc-800 px-1">
+                                        {l.utilityType}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      onClick={() => handleReorderPlayLineup(play.id, idx, 'UP')}
+                                      disabled={idx === 0}
+                                      className="p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 cursor-pointer"
+                                      title="Move Up"
+                                    >
+                                      <ArrowUp className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleReorderPlayLineup(play.id, idx, 'DOWN')}
+                                      disabled={idx === play.lineupIds.length - 1}
+                                      className="p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 cursor-pointer"
+                                      title="Move Down"
+                                    >
+                                      <ArrowDown className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRemovePlayLineup(play.id, lId)}
+                                      className="p-0.5 text-zinc-600 hover:text-rose-400 cursor-pointer ml-1"
+                                      title="Remove from play"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Add pixel to play selector */}
+                        <div className="flex items-center gap-2 pt-1 border-t border-zinc-900">
+                          <select
+                            id={`add-select-${play.id}`}
+                            className="flex-1 border border-zinc-800 bg-zinc-950 px-2 py-1 text-[11px] text-zinc-300 outline-none"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>
+                              Select pixel to add...
+                            </option>
+                            {lineups
+                              .filter((l) => l.map === selectedMap)
+                              .map((l) => (
+                                <option key={l.id} value={l.id}>
+                                  {l.title} ({l.utilityType})
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            onClick={() => {
+                              const sel = document.getElementById(
+                                `add-select-${play.id}`
+                              ) as HTMLSelectElement;
+                              if (sel && sel.value) {
+                                handleAddLineupToPlay(play.id, sel.value);
+                                sel.value = '';
+                              }
+                            }}
+                            className="border border-zinc-700 bg-zinc-900 hover:border-zinc-500 px-2 py-1 text-[11px] font-bold text-zinc-300 cursor-pointer"
+                          >
+                            [ + ADD PIXEL ]
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Right: Active Routine In-Game Guidance */}
+            <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-4 gap-3 overflow-y-auto relative">
+              <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
+              <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
+              <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
+              <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
+
+              <div className="border-b border-zinc-800 pb-2">
+                <span className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                  [IN-GAME PLAY OVERLAY WORKFLOW]
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs text-zinc-400 leading-relaxed">
+                <p>
+                  # Once a Play is set as <strong className="text-emerald-400">Active</strong>, it synchronizes directly with the in-game transparent HUD overlay.
+                </p>
+                <div className="border border-zinc-800 bg-black/60 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="border border-cyan-500 bg-cyan-950 px-2 py-0.5 font-bold text-cyan-300">
+                      F1
+                    </span>
+                    <span className="text-zinc-200 font-semibold">TOGGLE OVERLAY PHOTO</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Shows or hides the current pixel screenshot with high-contrast reticle and 4.5x zoom loupe right over CS2 without losing window focus.
+                  </p>
+                </div>
+
+                <div className="border border-zinc-800 bg-black/60 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="border border-emerald-500 bg-emerald-950 px-2 py-0.5 font-bold text-emerald-300">
+                      F2
+                    </span>
+                    <span className="text-zinc-200 font-semibold">NEXT PIXEL IN ROUTINE</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    After throwing a smoke or flash, press F2 anywhere in Windows to instantly step to the next pixel in your active tactical routine.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================== */}
+        {/* VIEW 2: LINEUPS BROWSER & SCREENSHOT INSPECTOR                     */}
+        {/* ================================================================== */}
+        {viewMode === 'LINEUPS' && (
+          <div className="flex h-full gap-3 overflow-hidden">
+            {/* Left: Filtered Lineups Cards */}
+            <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2 overflow-y-auto relative">
+              <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
+              <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
+              <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
+              <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
+
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800 text-xs">
+                <span className="font-bold text-zinc-100 uppercase tracking-wider">
+                  [TACTICAL LINEUPS ({filteredLineups.length})]
+                </span>
+                <span className="text-[10px] text-zinc-500">CSNADES VERIFIED</span>
+              </div>
+
+              {filteredLineups.length === 0 ? (
+                <div className="text-center text-zinc-500 text-xs py-8">
+                  No lineups match the selected filters.
                 </div>
               ) : (
                 filteredLineups.map((lineup) => {
@@ -499,123 +741,81 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     <div
                       key={lineup.id}
                       onClick={() => setSelectedLineupId(lineup.id)}
-                      className={`rounded border p-2.5 cursor-pointer transition-colors relative flex gap-2.5 ${
+                      className={`border p-2.5 cursor-pointer transition-colors relative flex gap-3 ${
                         isSelected
-                          ? 'border-tactical-cyan bg-background-elevated'
-                          : 'border-border-subtle bg-background hover:border-border-elevated'
+                          ? 'border-cyan-400 bg-cyan-950/20'
+                          : 'border-zinc-800 bg-black/60 hover:border-zinc-700'
                       }`}
                     >
                       {lineup.thumbnailUrl && (
                         <img
                           src={lineup.thumbnailUrl}
                           alt={lineup.title}
-                          className="w-14 h-14 object-cover rounded border border-border-subtle flex-shrink-0"
+                          className="w-16 h-16 object-cover border border-zinc-800 shrink-0"
                         />
                       )}
-                      <div className="flex-1 min-w-0">
+
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-xs text-zinc-200 truncate pr-2">
+                          <span className="font-bold text-xs text-zinc-100 truncate pr-2">
                             {lineup.title}
                           </span>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               onClick={(e) => handleToggleFavoriteLineup(lineup.id, e)}
-                              className="text-zinc-500 hover:text-tactical-amber transition-colors p-0.5 cursor-pointer"
+                              className="text-zinc-500 hover:text-amber-400 p-0.5 cursor-pointer"
                             >
                               <Star
                                 className={`h-3.5 w-3.5 ${
-                                  lineup.favorite ? 'fill-tactical-amber text-tactical-amber' : ''
+                                  lineup.favorite ? 'fill-amber-400 text-amber-400' : ''
                                 }`}
                               />
                             </button>
-                            <span
-                              className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                lineup.side === 'CT'
-                                  ? 'bg-tactical-cyan/20 text-tactical-cyan'
-                                  : 'bg-tactical-amber/20 text-tactical-amber'
-                              }`}
-                            >
+                            <span className="border border-zinc-800 bg-zinc-900 px-1.5 py-0.2 text-[10px] text-zinc-400 font-bold">
                               {lineup.side}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1">
-                          <span className="truncate">De: {lineup.startPosition.callout}</span>
-                          <span className="truncate">Para: {lineup.targetDestination.callout}</span>
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                          <span className="truncate">FROM: {lineup.startPosition.callout}</span>
+                          <span className="truncate">TO: {lineup.targetDestination.callout}</span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                          <span className="rounded bg-background-panel border border-border-subtle px-1.5 py-0.5 font-mono text-[9px] text-zinc-400">
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <span className="border border-zinc-800 bg-zinc-900 px-1.5 py-0.2 text-[9px] text-zinc-400">
                             {lineup.throwType}
                           </span>
-                          <span className="rounded bg-background-panel border border-border-subtle px-1.5 py-0.5 font-mono text-[9px] text-zinc-400">
-                            {lineup.difficulty}
+                          <span className="border border-zinc-800 bg-zinc-900 px-1.5 py-0.2 text-[9px] text-zinc-400">
+                            {lineup.utilityType}
                           </span>
                           {lineup.isCustom && (
-                            <span className="rounded bg-tactical-purple/20 border border-tactical-purple/30 px-1.5 py-0.5 font-mono text-[9px] text-tactical-purple">
-                              CUSTOM
+                            <span className="border border-purple-500/60 bg-purple-500/20 px-1.5 py-0.2 text-[9px] text-purple-300 font-bold">
+                              CUSTOM PRINT
                             </span>
                           )}
-                          <span className="flex items-center gap-1 font-mono text-[9px] text-tactical-emerald ml-auto">
-                            <CheckCircle className="h-2.5 w-2.5" />
-                            <span>CSNADES</span>
-                          </span>
                         </div>
                       </div>
                     </div>
                   );
                 })
-              )
-            ) : filteredStrategies.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-zinc-500 text-xs">
-                <Layers className="h-8 w-8 mb-2 opacity-40" />
-                <span>No strategies match the selected criteria.</span>
-              </div>
-            ) : (
-              filteredStrategies.map((strat) => {
-                const isSelected = activeStrategy?.id === strat.id;
-                return (
-                  <div
-                    key={strat.id}
-                    onClick={() => setSelectedStrategyId(strat.id)}
-                    className={`rounded border p-3 cursor-pointer transition-colors space-y-1.5 ${
-                      isSelected
-                        ? 'border-tactical-cyan bg-background-elevated'
-                        : 'border-border-subtle bg-background hover:border-border-elevated'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-xs text-tactical-cyan truncate pr-2">
-                        {strat.name}
-                      </span>
-                      <span className="rounded bg-tactical-amber/20 px-1.5 py-0.5 font-mono text-[9px] font-bold text-tactical-amber uppercase">
-                        {strat.difficulty}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-400 line-clamp-2">{strat.objective}</p>
-                    <div className="flex items-center gap-2 font-mono text-[10px] text-zinc-500 pt-1">
-                      <span>PHASES: {strat.phases.length}</span>
-                      <span>•</span>
-                      <span>ROLES: {strat.recommendedRoles.join(', ')}</span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+              )}
+            </div>
 
-        {/* Right Panel (50%): Detail Inspector (Lineup or Strategy) */}
-        <div className="flex flex-col flex-1 rounded border border-border-subtle bg-background-panel p-3 overflow-y-auto space-y-3">
-          {viewMode === 'LINEUPS' ? (
-            activeLineup ? (
-              <>
-                <div className="flex items-center justify-between pb-2 border-b border-border-subtle text-xs">
-                  <span className="font-semibold text-zinc-200 uppercase tracking-wider">
-                    LINEUP & LANDMARK INSPECTOR
-                  </span>
-                  <div className="flex items-center gap-2">
+            {/* Right: Screenshot Inspector with Reticle and Zoom Loupe */}
+            <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2 overflow-y-auto relative">
+              <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
+              <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
+              <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
+              <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
+
+              {activeLineup ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2 text-xs">
+                    <span className="font-bold text-zinc-100 uppercase tracking-wider">
+                      [INSPECTOR & OVERLAY PREVIEW]
+                    </span>
+
                     <button
                       onClick={async () => {
                         const isPinned = pinnedLineup?.id === activeLineup.id;
@@ -627,82 +827,56 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                           setPinnedLineup(activeLineup);
                         }
                       }}
-                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                      className={`flex items-center gap-1.5 border px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
                         pinnedLineup?.id === activeLineup.id
-                          ? 'bg-tactical-emerald text-zinc-950 shadow-sm'
-                          : 'border border-tactical-cyan/40 bg-tactical-cyan/15 text-tactical-cyan hover:bg-tactical-cyan/25'
+                          ? 'border-emerald-500/80 bg-emerald-500/20 text-emerald-300'
+                          : 'border-cyan-500/80 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60'
                       }`}
-                      title="Fixa ou remove a foto do pixel real diretamente na tela do jogo"
                     >
                       <Pin className="h-3 w-3" />
-                      <span>{pinnedLineup?.id === activeLineup.id ? 'Fixado na Tela' : 'Fixar na Overlay'}</span>
+                      <span>
+                        {pinnedLineup?.id === activeLineup.id
+                          ? '[ PINNED ON OVERLAY ]'
+                          : '[ PIN TO IN-GAME OVERLAY (F1) ]'}
+                      </span>
                     </button>
-                    <a
-                      href={generateCsnadesUrl(activeLineup)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 text-[11px] text-tactical-cyan hover:underline cursor-pointer"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      <span>CSNADES</span>
-                    </a>
-                    <a
-                      href={generateScopeGgUrl(activeLineup)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 text-[11px] text-tactical-amber hover:underline cursor-pointer"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      <span>Scope.gg</span>
-                    </a>
                   </div>
-                </div>
 
-                {/* Title and metadata */}
-                <div>
-                  <h3 className="text-sm font-semibold text-zinc-100">{activeLineup.title}</h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">{activeLineup.movementRequirements}</p>
-                </div>
-
-                {/* Photo & Crosshair Landmark Visual Reference Box */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span className="font-mono text-[10px] uppercase font-bold text-tactical-cyan">
-                      {activeLineup.imageUrl ? 'FOTO REAL CSNADES (PIXEL & MIRA)' : 'SVG Crosshair Landmark'}
-                    </span>
-                    <span className="font-mono text-[10px] text-zinc-500">
-                      TOLERÂNCIA: ±{activeLineup.startPosition.toleranceUnits || 6} UNITS
-                    </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-100">{activeLineup.title}</h3>
+                    <p className="text-xs text-zinc-400">{activeLineup.movementRequirements}</p>
                   </div>
-                  {activeLineup.imageUrl ? (
-                    <div className="relative flex flex-col items-center justify-center rounded-lg border border-border-subtle bg-zinc-950 p-2 overflow-hidden">
-                      <img
-                        src={activeLineup.imageUrl}
-                        alt={activeLineup.title}
-                        className="w-full max-h-[300px] object-contain rounded"
-                      />
 
-                      {/* 1. HIGH-CONTRAST CENTER AIM RETICLE */}
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20">
-                        <div className="w-9 h-9 rounded-full border-2 border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
-                          <div className="w-2 h-2 bg-rose-500 rounded-full" />
-                        </div>
-                        <div className="absolute -left-3.5 w-3 h-0.5 bg-emerald-400" />
-                        <div className="absolute -right-3.5 w-3 h-0.5 bg-emerald-400" />
-                        <div className="absolute -top-3.5 h-3 w-0.5 bg-emerald-400" />
-                        <div className="absolute -bottom-3.5 h-3 w-0.5 bg-emerald-400" />
-                        <span className="absolute -bottom-5 rounded bg-black/95 border border-rose-500/80 px-1.5 py-0.2 text-[9px] font-mono font-black text-rose-400 uppercase tracking-widest whitespace-nowrap shadow-lg">
-                          MIRAR NO CENTRO
-                        </span>
+                  {/* Photo with Reticle and Loupe */}
+                  <div className="relative flex flex-col items-center justify-center border border-zinc-800 bg-black min-h-[220px] overflow-hidden">
+                    <img
+                      src={activeLineup.imageUrl || activeLineup.thumbnailUrl}
+                      alt={activeLineup.title}
+                      className="w-full max-h-[260px] object-contain"
+                    />
+
+                    {/* Aim Reticle */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
+                      <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
+                        <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
                       </div>
+                      <div className="absolute -left-3 w-2 h-0.5 bg-emerald-400" />
+                      <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
+                      <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
+                      <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
+                      <span className="absolute -bottom-4.5 bg-black/90 border border-rose-500 px-1 py-0.2 text-[8px] font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
+                        AIM TARGET
+                      </span>
+                    </div>
 
-                      {/* 2. 4.5X PRECISION ZOOM LOUPE */}
-                      <div className="absolute bottom-2 left-2 rounded-lg border-2 border-tactical-cyan/80 bg-zinc-950/95 p-1.5 shadow-2xl flex flex-col items-center z-20">
-                        <span className="text-[9px] font-mono font-black text-tactical-cyan px-1 mb-0.5 uppercase tracking-wider">
-                          LUPA ZOOM 4X (PIXEL EXATO)
+                    {/* 4.5x Zoom Loupe */}
+                    {activeLineup.imageUrl && (
+                      <div className="absolute bottom-2 left-2 border border-cyan-400 bg-black/95 p-1 flex flex-col items-center">
+                        <span className="text-[8px] font-bold text-cyan-400 px-1 mb-0.5 uppercase tracking-wider">
+                          4.5X LOUPE
                         </span>
                         <div
-                          className="relative w-36 h-28 rounded border border-zinc-700 overflow-hidden"
+                          className="w-28 h-20 border border-zinc-700 relative overflow-hidden"
                           style={{
                             backgroundImage: `url(${activeLineup.imageUrl})`,
                             backgroundPosition: 'center center',
@@ -711,220 +885,169 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                           }}
                         >
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-full h-px bg-emerald-400/90 absolute" />
-                            <div className="h-full w-px bg-emerald-400/90 absolute" />
-                            <div className="w-2 h-2 rounded-full bg-rose-500 absolute ring-2 ring-emerald-400" />
+                            <div className="w-full h-px bg-emerald-400/80 absolute" />
+                            <div className="h-full w-px bg-emerald-400/80 absolute" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute ring-1 ring-emerald-400" />
                           </div>
                         </div>
                       </div>
+                    )}
+                  </div>
 
-                      {/* 3. Picture-in-picture Landing Bloom Result */}
-                      {activeLineup.thumbnailUrl && (
-                        <div className="absolute bottom-2 right-2 rounded border border-tactical-cyan/60 bg-zinc-950/90 backdrop-blur-md p-1 shadow-xl flex flex-col items-center z-20">
-                          <span className="text-[9px] font-mono font-bold text-tactical-cyan mb-0.5">ONDE CAI (BLOOM)</span>
-                          <img
-                            src={activeLineup.thumbnailUrl}
-                            alt="Landing bloom"
-                            className="w-28 h-18 object-cover rounded"
-                          />
-                        </div>
-                      )}
+                  {/* Aim Reference and Details */}
+                  <div className="border border-zinc-800 bg-black/60 p-2.5 text-xs space-y-1">
+                    <div className="text-zinc-400">
+                      <span className="text-zinc-200 font-bold">AIM PLACEMENT: </span>
+                      {activeLineup.aimReference?.crosshairPlacement || activeLineup.instructions?.[1]}
                     </div>
-                  ) : (
-                    <div
-                      className="flex items-center justify-center rounded border border-border-subtle bg-background p-4 min-h-[160px]"
-                      dangerouslySetInnerHTML={{ __html: activeLineup.svgReference }}
-                    />
-                  )}
-                </div>
-
-                {/* Aim Reference */}
-                <div className="rounded border border-border-subtle bg-background p-2.5 space-y-1 text-xs">
-                  <div className="text-zinc-400">
-                    <span className="font-semibold text-zinc-200">Crosshair Placement: </span>
-                    {activeLineup.aimReference.crosshairPlacement}
-                  </div>
-                  <div className="text-zinc-400">
-                    <span className="font-semibold text-zinc-200">Visual Landmark: </span>
-                    {activeLineup.aimReference.visualLandmark}
-                  </div>
-                </div>
-
-                {/* Step-by-Step Instructions */}
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
-                    Execution Protocol
-                  </h4>
-                  <ol className="space-y-1.5 text-xs text-zinc-300 list-decimal pl-4">
-                    {activeLineup.instructions.map((step, idx) => (
-                      <li key={idx} className="leading-relaxed">
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-
-                {/* Coordinates and Engine Verification */}
-                <div className="rounded border border-border-subtle bg-background p-2 text-[10px] font-mono text-zinc-400 space-y-1 mt-auto">
-                  <div className="flex justify-between">
-                    <span>ANCHOR COORDINATES:</span>
-                    <span>
-                      ({activeLineup.startPosition.x}, {activeLineup.startPosition.y},{' '}
-                      {activeLineup.startPosition.z})
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>TARGET DESTINATION:</span>
-                    <span>
-                      ({activeLineup.targetDestination.x}, {activeLineup.targetDestination.y},{' '}
-                      {activeLineup.targetDestination.z}) — {activeLineup.targetDestination.callout}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-tactical-emerald">
-                    <span>SOURCE ATTRIBUTION:</span>
-                    <span>{activeLineup.sourceAttribution}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-xs">
-                <span>Select a lineup to inspect coordinates and visual landmarks.</span>
-              </div>
-            )
-          ) : activeStrategy ? (
-            <>
-              {/* Strategy Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-border-subtle text-xs">
-                <span className="font-semibold text-zinc-200 uppercase tracking-wider">
-                  STRATEGY TIMELINE & PHASES
-                </span>
-                <span className="rounded bg-tactical-amber/20 px-2 py-0.5 font-mono text-[10px] font-bold text-tactical-amber uppercase">
-                  {activeStrategy.difficulty}
-                </span>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-zinc-100">{activeStrategy.name}</h3>
-                <p className="text-xs text-zinc-400 mt-1">{activeStrategy.objective}</p>
-              </div>
-
-              {/* Roles Breakdown */}
-              <div className="rounded border border-border-subtle bg-background p-2.5 space-y-1 text-xs">
-                <span className="font-mono text-[10px] text-zinc-500 uppercase">RECOMMENDED ROLES:</span>
-                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                  {activeStrategy.recommendedRoles.map((role, idx) => (
-                    <span
-                      key={idx}
-                      className="rounded bg-background-panel border border-border-subtle px-2 py-0.5 font-mono text-[10px] text-zinc-300"
-                    >
-                      {role}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Execution Timeline Phases */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
-                  Tactical Phases Timeline
-                </h4>
-                <div className="space-y-2.5">
-                  {activeStrategy.phases.map((phase) => (
-                    <div
-                      key={phase.phaseNumber}
-                      className="rounded border border-border-subtle bg-background p-2.5 space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded bg-tactical-cyan/20 px-1.5 py-0.2 font-mono text-[10px] font-bold text-tactical-cyan">
-                            PHASE {phase.phaseNumber}
-                          </span>
-                          <span className="text-xs font-medium text-zinc-200">{phase.name}</span>
-                        </div>
-                        <span className="font-mono text-[10px] text-zinc-500 flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> t = {phase.timingSeconds}.0s
-                        </span>
+                    {activeLineup.aimReference?.visualLandmark && (
+                      <div className="text-zinc-400">
+                        <span className="text-zinc-200 font-bold">VISUAL LANDMARK: </span>
+                        {activeLineup.aimReference.visualLandmark}
                       </div>
-                      <p className="text-[11px] text-zinc-400">{phase.instructions}</p>
-
-                      {/* Linked Lineups */}
-                      {phase.linkedLineupIds.length > 0 && (
-                        <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                          <span className="font-mono text-[9px] text-zinc-500">LINEUPS:</span>
-                          {phase.linkedLineupIds.map((lid) => {
-                            const linked = lineups.find((l) => l.id === lid);
-                            return (
-                              <button
-                                key={lid}
-                                onClick={() => {
-                                  if (linked) {
-                                    setSelectedLineupId(linked.id);
-                                    setViewMode('LINEUPS');
-                                  }
-                                }}
-                                className="rounded bg-background-panel border border-border-subtle px-2 py-0.5 font-mono text-[9px] text-tactical-cyan hover:border-tactical-cyan cursor-pointer transition-colors"
-                              >
-                                {linked ? linked.title : lid}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Contingencies & Comms */}
-              {activeStrategy.contingencies.length > 0 && (
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3 text-tactical-amber" />
-                    <span>Contingency Protocols</span>
-                  </h4>
-                  <div className="space-y-1">
-                    {activeStrategy.contingencies.map((c, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded border border-border-subtle bg-background p-2 text-xs space-y-0.5"
-                      >
-                        <div className="text-tactical-amber font-medium text-[11px]">If: {c.trigger}</div>
-                        <div className="text-zinc-400 text-[11px]">Action: {c.action}</div>
-                      </div>
-                    ))}
+                    )}
                   </div>
+
+                  {/* External links */}
+                  <div className="flex items-center gap-3 pt-1 border-t border-zinc-800 text-xs">
+                    <a
+                      href={generateCsnadesUrl(activeLineup)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-cyan-400 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span>CSNADES</span>
+                    </a>
+                    <a
+                      href={generateScopeGgUrl(activeLineup)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-amber-400 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span>Scope.gg</span>
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-zinc-500 text-xs py-8">
+                  Select a lineup to inspect alignment details.
                 </div>
               )}
-
-              {activeStrategy.coordinationNotes && (
-                <div className="rounded border border-border-subtle bg-background p-2 text-xs text-zinc-400">
-                  <span className="font-semibold text-zinc-200">Voice Comms Protocol: </span>
-                  {activeStrategy.coordinationNotes}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-xs">
-              <span>Select a strategy to inspect its timeline and phases.</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* ================================================================== */}
+        {/* VIEW 3: STRATEGIES PLAYBOOK                                        */}
+        {/* ================================================================== */}
+        {viewMode === 'STRATEGIES' && (
+          <div className="flex h-full gap-3 overflow-hidden">
+            <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2 overflow-y-auto relative">
+              <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
+              <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
+              <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
+              <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
+
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800 text-xs">
+                <span className="font-bold text-zinc-100 uppercase tracking-wider">
+                  [TACTICAL STRATEGIES ({filteredStrategies.length})]
+                </span>
+              </div>
+
+              {filteredStrategies.map((strat) => {
+                const isSelected = activeStrategy?.id === strat.id;
+                return (
+                  <div
+                    key={strat.id}
+                    onClick={() => setSelectedStrategyId(strat.id)}
+                    className={`border p-3 cursor-pointer space-y-1.5 transition-colors ${
+                      isSelected
+                        ? 'border-cyan-400 bg-cyan-950/20'
+                        : 'border-zinc-800 bg-black/60 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-cyan-400 truncate pr-2">
+                        {strat.name}
+                      </span>
+                      <span className="border border-zinc-800 bg-zinc-900 px-1.5 py-0.2 text-[9px] text-amber-400 font-bold uppercase">
+                        {strat.difficulty}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 line-clamp-2">{strat.objective}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-zinc-500 pt-1">
+                      <span>PHASES: {strat.phases.length}</span>
+                      <span>•</span>
+                      <span>ROLES: {strat.recommendedRoles.join(', ')}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="w-1/2 flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-3 overflow-y-auto relative">
+              <span className="absolute -top-1 -left-1 text-zinc-500 font-mono text-xs select-none">┌</span>
+              <span className="absolute -top-1 -right-1 text-zinc-500 font-mono text-xs select-none">┐</span>
+              <span className="absolute -bottom-1 -left-1 text-zinc-500 font-mono text-xs select-none">└</span>
+              <span className="absolute -bottom-1 -right-1 text-zinc-500 font-mono text-xs select-none">┘</span>
+
+              {activeStrategy ? (
+                <>
+                  <div className="border-b border-zinc-800 pb-2">
+                    <span className="text-xs font-bold text-zinc-100 uppercase tracking-wider">
+                      [STRATEGY PHASES TIMELINE]
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-100">{activeStrategy.name}</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">{activeStrategy.objective}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {activeStrategy.phases.map((phase) => (
+                      <div
+                        key={phase.phaseNumber}
+                        className="border border-zinc-800 bg-black/60 p-2.5 space-y-1 text-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-cyan-400">
+                            PHASE {phase.phaseNumber}: {phase.name}
+                          </span>
+                          <span className="text-[10px] text-zinc-500">t = {phase.timingSeconds}s</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">{phase.instructions}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-zinc-500 text-xs py-8">
+                  Select a strategy to inspect its timeline.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 4. Custom Lineup & Strategy Creator Modal */}
+      {/* 4. CUSTOM LINEUP CREATOR MODAL WITH SCREENSHOT / CLIPBOARD PASTE */}
       {isCreatorOpen && (
         <LineupCreatorModal
           currentMap={selectedMap}
           onClose={() => setIsCreatorOpen(false)}
           onSaveLineup={(newLineup) => {
-            setLineups((prev) => [newLineup, ...prev]);
+            dbSaveLineup(newLineup);
+            setLineups(getAllLineups());
             setSelectedLineupId(newLineup.id);
             setIsCreatorOpen(false);
           }}
         />
       )}
 
-      {/* 5. JSON Import & Export Modal */}
+      {/* 5. JSON IMPORT / EXPORT MODAL */}
       {isImportExportOpen && (
         <ImportExportModal
           defaultTab={importExportTab}

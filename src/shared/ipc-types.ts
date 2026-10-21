@@ -155,6 +155,17 @@ export interface MatchPreparationProfile {
   createdAt: string;
 }
 
+export interface Play {
+  id: string;
+  name: string;
+  map: CS2Map;
+  side: TeamSide;
+  description?: string;
+  lineupIds: string[]; // Ordered list of lineup IDs
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface MatchRecord {
   id: string;
   map: CS2Map;
@@ -323,8 +334,15 @@ export interface ICS2AssistantAPI {
     getSafeZones(): Promise<SafeZones>;
     setActiveLineupPhoto(lineup: Lineup | null): Promise<void>;
     getActiveLineupPhoto(): Promise<Lineup | null>;
+    toggleActiveLineupPhoto(): Promise<void>;
     onActiveLineupPhotoChange?(callback: (lineup: Lineup | null) => void): () => void;
     onConfigChange?(callback: (config: HudConfig) => void): () => void;
+  };
+
+  // --- Tactical Plays Sequencer ---
+  play?: {
+    nextPixel(): Promise<void>;
+    onNextPixel(callback: () => void): () => void;
   };
 
   // --- Compliance & Capability Gating ---

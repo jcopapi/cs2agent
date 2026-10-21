@@ -20,6 +20,17 @@ describe('Domain 7: Match Detection, Bomb Timer Synchronization & HUD Priority A
     expect(res.capabilities.sourceType).toBe('DISCONNECTED');
   });
 
+  it('7.1b: keeps match active when player presses ESC (activity "menu") during an active match', () => {
+    const escInMatchPayload = {
+      map: { name: 'de_mirage', phase: 'live', round: 5 },
+      player: { activity: 'menu' as const, team: 'T' as const },
+    };
+    const res = parseGsiPayload(escInMatchPayload);
+    expect(res.valid).toBe(true);
+    expect(res.eligibleMatchDetected).toBe(true);
+    expect(res.capabilities.sourceType).toBe('GSI_LIVE');
+  });
+
   it('7.2: synchronizes BombTimerEngine on verified plant event, compensates latency, and evaluates kit thresholds', () => {
     const bomb = new BombTimerEngine();
     const snapStart = bomb.onBombPlanted({

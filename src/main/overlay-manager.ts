@@ -16,6 +16,7 @@ export class OverlayManager {
   private rendererUrl: string;
   private isCalibrationMode: boolean = false;
   private activeLineupPhoto: Lineup | null = null;
+  private lastLineupPhoto: Lineup | null = null;
   private isBombActive: boolean = false;
 
   private currentConfig: HudConfig = {
@@ -49,10 +50,22 @@ export class OverlayManager {
   }
 
   public setActiveLineupPhoto(lineup: Lineup | null): void {
+    if (lineup) {
+      this.lastLineupPhoto = lineup;
+    }
     this.activeLineupPhoto = lineup;
     this.syncVisibility();
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       this.overlayWindow.webContents.send('hud:active-lineup-photo-changed', lineup);
+    }
+  }
+
+  public toggleActiveLineupPhoto(): void {
+    if (this.activeLineupPhoto) {
+      this.lastLineupPhoto = this.activeLineupPhoto;
+      this.setActiveLineupPhoto(null);
+    } else if (this.lastLineupPhoto) {
+      this.setActiveLineupPhoto(this.lastLineupPhoto);
     }
   }
 

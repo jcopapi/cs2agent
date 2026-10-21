@@ -13,4 +13,5 @@ export * from './strategy-database';
 export * from './external-providers';
 export * from './strategy-manager';
 export * from './profile-manager';
+export * from './play-database';
 export * from './json-io';

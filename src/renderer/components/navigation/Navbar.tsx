@@ -60,66 +60,80 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="flex h-12 w-full items-center justify-between border-b border-border-subtle bg-background-container px-4 z-20 select-none">
+    <header className="flex h-12 w-full items-center justify-between border-b border-zinc-800 bg-[#0c0c0e] px-4 z-20 select-none font-mono">
       {/* Left: Brand Identity & Environment Mode */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded border border-border-elevated bg-background-panel text-tactical-cyan">
+          <div className="flex h-6 w-6 items-center justify-center rounded border border-zinc-700 bg-zinc-900 text-tactical-cyan">
             <Radio className="h-3.5 w-3.5" />
           </div>
           <span className="text-xs font-bold tracking-widest text-zinc-100 uppercase">
-            CS2 ASSISTANT
+            [CS2 ASSISTANT]
           </span>
         </div>
         <span
           data-testid="environment-mode-badge"
-          className="rounded border border-border-subtle bg-background-panel px-2 py-0.5 font-mono text-[10px] tracking-wider text-zinc-400 uppercase"
+          className="rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 font-mono text-[10px] tracking-wider text-zinc-400 uppercase"
         >
           {getEnvBadgeLabel(gsiStatus.environment)}
         </span>
+
+        {gsiStatus.activeMatch && (
+          <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400 font-bold uppercase tracking-wider animate-pulse">
+            ^MATCH LIVE: {(gsiStatus.map || 'CS2').toUpperCase().replace('DE_', '')}^
+          </span>
+        )}
       </div>
 
       {/* Center: EXACTLY THREE Primary Destinations */}
-      <nav data-testid="primary-navigation" className="flex items-center gap-1 rounded-lg border border-border-subtle bg-background p-1">
+      <nav data-testid="primary-navigation" className="flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950 p-1">
         <button
-          data-testid="nav-tab-live-match"
-          onClick={() => onSelectDestination('LIVE_MATCH')}
-          className={`flex items-center gap-2 rounded px-3 py-1 text-xs font-medium tracking-wide transition-colors cursor-pointer ${
-            activeDestination === 'LIVE_MATCH'
-              ? 'bg-background-elevated text-zinc-100 border border-border-elevated shadow-subtle'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-background-panel border border-transparent'
+          data-testid="nav-tab-utility-room"
+          onClick={() => onSelectDestination('UTILITY_ROOM')}
+          disabled={Boolean(gsiStatus.activeMatch)}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold tracking-wide transition-colors cursor-pointer ${
+            activeDestination === 'UTILITY_ROOM'
+              ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm'
+              : gsiStatus.activeMatch
+              ? 'text-zinc-600 cursor-not-allowed border border-transparent'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent'
           }`}
+          title={gsiStatus.activeMatch ? 'Suspended during live match to free 100% CPU/RAM' : undefined}
         >
-          <Crosshair className="h-3.5 w-3.5 text-tactical-emerald" />
-          <span>LIVE MATCH</span>
+          <BookOpen className="h-3.5 w-3.5 text-tactical-cyan" />
+          <span>[UTILITY ROOM]</span>
           <span className="font-mono text-[10px] text-zinc-500">[1]</span>
         </button>
 
         <button
-          data-testid="nav-tab-utility-room"
-          onClick={() => onSelectDestination('UTILITY_ROOM')}
-          className={`flex items-center gap-2 rounded px-3 py-1 text-xs font-medium tracking-wide transition-colors cursor-pointer ${
-            activeDestination === 'UTILITY_ROOM'
-              ? 'bg-background-elevated text-zinc-100 border border-border-elevated shadow-subtle'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-background-panel border border-transparent'
+          data-testid="nav-tab-live-match"
+          onClick={() => onSelectDestination('LIVE_MATCH')}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold tracking-wide transition-colors cursor-pointer ${
+            activeDestination === 'LIVE_MATCH'
+              ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent'
           }`}
         >
-          <BookOpen className="h-3.5 w-3.5 text-tactical-cyan" />
-          <span>UTILITY ROOM</span>
+          <Crosshair className={`h-3.5 w-3.5 ${gsiStatus.activeMatch ? 'text-emerald-400 animate-pulse' : 'text-tactical-emerald'}`} />
+          <span>[LIVE GAME]</span>
           <span className="font-mono text-[10px] text-zinc-500">[2]</span>
         </button>
 
         <button
           data-testid="nav-tab-history"
           onClick={() => onSelectDestination('HISTORY')}
-          className={`flex items-center gap-2 rounded px-3 py-1 text-xs font-medium tracking-wide transition-colors cursor-pointer ${
+          disabled={Boolean(gsiStatus.activeMatch)}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold tracking-wide transition-colors cursor-pointer ${
             activeDestination === 'HISTORY'
-              ? 'bg-background-elevated text-zinc-100 border border-border-elevated shadow-subtle'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-background-panel border border-transparent'
+              ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm'
+              : gsiStatus.activeMatch
+              ? 'text-zinc-600 cursor-not-allowed border border-transparent'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent'
           }`}
+          title={gsiStatus.activeMatch ? 'Suspended during live match to free 100% CPU/RAM' : undefined}
         >
           <History className="h-3.5 w-3.5 text-tactical-amber" />
-          <span>HISTORY</span>
+          <span>[HISTORY]</span>
           <span className="font-mono text-[10px] text-zinc-500">[3]</span>
         </button>
       </nav>
@@ -128,22 +142,27 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center gap-3">
         <div
           data-testid="gsi-status-indicator"
-          className="flex items-center gap-2 rounded-full border border-border-subtle bg-background-panel px-2.5 py-1 text-xs font-mono"
+          className="flex items-center gap-2 rounded border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs font-mono"
         >
           {gsiStatus.activeMatch ? (
             <>
-              <span className="h-2 w-2 rounded-full bg-tactical-emerald animate-pulse" />
-              <span className="text-tactical-emerald text-[11px] font-medium tracking-wide">ACTIVE MATCH</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400 text-[11px] font-bold tracking-wide">MATCH LIVE</span>
             </>
           ) : gsiStatus.environment === 'SIMULATION_PREVIEW' ? (
             <>
               <span className="h-2 w-2 rounded-full bg-tactical-cyan" />
-              <span className="text-tactical-cyan text-[11px] font-medium tracking-wide">SIMULATION MODE</span>
+              <span className="text-tactical-cyan text-[11px] font-medium tracking-wide">SIMULATION</span>
+            </>
+          ) : gsiStatus.clientConnected ? (
+            <>
+              <span className="h-2 w-2 rounded-full bg-tactical-amber" />
+              <span className="text-tactical-amber text-[11px] font-medium tracking-wide">LOBBY / MENU</span>
             </>
           ) : (
             <>
-              <span className="h-2 w-2 rounded-full bg-tactical-amber" />
-              <span className="text-zinc-400 text-[11px] font-medium tracking-wide">STANDBY — AWAITING CS2</span>
+              <span className="h-2 w-2 rounded-full bg-zinc-600" />
+              <span className="text-zinc-400 text-[11px] font-medium tracking-wide">STANDBY // READY</span>
             </>
           )}
         </div>
@@ -151,11 +170,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           data-testid="secondary-menu-trigger"
           onClick={() => onOpenSecondaryMenu()}
-          className="flex h-8 w-8 items-center justify-center rounded border border-border-subtle bg-background-panel text-zinc-400 hover:text-zinc-100 hover:bg-background-elevated transition-colors cursor-pointer"
+          className="flex h-8 items-center gap-1.5 rounded border border-zinc-800 bg-zinc-950 px-2.5 text-xs text-zinc-400 hover:text-zinc-100 hover:border-zinc-700 transition-colors cursor-pointer"
           title="Open Settings and Configuration (S)"
           aria-label="Settings and Preferences"
         >
-          <Settings className="h-4 w-4" />
+          <Settings className="h-3.5 w-3.5" />
+          <span>[SETTINGS]</span>
         </button>
       </div>
     </header>

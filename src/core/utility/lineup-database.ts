@@ -2483,19 +2483,115 @@ for (const item of COMPETITIVE_LINEUPS) {
 export const ALL_COMBINED_LINEUPS: Lineup[] = [...COMPETITIVE_LINEUPS, ...CSNADES_REAL_LINEUPS];
 
 // ----------------------------------------------------------------------------
+// Local Persistence & Custom Lineup Management
+// ----------------------------------------------------------------------------
+
+const CUSTOM_LINEUPS_STORAGE_KEY = 'cs2_assistant_custom_lineups_v1';
+const FAVORITES_STORAGE_KEY = 'cs2_assistant_favorite_lineups_v1';
+
+function getLocalStorage(): { getItem(k: string): string | null; setItem(k: string, v: string): void } | null {
+  if (typeof globalThis !== 'undefined' && 'localStorage' in (globalThis as Record<string, unknown>)) {
+    return (globalThis as unknown as { localStorage: { getItem(k: string): string | null; setItem(k: string, v: string): void } }).localStorage;
+  }
+  return null;
+}
+
+function loadStoredCustomLineups(): Lineup[] {
+  const storage = getLocalStorage();
+  if (!storage) return [];
+  try {
+    const raw = storage.getItem(CUSTOM_LINEUPS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadStoredFavorites(): Set<string> {
+  const storage = getLocalStorage();
+  if (!storage) return new Set();
+  try {
+    const raw = storage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+// ----------------------------------------------------------------------------
 // Query and Helper Functions
 // ----------------------------------------------------------------------------
 
 export function getAllLineups(): Lineup[] {
-  return ALL_COMBINED_LINEUPS.map((l) => ({ ...l }));
+  const customs = loadStoredCustomLineups();
+  const favs = loadStoredFavorites();
+
+  const customIds = new Set(customs.map((c) => c.id));
+  const baseLineups = ALL_COMBINED_LINEUPS.filter((l) => !customIds.has(l.id));
+
+  return [...customs, ...baseLineups].map((l) => ({
+    ...l,
+    favorite: favs.has(l.id) || Boolean(l.favorite),
+  }));
+}
+
+export function saveLineup(lineup: Lineup): Lineup {
+  const updated = { ...lineup };
+  const idx = ALL_COMBINED_LINEUPS.findIndex((l) => l.id === lineup.id);
+  if (idx >= 0) {
+    ALL_COMBINED_LINEUPS[idx] = updated;
+  } else {
+    ALL_COMBINED_LINEUPS.unshift(updated);
+  }
+
+  const storage = getLocalStorage();
+  if (storage) {
+    if (lineup.isCustom) {
+      const customs = loadStoredCustomLineups();
+      const cIdx = customs.findIndex((l) => l.id === lineup.id);
+      if (cIdx >= 0) customs[cIdx] = updated;
+      else customs.unshift(updated);
+      storage.setItem(CUSTOM_LINEUPS_STORAGE_KEY, JSON.stringify(customs));
+    }
+
+    const favs = loadStoredFavorites();
+    if (lineup.favorite) favs.add(lineup.id);
+    else favs.delete(lineup.id);
+    storage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(favs)));
+  }
+
+  return updated;
+}
+
+export function deleteLineup(id: string): boolean {
+  const idx = ALL_COMBINED_LINEUPS.findIndex((l) => l.id === id);
+  if (idx >= 0) {
+    ALL_COMBINED_LINEUPS.splice(idx, 1);
+  }
+
+  const storage = getLocalStorage();
+  if (storage) {
+    const customs = loadStoredCustomLineups().filter((l) => l.id !== id);
+    storage.setItem(CUSTOM_LINEUPS_STORAGE_KEY, JSON.stringify(customs));
+
+    const favs = loadStoredFavorites();
+    favs.delete(id);
+    storage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(favs)));
+  }
+
+  return true;
 }
 
 export function getLineupsByMap(map: CS2Map): Lineup[] {
-  return ALL_COMBINED_LINEUPS.filter((l) => l.map === map).map((l) => ({ ...l }));
+  return getAllLineups().filter((l) => l.map === map);
 }
 
 export function getLineupById(id: string): Lineup | null {
-  const found = ALL_COMBINED_LINEUPS.find((l) => l.id === id);
+  const found = getAllLineups().find((l) => l.id === id);
   return found ? { ...found } : null;
 }
 

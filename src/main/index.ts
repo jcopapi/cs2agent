@@ -6,7 +6,7 @@
  * Windows DPAPI credential storage, and IPC registration.
  */
 
-import { app, BrowserWindow, shell, session } from 'electron';
+import { app, BrowserWindow, shell, session, globalShortcut } from 'electron';
 import * as path from 'path';
 import { SafeStorageCredentialStore } from './credential-store';
 import { OverlayManager } from './overlay-manager';
@@ -169,6 +169,21 @@ app.whenReady().then(async () => {
   await createMainWindow();
   overlayManager.createOverlayWindow();
 
+  // Register Global Hotkeys (works even when CS2 has full exclusive OS focus)
+  try {
+    globalShortcut.register('F1', () => {
+      overlayManager?.toggleActiveLineupPhoto();
+      const current = overlayManager?.getActiveLineupPhoto() || null;
+      ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
+    });
+
+    globalShortcut.register('F2', () => {
+      ipcManager?.broadcast('play:next-pixel', null);
+    });
+  } catch (err) {
+    console.warn('[Main] Global shortcuts registration failed:', err);
+  }
+
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       await createMainWindow();
@@ -189,6 +204,11 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   console.log('[Main] Shutting down CS2 Assistant...');
+  try {
+    globalShortcut.unregisterAll();
+  } catch {
+    // ignore
+  }
   if (ipcManager) {
     ipcManager.unregister();
     ipcManager = null;

@@ -178,32 +178,38 @@ export const HudOverlayView: React.FC = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* 2. TOP-RIGHT: FOTO DO PIXEL NA TELA (Real CS2 Screenshot + Lupa 4x)  */}
+      {/* 2. TOP-RIGHT: IN-GAME PIXEL PHOTO OVERLAY (Reticle + 4.5x Zoom Loupe)*/}
       {/* ==================================================================== */}
       {isPhotoActive && activeLineupPhoto && (
-        <div className="absolute top-3 right-3 flex flex-col gap-1.5 pointer-events-none z-50 max-w-[420px] rounded-lg border border-cyan-500/70 bg-black/80 p-2 shadow-2xl">
+        <div className="absolute top-3 right-3 flex flex-col gap-1.5 pointer-events-none z-50 max-w-[420px] border border-cyan-500/70 bg-[#09090b]/90 p-2.5 shadow-2xl relative font-mono">
+          {/* Cyber-brutalist Corner Notches */}
+          <span className="absolute -top-1 -left-1 text-cyan-400 font-mono text-xs select-none">┌</span>
+          <span className="absolute -top-1 -right-1 text-cyan-400 font-mono text-xs select-none">┐</span>
+          <span className="absolute -bottom-1 -left-1 text-cyan-400 font-mono text-xs select-none">└</span>
+          <span className="absolute -bottom-1 -right-1 text-cyan-400 font-mono text-xs select-none">┘</span>
+
           {/* Header */}
           <div className="flex items-center justify-between text-xs font-mono font-black border-b border-zinc-800 pb-1">
-            <div className="flex items-center gap-2 truncate max-w-[300px]">
+            <div className="flex items-center gap-2 truncate max-w-[280px]">
               <span className="h-2 w-2 rounded-full bg-cyan-400" />
               <span className="text-cyan-400 uppercase tracking-wide truncate text-[11px]">
                 {activeLineupPhoto.title}
               </span>
             </div>
-            <span className="rounded bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 px-2 py-0.2 text-[9px] font-bold">
+            <span className="border border-cyan-800/80 bg-cyan-950/80 text-cyan-400 px-1.5 py-0.2 text-[9px] font-bold">
               {activeLineupPhoto.throwType}
             </span>
           </div>
 
-          {/* Real CSNADES In-Game Photo with Aim Reticle & 4x Zoom Loupe */}
-          <div className="relative w-full h-[240px] bg-black/95 rounded overflow-hidden flex items-center justify-center my-0.5 border border-zinc-800/80">
+          {/* Real In-Game Screenshot with Aim Reticle & 4.5x Zoom Loupe */}
+          <div className="relative w-full h-[240px] bg-black rounded overflow-hidden flex items-center justify-center my-0.5 border border-zinc-800">
             <img
               src={activeLineupPhoto.imageUrl || activeLineupPhoto.thumbnailUrl}
               alt={activeLineupPhoto.title}
-              className="w-full h-full object-contain rounded"
+              className="w-full h-full object-contain"
             />
 
-            {/* A. HIGH-CONTRAST CENTER AIM RETICLE (Exact Pixel Landmark) */}
+            {/* A. HIGH-CONTRAST CENTER AIM RETICLE */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20">
               <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.95)] flex items-center justify-center animate-pulse">
                 <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
@@ -212,19 +218,19 @@ export const HudOverlayView: React.FC = () => {
               <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
               <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
               <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
-              <span className="absolute -bottom-4.5 rounded bg-black/95 border border-rose-500/80 px-1 py-0.2 text-[8px] font-mono font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
-                MIRAR AQUI
+              <span className="absolute -bottom-4.5 bg-black/95 border border-rose-500/80 px-1 py-0.2 text-[8px] font-mono font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
+                AIM TARGET
               </span>
             </div>
 
-            {/* B. 4.5X PRECISION ZOOM LOUPE (Magnifies exact landmark at center) */}
+            {/* B. 4.5X PRECISION ZOOM LOUPE */}
             {activeLineupPhoto.imageUrl && (
-              <div className="absolute bottom-1.5 left-1.5 rounded border border-cyan-400 bg-black/95 p-1 shadow-2xl flex flex-col items-center z-20">
+              <div className="absolute bottom-1.5 left-1.5 border border-cyan-400 bg-black/95 p-1 shadow-2xl flex flex-col items-center z-20">
                 <span className="text-[8px] font-mono font-black text-cyan-400 px-1 mb-0.5 uppercase tracking-wider">
-                  LUPA 4X (PIXEL)
+                  4.5X LOUPE
                 </span>
                 <div
-                  className="relative w-24 h-20 rounded border border-zinc-700 overflow-hidden"
+                  className="relative w-24 h-20 border border-zinc-700 overflow-hidden"
                   style={{
                     backgroundImage: `url(${activeLineupPhoto.imageUrl})`,
                     backgroundPosition: 'center center',
@@ -241,38 +247,38 @@ export const HudOverlayView: React.FC = () => {
               </div>
             )}
 
-            {/* C. PICTURE-IN-PICTURE BLOOM (Where it lands) */}
+            {/* C. PICTURE-IN-PICTURE LANDING */}
             {activeLineupPhoto.thumbnailUrl && (
-              <div className="absolute bottom-1.5 right-1.5 rounded border border-zinc-700 bg-black/95 p-1 shadow-md flex flex-col items-center z-20">
-                <span className="text-[8px] font-mono font-bold text-zinc-400 px-1 mb-0.5">ONDE CAI</span>
+              <div className="absolute bottom-1.5 right-1.5 border border-zinc-700 bg-black/95 p-1 shadow-md flex flex-col items-center z-20">
+                <span className="text-[8px] font-mono font-bold text-zinc-400 px-1 mb-0.5">LANDING</span>
                 <img
                   src={activeLineupPhoto.thumbnailUrl}
-                  alt="Bloom"
-                  className="w-18 h-12 object-cover rounded"
+                  alt="Landing"
+                  className="w-18 h-12 object-cover"
                 />
               </div>
             )}
 
-            <div className="absolute top-1.5 left-1.5 bg-black/85 border border-zinc-700 px-2 py-0.5 rounded font-mono text-[9px] text-zinc-300 font-bold z-20">
-              FOTO REAL CS2
+            <div className="absolute top-1.5 left-1.5 bg-black/85 border border-zinc-700 px-2 py-0.5 font-mono text-[9px] text-zinc-300 font-bold z-20">
+              ALIGNMENT GUIDE
             </div>
           </div>
 
-          {/* Alignment instruction & position */}
+          {/* Alignment instructions, position, and hotkey hints */}
           <div className="flex flex-col text-[11px] font-mono text-zinc-300 pt-1 border-t border-zinc-800 gap-0.5">
             <div className="flex items-center justify-between text-zinc-400 text-[10px]">
-              <span>Posição: <strong className="text-zinc-200">{activeLineupPhoto.startPosition?.callout || 'Spawn'}</strong></span>
-              <span className="text-cyan-400 font-bold">[ESC] FECHAR</span>
+              <span>POS: <strong className="text-zinc-200">{activeLineupPhoto.startPosition?.callout || 'Spawn'}</strong></span>
+              <span className="text-cyan-400 font-bold">[F1] HIDE • [F2] NEXT</span>
             </div>
             <div className="text-zinc-100 font-bold text-xs leading-snug flex items-center gap-1.5">
-              <span className="text-rose-400 font-black shrink-0">🎯 MIRA:</span>
+              <span className="text-rose-400 font-black shrink-0">AIM:</span>
               <span className="truncate">
-                {activeLineupPhoto.aimReference?.crosshairPlacement || activeLineupPhoto.instructions?.[1] || 'Alinhe a mira no centro indicado pela retícula'}
+                {activeLineupPhoto.aimReference?.crosshairPlacement || activeLineupPhoto.instructions?.[1] || 'Align crosshair with reticle landmark'}
               </span>
             </div>
             {activeLineupPhoto.aimReference?.visualLandmark && (
               <div className="text-[10px] text-zinc-400 truncate">
-                Referência: <span className="text-cyan-300 font-semibold">{activeLineupPhoto.aimReference.visualLandmark}</span>
+                REF: <span className="text-cyan-300 font-semibold">{activeLineupPhoto.aimReference.visualLandmark}</span>
               </div>
             )}
           </div>

@@ -522,6 +522,16 @@ export class IpcHandlerManager {
       return this.deps.overlayManager.getActiveLineupPhoto();
     });
 
+    this.handle('hud:toggle-active-lineup-photo', async (): Promise<void> => {
+      this.deps.overlayManager.toggleActiveLineupPhoto();
+      const current = this.deps.overlayManager.getActiveLineupPhoto();
+      this.broadcast('hud:active-lineup-photo-changed', current);
+    });
+
+    this.handle('play:next-pixel', async (): Promise<void> => {
+      this.broadcast('play:next-pixel', null);
+    });
+
     // ----------------------------------------------------
     // Compliance & Capability Channels
     // ----------------------------------------------------

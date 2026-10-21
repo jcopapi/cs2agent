@@ -168,6 +168,8 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.invoke('hud:set-active-lineup-photo', lineup),
     getActiveLineupPhoto: (): Promise<Lineup | null> =>
       ipcRenderer.invoke('hud:get-active-lineup-photo'),
+    toggleActiveLineupPhoto: (): Promise<void> =>
+      ipcRenderer.invoke('hud:toggle-active-lineup-photo'),
     onActiveLineupPhotoChange: (callback: (lineup: Lineup | null) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: Lineup | null) => callback(data);
       ipcRenderer.on('hud:active-lineup-photo-changed', handler);
@@ -180,6 +182,18 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.on('hud:config-updated', handler);
       return () => {
         ipcRenderer.removeListener('hud:config-updated', handler);
+      };
+    },
+  },
+
+  play: {
+    nextPixel: (): Promise<void> =>
+      ipcRenderer.invoke('play:next-pixel'),
+    onNextPixel: (callback: () => void): (() => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('play:next-pixel', handler);
+      return () => {
+        ipcRenderer.removeListener('play:next-pixel', handler);
       };
     },
   },

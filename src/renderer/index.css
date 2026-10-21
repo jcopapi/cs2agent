@@ -10,11 +10,26 @@
   html, body {
     background-color: transparent;
     color: #f4f4f5;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Courier New', monospace;
     margin: 0;
     padding: 0;
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
   }
+}
+
+.hatched-bg {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0.025) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+}
+
+.blueprint-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
 }

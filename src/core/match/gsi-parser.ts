@@ -173,13 +173,17 @@ export function parseGsiPayload(
   const mapPhase = payload.map?.phase;
   const playerActivity = payload.player?.activity;
 
-  // Match Detection (Section 3.1): Only mark eligible when a real CS2 map & active phase exist
-  const eligibleMatchDetected = Boolean(
+  // Match Detection:
+  // An active match is detected whenever a valid CS2 map is loaded in a live/warmup/intermission phase.
+  // Note: CS2 GSI reports player.activity = 'menu' when the user presses ESC inside the match (pause/settings).
+  // We preserve match eligibility so pressing ESC in game does not disconnect the live match session.
+  const hasActiveMap = Boolean(
     mapName &&
       mapPhase &&
-      (mapPhase === 'live' || mapPhase === 'warmup' || mapPhase === 'intermission') &&
-      playerActivity !== 'menu'
+      (mapPhase === 'live' || mapPhase === 'warmup' || mapPhase === 'intermission')
   );
+
+  const eligibleMatchDetected = hasActiveMap;
 
   const playerPosition = parseVector3(payload.player?.position);
   const playerAngles = parseViewAngles(payload.player?.forward);
