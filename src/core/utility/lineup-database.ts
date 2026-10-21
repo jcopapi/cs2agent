@@ -2493,7 +2493,11 @@ const unassignedCsnades = CSNADES_REAL_LINEUPS.filter(
   (c) => !c.imageUrl || !assignedImages.has(c.imageUrl)
 );
 
-export const ALL_COMBINED_LINEUPS: Lineup[] = [...COMPETITIVE_LINEUPS, ...unassignedCsnades];
+// Only include lineups that have a valid verified screenshot image
+export const ALL_COMBINED_LINEUPS: Lineup[] = [
+  ...COMPETITIVE_LINEUPS.filter((item) => Boolean(item.imageUrl || item.thumbnailUrl)),
+  ...unassignedCsnades.filter((item) => Boolean(item.imageUrl || item.thumbnailUrl)),
+];
 
 // ----------------------------------------------------------------------------
 // Local Persistence & Custom Lineup Management

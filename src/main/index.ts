@@ -12,6 +12,7 @@ import { SafeStorageCredentialStore } from './credential-store';
 import { OverlayManager } from './overlay-manager';
 import { IpcHandlerManager } from './ipc-handlers';
 import { CapabilityGate } from '../core/compliance/capability-gate';
+import { NativeFocusMonitor } from './native-focus-monitor';
 import type { HotkeyConfig } from '../shared/ipc-types';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,7 @@ let overlayManager: OverlayManager | null = null;
 let ipcManager: IpcHandlerManager | null = null;
 let credentialStore: SafeStorageCredentialStore | null = null;
 let capabilityGate: CapabilityGate | null = null;
+let focusMonitor: NativeFocusMonitor | null = null;
 
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
 const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
@@ -170,86 +172,40 @@ app.whenReady().then(async () => {
     bombLatencyOffsetSec: 1.0,
   };
 
-  let alignHoldTimeout: NodeJS.Timeout | null = null;
-  let overlayHoldTimeout: NodeJS.Timeout | null = null;
+  // Dedicated Native Focus Monitor:
+  // Only listens and triggers overlay commands when CS2 is the active foreground window!
+  // Ensures CapsLock and other keys are NEVER intercepted while typing in other apps.
+  focusMonitor = new NativeFocusMonitor({
+    onAlignDown: () => {
+      overlayManager?.setAlignActive(true);
+      ipcManager?.broadcast('hud:align-state-changed', true);
+    },
+    onAlignUp: () => {
+      overlayManager?.setAlignActive(false);
+      ipcManager?.broadcast('hud:align-state-changed', false);
+    },
+    onOverlayToggle: () => {
+      overlayManager?.toggleActiveLineupPhoto();
+      const current = overlayManager?.getActiveLineupPhoto() || null;
+      ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
+    },
+    onNextPixel: () => {
+      ipcManager?.broadcast('play:next-pixel', null);
+    },
+  });
 
   const registerGlobalHotkeys = (cfg?: Partial<HotkeyConfig>) => {
     if (cfg) {
       hotkeyConfig = { ...hotkeyConfig, ...cfg };
     }
 
-    try {
-      globalShortcut.unregisterAll();
-    } catch {
-      // ignore
-    }
-
-    // 1. Align with Crosshair Key
-    const alignKey = hotkeyConfig.alignKey || 'CapsLock';
-    try {
-      globalShortcut.register(alignKey, () => {
-        if (hotkeyConfig.alignMode === 'HOLD') {
-          if (!overlayManager?.getAlignActive()) {
-            overlayManager?.setAlignActive(true);
-            ipcManager?.broadcast('hud:align-state-changed', true);
-          }
-          if (alignHoldTimeout) clearTimeout(alignHoldTimeout);
-          alignHoldTimeout = setTimeout(() => {
-            if (overlayManager?.getAlignActive()) {
-              overlayManager?.setAlignActive(false);
-              ipcManager?.broadcast('hud:align-state-changed', false);
-            }
-          }, 260);
-        } else {
-          const next = !overlayManager?.getAlignActive();
-          overlayManager?.setAlignActive(next);
-          ipcManager?.broadcast('hud:align-state-changed', next);
-        }
-      });
-    } catch (err) {
-      console.warn(`[Main] Failed to register global shortcut ${alignKey}:`, err);
-    }
-
-    // 2. Overlay / Lineup Key
-    const overlayKey = hotkeyConfig.overlayKey || hotkeyConfig.key || 'F1';
-    if (overlayKey !== alignKey) {
-      try {
-        globalShortcut.register(overlayKey, () => {
-          if (hotkeyConfig.overlayMode === 'HOLD') {
-            const current = overlayManager?.getActiveLineupPhoto();
-            if (!current) {
-              overlayManager?.toggleActiveLineupPhoto();
-              ipcManager?.broadcast('hud:active-lineup-photo-changed', overlayManager?.getActiveLineupPhoto() || null);
-            }
-            if (overlayHoldTimeout) clearTimeout(overlayHoldTimeout);
-            overlayHoldTimeout = setTimeout(() => {
-              if (overlayManager?.getActiveLineupPhoto()) {
-                overlayManager?.setActiveLineupPhoto(null);
-                ipcManager?.broadcast('hud:active-lineup-photo-changed', null);
-              }
-            }, 260);
-          } else {
-            overlayManager?.toggleActiveLineupPhoto();
-            const current = overlayManager?.getActiveLineupPhoto() || null;
-            ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
-          }
-        });
-      } catch (err) {
-        console.warn(`[Main] Failed to register global shortcut ${overlayKey}:`, err);
-      }
-    }
-
-    // 3. Next Pixel Key
-    const nextKey = hotkeyConfig.nextPixelKey || 'F2';
-    if (nextKey !== alignKey && nextKey !== overlayKey) {
-      try {
-        globalShortcut.register(nextKey, () => {
-          ipcManager?.broadcast('play:next-pixel', null);
-        });
-      } catch (err) {
-        console.warn(`[Main] Failed to register global shortcut ${nextKey}:`, err);
-      }
-    }
+    const isEnabled = overlayManager?.getConfig().enabled !== false;
+    focusMonitor?.setEnabled(isEnabled);
+    focusMonitor?.setKeys(
+      hotkeyConfig.alignKey || 'CapsLock',
+      hotkeyConfig.overlayKey || 'F1',
+      hotkeyConfig.nextPixelKey || 'F2'
+    );
   };
 
   // Initialize and register Typed IPC Handlers
@@ -261,6 +217,7 @@ app.whenReady().then(async () => {
     getOverlayWindow: () => overlayManager?.getWindow() || null,
     getHotkeyConfig: () => hotkeyConfig,
     setHotkeyConfig: (cfg) => registerGlobalHotkeys(cfg),
+    setFocusMonitorEnabled: (enabled) => focusMonitor?.setEnabled(enabled),
   });
   ipcManager.register();
 
@@ -295,6 +252,10 @@ app.on('before-quit', () => {
     globalShortcut.unregisterAll();
   } catch {
     // ignore
+  }
+  if (focusMonitor) {
+    focusMonitor.destroy();
+    focusMonitor = null;
   }
   if (ipcManager) {
     ipcManager.unregister();

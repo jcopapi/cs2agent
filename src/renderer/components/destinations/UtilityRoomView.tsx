@@ -3,9 +3,11 @@
  * File: src/renderer/components/destinations/UtilityRoomView.tsx
  *
  * Implements the streamlined two-column split view:
- * - Left: Pixels Explorer (Map selector, C4/Kit side icons, Smoke/Bang/Molly/HE icons, search, cards with '+' button)
- * - Right: Plans Manager (Search, '+' create plan, ordered steps with ▲/▼/✕, active in-game sync)
+ * - Left: Pixels Explorer (Map selector, C4/Kit side icons, Smoke/Bang/Molly/HE icons, search without text placeholder, cards with '+' button)
+ * - Right Top: Plans Manager (Search, '+' create plan, 2-row plan selector, TR/CT side filter, trash can delete, ordered steps with ▲/▼/✕, active in-game sync)
+ * - Right Bottom: Detailed Pixel Inspector (enlarged image with crossed lines on screenshot, reload button, stand/aim landmarks, written tutorial)
  * - Top-Left: Gear icon for Settings
+ * - Custom tooltips on button hover
  * - Custom slim vertical scrollbars with zero horizontal overflow
  */
 
@@ -44,12 +46,19 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
   const [selectedUtility, setSelectedUtility] = useState<UtilityType | 'ALL'>('ALL');
   const [pixelSearch, setPixelSearch] = useState<string>('');
   const [planSearch, setPlanSearch] = useState<string>('');
+  const [planSideFilter, setPlanSideFilter] = useState<TeamSide | 'ALL'>('ALL');
 
   // Database States
   const [lineups, setLineups] = useState<Lineup[]>(() => getAllLineups());
   const [plans, setPlans] = useState<TacticalPlan[]>(() => getAllPlays());
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlayId());
   const [selectedPlanId, setSelectedPlanId] = useState<string>(() => getActivePlayId());
+
+  // Detailed Pixel Inspector State (selected pixel for enlarged view & tutorial)
+  const [inspectedLineup, setInspectedLineup] = useState<Lineup | null>(() => {
+    const all = getAllLineups();
+    return all.length > 0 ? all[0] : null;
+  });
 
   // Failed image trackers for reload/retry
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -58,6 +67,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
   // Plan creation inline state
   const [isCreatingPlan, setIsCreatingPlan] = useState<boolean>(false);
   const [newPlanName, setNewPlanName] = useState<string>('');
+  const [newPlanSide, setNewPlanSide] = useState<TeamSide>('T');
 
   // Toast feedback
   const [actionToast, setActionToast] = useState<string | null>(null);
@@ -84,16 +94,26 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
     });
   }, [lineups, selectedMap, selectedSide, selectedUtility, pixelSearch]);
 
-  // Filtered Plans
+  // Keep inspectedLineup in sync if filtered list changes
+  useEffect(() => {
+    if (filteredLineups.length > 0 && !inspectedLineup) {
+      setInspectedLineup(filteredLineups[0]);
+    }
+  }, [filteredLineups, inspectedLineup]);
+
+  // Filtered Plans (with TR / CT filter & search)
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
+      if (planSideFilter !== 'ALL' && p.side && p.side !== planSideFilter) {
+        return false;
+      }
       if (planSearch.trim()) {
         const q = planSearch.toLowerCase();
         return p.name.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [plans, planSearch]);
+  }, [plans, planSideFilter, planSearch]);
 
   // Current selected plan object
   const currentPlan = useMemo(() => {
@@ -136,7 +156,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
       id: `plan-${Date.now()}`,
       name: newPlanName.trim(),
       map: selectedMap,
-      side: 'T',
+      side: newPlanSide,
       lineupIds: [],
       createdAt: new Date().toISOString(),
     };
@@ -164,6 +184,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
   const handleRetryImage = (id: string) => {
     setFailedImages((prev) => ({ ...prev, [id]: false }));
     setImageReloadKeys((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+    showToast(`RELOADING IMAGE...`);
   };
 
   return (
@@ -190,13 +211,13 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
         )}
       </div>
 
-      {/* Main Split Layout: Left (Pixels) | Right (Plans) */}
+      {/* Main Split Layout: Left (Pixels) | Right (Plans & Inspector) */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 divide-x divide-zinc-800 overflow-hidden">
         {/* ==================================================================== */}
         {/* LEFT COLUMN: PIXELS EXPLORER                                        */}
         {/* ==================================================================== */}
         <div className="flex flex-col h-full overflow-hidden bg-[#09090b] p-3 gap-3">
-          {/* 1. Map Selector (Names only) */}
+          {/* 1. Map Selector (Names only with tooltips) */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar shrink-0">
             {COMPETITIVE_MAPS.map((m) => {
               const active = m.id === selectedMap;
@@ -204,6 +225,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
                 <button
                   key={m.id}
                   onClick={() => setSelectedMap(m.id)}
+                  title={`Map: ${m.label}`}
                   className={`px-3 py-1 text-xs font-bold border transition-colors shrink-0 ${
                     active
                       ? 'border-cyan-400 bg-cyan-950/70 text-cyan-300'
@@ -216,14 +238,14 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
             })}
           </div>
 
-          {/* 2. Filter Row: C4 (T) & Kit (CT) + Grenade Type Icons (Strictly icons) */}
+          {/* 2. Filter Row: C4 (T) & Kit (CT) + Grenade Type Icons (with tooltips) */}
           <div className="flex items-center justify-between border border-zinc-800 bg-[#0c0c0e] px-3 py-1.5 shrink-0">
             {/* Side Icons */}
             <div className="flex items-center gap-1.5">
               {/* T Side: C4 Bomb Icon */}
               <button
                 onClick={() => setSelectedSide(selectedSide === 'T' ? 'ALL' : 'T')}
-                title="T Side (C4)"
+                title="Terrorist (T Side - C4)"
                 className={`p-1.5 border transition-colors ${
                   selectedSide === 'T'
                     ? 'border-amber-500 bg-amber-950/60 text-amber-400'
@@ -240,7 +262,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               {/* CT Side: Defuse Kit Icon */}
               <button
                 onClick={() => setSelectedSide(selectedSide === 'CT' ? 'ALL' : 'CT')}
-                title="CT Side (Defuse Kit)"
+                title="Counter-Terrorist (CT Side - Defuse Kit)"
                 className={`p-1.5 border transition-colors ${
                   selectedSide === 'CT'
                     ? 'border-cyan-400 bg-cyan-950/60 text-cyan-300'
@@ -260,7 +282,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               {/* Smoke */}
               <button
                 onClick={() => setSelectedUtility(selectedUtility === 'SMOKE' ? 'ALL' : 'SMOKE')}
-                title="Smoke"
+                title="Smokes"
                 className={`p-1.5 border transition-colors ${
                   selectedUtility === 'SMOKE'
                     ? 'border-zinc-300 bg-zinc-800 text-zinc-100'
@@ -277,7 +299,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               {/* Flashbang */}
               <button
                 onClick={() => setSelectedUtility(selectedUtility === 'FLASHBANG' ? 'ALL' : 'FLASHBANG')}
-                title="Flashbang"
+                title="Flashbangs"
                 className={`p-1.5 border transition-colors ${
                   selectedUtility === 'FLASHBANG'
                     ? 'border-amber-400 bg-amber-950/60 text-amber-300'
@@ -292,7 +314,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               {/* Molotov */}
               <button
                 onClick={() => setSelectedUtility(selectedUtility === 'MOLOTOV' ? 'ALL' : 'MOLOTOV')}
-                title="Molotov"
+                title="Molotovs / Incendiaries"
                 className={`p-1.5 border transition-colors ${
                   selectedUtility === 'MOLOTOV'
                     ? 'border-rose-500 bg-rose-950/60 text-rose-300'
@@ -307,7 +329,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               {/* HE Grenade */}
               <button
                 onClick={() => setSelectedUtility(selectedUtility === 'HE_GRENADE' ? 'ALL' : 'HE_GRENADE')}
-                title="HE Grenade"
+                title="HE Grenades"
                 className={`p-1.5 border transition-colors ${
                   selectedUtility === 'HE_GRENADE'
                     ? 'border-emerald-500 bg-emerald-950/60 text-emerald-300'
@@ -322,22 +344,27 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
             </div>
           </div>
 
-          {/* 3. Search Bar for Pixels */}
+          {/* 3. Search Bar for Pixels (Placeholder removed as requested) */}
           <div className="relative shrink-0">
             <input
               type="text"
               value={pixelSearch}
               onChange={(e) => setPixelSearch(e.target.value)}
-              placeholder="SEARCH PIXELS..."
+              placeholder=""
               className="w-full bg-[#0c0c0e] border border-zinc-800 text-xs px-3 py-1.5 text-zinc-200 placeholder-zinc-600 focus:border-cyan-500 outline-none"
             />
-            {pixelSearch && (
+            {pixelSearch ? (
               <button
                 onClick={() => setPixelSearch('')}
+                title="Clear Search"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300"
               >
                 ✕
               </button>
+            ) : (
+              <svg className="w-3.5 h-3.5 text-zinc-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             )}
           </div>
 
@@ -347,11 +374,17 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               const hasFailed = failedImages[lineup.id];
               const reloadKey = imageReloadKeys[lineup.id] || 0;
               const imgUrl = lineup.imageUrl || lineup.thumbnailUrl;
+              const isSelected = inspectedLineup?.id === lineup.id;
 
               return (
                 <div
                   key={lineup.id}
-                  className="p-2.5 border border-zinc-800 bg-[#0c0c0e] hover:border-zinc-700 transition-colors flex items-center justify-between gap-3"
+                  onClick={() => setInspectedLineup(lineup)}
+                  className={`p-2.5 border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isSelected
+                      ? 'border-cyan-400 bg-cyan-950/40 shadow-sm'
+                      : 'border-zinc-800 bg-[#0c0c0e] hover:border-zinc-700'
+                  }`}
                 >
                   {/* Thumbnail / Image with Retry State */}
                   <div className="relative w-20 h-14 bg-black border border-zinc-800 rounded shrink-0 overflow-hidden flex items-center justify-center">
@@ -359,7 +392,11 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
                       <div className="flex flex-col items-center justify-center gap-1 p-1">
                         <span className="text-amber-400 text-xs">⚠</span>
                         <button
-                          onClick={() => handleRetryImage(lineup.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRetryImage(lineup.id);
+                          }}
+                          title="Retry Loading Image"
                           className="text-[8px] border border-zinc-700 bg-zinc-900 px-1 py-0.2 text-cyan-400 hover:border-cyan-400"
                         >
                           RETRY
@@ -395,7 +432,10 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
 
                   {/* '+' Button (Strictly '+', no text) */}
                   <button
-                    onClick={() => handleAddPixelToPlan(lineup)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddPixelToPlan(lineup);
+                    }}
                     title={`Add to Plan: ${currentPlan?.name || 'Active'}`}
                     className="w-8 h-8 rounded border border-zinc-700 bg-black hover:border-cyan-400 hover:text-cyan-300 text-zinc-300 font-bold flex items-center justify-center text-sm transition-colors shrink-0"
                   >
@@ -414,200 +454,369 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
         </div>
 
         {/* ==================================================================== */}
-        {/* RIGHT COLUMN: PLANS (Tactical Playbook)                             */}
+        {/* RIGHT COLUMN: PLANS (TOP) & DETAILED INSPECTOR (BOTTOM)              */}
         {/* ==================================================================== */}
         <div className="flex flex-col h-full overflow-hidden bg-[#09090b] p-3 gap-3">
-          {/* 1. Plans Top Bar: Search & '+' Button to Create */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={planSearch}
-                onChange={(e) => setPlanSearch(e.target.value)}
-                placeholder="SEARCH PLANS..."
-                className="w-full bg-[#0c0c0e] border border-zinc-800 text-xs px-3 py-1.5 text-zinc-200 placeholder-zinc-600 focus:border-cyan-500 outline-none"
-              />
-              {planSearch && (
+          {/* ================= TOP HALF: PLANS MANAGER ================= */}
+          <div className="flex flex-col h-1/2 overflow-hidden border border-zinc-800 bg-[#0c0c0e] p-2.5 gap-2">
+            {/* 1. Plans Top Bar: Search, Side Filter (TR/CT), & '+' Create Button */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={planSearch}
+                  onChange={(e) => setPlanSearch(e.target.value)}
+                  placeholder=""
+                  className="w-full bg-black border border-zinc-800 text-xs px-3 py-1 text-zinc-200 placeholder-zinc-600 focus:border-cyan-500 outline-none"
+                />
+                {planSearch ? (
+                  <button
+                    onClick={() => setPlanSearch('')}
+                    title="Clear Search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300"
+                  >
+                    ✕
+                  </button>
+                ) : (
+                  <svg className="w-3.5 h-3.5 text-zinc-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
+              </div>
+
+              {/* Side Filter for Plans: ALL / T / CT */}
+              <div className="flex items-center border border-zinc-800 bg-black">
                 <button
-                  onClick={() => setPlanSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            <button
-              onClick={() => setIsCreatingPlan(!isCreatingPlan)}
-              title="Create New Plan"
-              className="w-8 h-8 border border-cyan-700 bg-cyan-950/70 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900 font-bold flex items-center justify-center text-base transition-colors shrink-0"
-            >
-              +
-            </button>
-          </div>
-
-          {/* Inline Plan Creation Form */}
-          {isCreatingPlan && (
-            <form onSubmit={handleCreatePlanSubmit} className="flex items-center gap-2 border border-cyan-800 bg-cyan-950/30 p-2 shrink-0">
-              <input
-                type="text"
-                autoFocus
-                value={newPlanName}
-                onChange={(e) => setNewPlanName(e.target.value)}
-                placeholder="PLAN NAME..."
-                className="flex-1 bg-black border border-zinc-700 text-xs px-2 py-1 text-zinc-200 outline-none focus:border-cyan-400"
-              />
-              <button
-                type="submit"
-                className="text-xs border border-cyan-500 bg-cyan-950 px-3 py-1 text-cyan-300 font-bold hover:bg-cyan-900"
-              >
-                CREATE
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsCreatingPlan(false)}
-                className="text-xs text-zinc-500 hover:text-zinc-300 px-1"
-              >
-                ✕
-              </button>
-            </form>
-          )}
-
-          {/* 2. Plans Selector Bar */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
-            {filteredPlans.map((p) => {
-              const isSelected = p.id === currentPlan?.id;
-              const isLiveActive = p.id === activePlanId;
-
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPlanId(p.id)}
-                  className={`px-3 py-1.5 text-xs border transition-colors shrink-0 flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'border-cyan-400 bg-cyan-950/70 text-cyan-200'
-                      : 'border-zinc-800 bg-[#0c0c0e] text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                  onClick={() => setPlanSideFilter('ALL')}
+                  title="All Plans"
+                  className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${
+                    planSideFilter === 'ALL' ? 'bg-cyan-950 text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
-                  {isLiveActive && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />}
-                  <span className="font-bold truncate max-w-[120px]">{p.name}</span>
-                  <span className="text-[9px] text-zinc-500 tabular-nums">({p.lineupIds?.length || 0})</span>
+                  ALL
                 </button>
-              );
-            })}
-          </div>
-
-          {/* 3. Selected Plan Header with Active In-Game Sync */}
-          {currentPlan && (
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-2 shrink-0">
-              <div className="flex items-center gap-2 truncate">
-                <span className="text-xs font-bold text-zinc-200 uppercase truncate">
-                  {currentPlan.name}
-                </span>
-                <span className="text-[10px] text-zinc-500 tabular-nums">
-                  [{currentPlan.lineupIds?.length || 0} PIXELS]
-                </span>
+                <button
+                  onClick={() => setPlanSideFilter('T')}
+                  title="Terrorist Plans (T Side)"
+                  className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${
+                    planSideFilter === 'T' ? 'bg-amber-950 text-amber-300' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  T
+                </button>
+                <button
+                  onClick={() => setPlanSideFilter('CT')}
+                  title="Counter-Terrorist Plans (CT Side)"
+                  className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${
+                    planSideFilter === 'CT' ? 'bg-cyan-950 text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  CT
+                </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                {currentPlan.id === activePlanId ? (
-                  <span className="text-[9px] font-black tracking-wider text-cyan-400 border border-cyan-800 bg-cyan-950 px-2 py-0.5">
-                    ● ACTIVE IN-GAME
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => handleSetActivePlan(currentPlan.id)}
-                    className="text-[9px] font-bold border border-zinc-800 hover:border-cyan-500 text-zinc-400 hover:text-cyan-300 px-2 py-0.5 transition-colors"
-                  >
-                    SET ACTIVE
-                  </button>
-                )}
+              <button
+                onClick={() => setIsCreatingPlan(!isCreatingPlan)}
+                title="Create New Plan"
+                className="w-7 h-7 border border-cyan-700 bg-cyan-950/70 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900 font-bold flex items-center justify-center text-sm transition-colors shrink-0"
+              >
+                +
+              </button>
+            </div>
 
+            {/* Inline Plan Creation Form */}
+            {isCreatingPlan && (
+              <form onSubmit={handleCreatePlanSubmit} className="flex items-center gap-2 border border-cyan-800 bg-cyan-950/30 p-1.5 shrink-0">
+                <input
+                  type="text"
+                  autoFocus
+                  value={newPlanName}
+                  onChange={(e) => setNewPlanName(e.target.value)}
+                  placeholder="PLAN NAME..."
+                  className="flex-1 bg-black border border-zinc-700 text-xs px-2 py-0.5 text-zinc-200 outline-none focus:border-cyan-400"
+                />
+                <select
+                  value={newPlanSide}
+                  onChange={(e) => setNewPlanSide(e.target.value as TeamSide)}
+                  className="bg-black border border-zinc-700 text-[10px] text-cyan-300 px-1 py-0.5 outline-none"
+                >
+                  <option value="T">T</option>
+                  <option value="CT">CT</option>
+                </select>
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete plan "${currentPlan.name}"?`)) {
-                      dbDeletePlay(currentPlan.id);
-                      setPlans(getAllPlays());
-                    }
-                  }}
-                  title="Delete Plan"
-                  className="text-zinc-600 hover:text-rose-400 text-xs px-1"
+                  type="submit"
+                  className="text-xs border border-cyan-500 bg-cyan-950 px-2 py-0.5 text-cyan-300 font-bold hover:bg-cyan-900"
+                >
+                  OK
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingPlan(false)}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 px-1"
                 >
                   ✕
                 </button>
-              </div>
+              </form>
+            )}
+
+            {/* 2. Multi-row Plans Selector (2 Rows to reduce horizontal scrolling) */}
+            <div className="flex flex-wrap gap-1.5 max-h-[66px] overflow-y-auto pr-1 shrink-0">
+              {filteredPlans.map((p) => {
+                const isSelected = p.id === currentPlan?.id;
+                const isLiveActive = p.id === activePlanId;
+
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPlanId(p.id)}
+                    title={`Select Plan: ${p.name}`}
+                    className={`px-2 py-1 text-[11px] border transition-colors shrink-0 flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'border-cyan-400 bg-cyan-950/80 text-cyan-200'
+                        : 'border-zinc-800 bg-black/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                    }`}
+                  >
+                    {isLiveActive && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />}
+                    <span className="font-bold truncate max-w-[130px]">{p.name}</span>
+                    <span className="text-[9px] text-zinc-500 tabular-nums">({p.lineupIds?.length || 0})</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
 
-          {/* 4. Ordered Pixels in Selected Plan */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {currentPlan?.lineupIds?.map((lineupId, idx) => {
-              const lineup = lineups.find((l) => l.id === lineupId);
-              if (!lineup) return null;
+            {/* 3. Selected Plan Header with Active In-Game Sync & Trash Can Delete */}
+            {currentPlan && (
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 shrink-0">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="text-xs font-bold text-zinc-200 uppercase truncate">
+                    {currentPlan.name}
+                  </span>
+                  <span className="text-[10px] text-zinc-500 tabular-nums">
+                    [{currentPlan.lineupIds?.length || 0} PIXELS]
+                  </span>
+                </div>
 
-              return (
-                <div
-                  key={`${lineupId}-${idx}`}
-                  className="p-2 border border-zinc-800 bg-[#0c0c0e] flex items-center justify-between gap-2 text-xs"
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums">
-                      #{String(idx + 1).padStart(2, '0')}
+                <div className="flex items-center gap-2">
+                  {currentPlan.id === activePlanId ? (
+                    <span className="text-[9px] font-black tracking-wider text-cyan-400 border border-cyan-800 bg-cyan-950 px-2 py-0.5">
+                      ● ACTIVE IN-GAME
                     </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSetActivePlan(currentPlan.id)}
+                      title="Set as Active In-Game Overlay Plan"
+                      className="text-[9px] font-bold border border-zinc-800 hover:border-cyan-500 text-zinc-400 hover:text-cyan-300 px-2 py-0.5 transition-colors"
+                    >
+                      SET ACTIVE
+                    </button>
+                  )}
 
-                    {/* Miniature thumbnail */}
-                    <div className="w-10 h-7 bg-black border border-zinc-800 rounded shrink-0 overflow-hidden flex items-center justify-center">
-                      {lineup.imageUrl || lineup.thumbnailUrl ? (
-                        <img
-                          src={lineup.imageUrl || lineup.thumbnailUrl}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-[7px] text-zinc-600">NO IMG</span>
-                      )}
+                  {/* Trash Can Delete Icon Button (Strictly for plans as requested) */}
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete plan "${currentPlan.name}"?`)) {
+                        dbDeletePlay(currentPlan.id);
+                        setPlans(getAllPlays());
+                      }
+                    }}
+                    title="Delete Plan"
+                    className="p-1 text-zinc-500 hover:text-rose-400 border border-transparent hover:border-rose-900 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Ordered Pixels in Selected Plan */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+              {currentPlan?.lineupIds?.map((lineupId, idx) => {
+                const lineup = lineups.find((l) => l.id === lineupId);
+                if (!lineup) return null;
+
+                return (
+                  <div
+                    key={`${lineupId}-${idx}`}
+                    onClick={() => setInspectedLineup(lineup)}
+                    className="p-1.5 border border-zinc-800 bg-black/60 hover:border-zinc-700 cursor-pointer flex items-center justify-between gap-2 text-xs transition-colors"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-[10px] font-bold text-zinc-500 tabular-nums">
+                        #{String(idx + 1).padStart(2, '0')}
+                      </span>
+
+                      <div className="w-8 h-6 bg-black border border-zinc-800 rounded shrink-0 overflow-hidden flex items-center justify-center">
+                        {lineup.imageUrl || lineup.thumbnailUrl ? (
+                          <img
+                            src={lineup.imageUrl || lineup.thumbnailUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[7px] text-zinc-600">NO IMG</span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col truncate">
+                        <span className="font-bold text-zinc-200 truncate text-[11px]">{lineup.title}</span>
+                        <span className="text-[9px] text-zinc-500 truncate">{lineup.throwType}</span>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col truncate">
-                      <span className="font-bold text-zinc-200 truncate">{lineup.title}</span>
-                      <span className="text-[9px] text-zinc-500 truncate">{lineup.throwType}</span>
+                    {/* Ordering (▲ / ▼) and Delete (✕) */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        disabled={idx === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMovePixel(idx, 'UP');
+                        }}
+                        title="Move Step Up"
+                        className="p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-20 text-[10px]"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        disabled={idx === (currentPlan.lineupIds?.length || 0) - 1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMovePixel(idx, 'DOWN');
+                        }}
+                        title="Move Step Down"
+                        className="p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-20 text-[10px]"
+                      >
+                        ▼
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemovePixel(idx);
+                        }}
+                        title="Remove from Plan"
+                        className="p-0.5 text-zinc-500 hover:text-rose-400 text-xs ml-1"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
+                );
+              })}
 
-                  {/* Ordering (▲ / ▼) and Delete (✕) */}
-                  <div className="flex items-center gap-1 shrink-0">
+              {(!currentPlan?.lineupIds || currentPlan.lineupIds.length === 0) && (
+                <div className="h-full flex flex-col items-center justify-center text-zinc-600 text-xs gap-1">
+                  <span>THIS PLAN HAS NO PIXELS YET</span>
+                  <span className="text-[9px] text-zinc-700">Click '+' on any pixel from the left column to add</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ================= BOTTOM HALF: DETAILED PIXEL INSPECTOR ================= */}
+          {/* Enlarged image with crossed lines on screenshot, reload button, stand/aim landmarks, written tutorial */}
+          <div className="flex flex-col h-1/2 overflow-hidden border border-zinc-800 bg-[#0c0c0e] p-2.5 gap-2">
+            {inspectedLineup ? (
+              <div className="flex flex-col h-full overflow-hidden">
+                {/* Header: Title, Throw Type, and Reload Button */}
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 shrink-0">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 shrink-0" />
+                    <span className="text-xs font-bold text-zinc-100 uppercase truncate">
+                      {inspectedLineup.title}
+                    </span>
+                    <span className="border border-cyan-800 bg-cyan-950 text-cyan-300 px-1.5 py-0.2 text-[9px] font-bold shrink-0">
+                      {inspectedLineup.throwType}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      disabled={idx === 0}
-                      onClick={() => handleMovePixel(idx, 'UP')}
-                      title="Move Up"
-                      className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-20 text-[10px]"
+                      onClick={() => handleRetryImage(inspectedLineup.id)}
+                      title="Reload / Refresh Screenshot"
+                      className="border border-zinc-700 bg-black text-[9px] px-2 py-0.5 text-cyan-300 hover:border-cyan-400 hover:bg-zinc-900 flex items-center gap-1 transition-colors"
                     >
-                      ▲
+                      <span>↻</span> RELOAD
                     </button>
                     <button
-                      disabled={idx === (currentPlan.lineupIds?.length || 0) - 1}
-                      onClick={() => handleMovePixel(idx, 'DOWN')}
-                      title="Move Down"
-                      className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-20 text-[10px]"
+                      onClick={() => handleAddPixelToPlan(inspectedLineup)}
+                      title="Add to Active Plan"
+                      className="border border-cyan-700 bg-cyan-950 text-[9px] px-2 py-0.5 text-cyan-200 font-bold hover:bg-cyan-900 transition-colors"
                     >
-                      ▼
-                    </button>
-                    <button
-                      onClick={() => handleRemovePixel(idx)}
-                      title="Remove"
-                      className="p-1 text-zinc-500 hover:text-rose-400 text-xs ml-1"
-                    >
-                      ✕
+                      + ADD TO PLAN
                     </button>
                   </div>
                 </div>
-              );
-            })}
 
-            {(!currentPlan?.lineupIds || currentPlan.lineupIds.length === 0) && (
-              <div className="h-48 flex flex-col items-center justify-center text-zinc-600 text-xs gap-1">
-                <span>THIS PLAN HAS NO PIXELS YET</span>
-                <span className="text-[10px] text-zinc-700">Click '+' on any pixel from the left column to add</span>
+                {/* Content: Enlarged Image (Left) + Description & Tutorial (Right) */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 overflow-hidden">
+                  {/* Left: Enlarged Screenshot with Crossed Lines ON the image */}
+                  <div className="relative h-full bg-black border border-zinc-800 rounded overflow-hidden flex items-center justify-center">
+                    {inspectedLineup.imageUrl || inspectedLineup.thumbnailUrl ? (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <img
+                          key={`${inspectedLineup.id}-${imageReloadKeys[inspectedLineup.id] || 0}`}
+                          src={inspectedLineup.imageUrl || inspectedLineup.thumbnailUrl}
+                          alt={inspectedLineup.title}
+                          className="w-full h-full object-contain"
+                        />
+                        {/* Crossed lines on the screenshot */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1.5" />
+                          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1.5" />
+                          <circle cx="50%" cy="50%" r="6" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
+                          <circle cx="50%" cy="50%" r="2" fill="rgba(244, 63, 94, 0.45)" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <span className="text-zinc-600 text-xs">NO SCREENSHOT</span>
+                    )}
+                  </div>
+
+                  {/* Right: Stand, Aim, and Written Step-by-Step Tutorial */}
+                  <div className="flex flex-col h-full overflow-y-auto space-y-2 pr-1 text-xs">
+                    {/* Stand & Aim Landmarks */}
+                    <div className="border border-zinc-800 bg-black/60 p-2 space-y-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="text-zinc-500 font-bold shrink-0">STAND:</span>
+                        <span className="text-zinc-200 text-right font-medium">
+                          {inspectedLineup.startPosition?.callout || 'Position'}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-1 pt-1 border-t border-zinc-900">
+                        <span className="text-cyan-400 font-bold shrink-0">AIM:</span>
+                        <span className="text-cyan-200 text-right font-medium">
+                          {inspectedLineup.aimReference?.crosshairPlacement ||
+                            inspectedLineup.instructions?.[1] ||
+                            'Aim at visual landmark'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Written Step-by-Step Tutorial */}
+                    <div className="border border-zinc-800 bg-black/60 p-2 flex-1 space-y-1.5">
+                      <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
+                        // STEP-BY-STEP TUTORIAL
+                      </div>
+                      <div className="space-y-1 text-[11px] text-zinc-300">
+                        {inspectedLineup.instructions && inspectedLineup.instructions.length > 0 ? (
+                          inspectedLineup.instructions.map((step, sIdx) => (
+                            <div key={sIdx} className="flex items-start gap-1.5">
+                              <span className="text-cyan-500 font-bold">{sIdx + 1}.</span>
+                              <span>{step}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-zinc-500">Stand at position and align crosshair with reference image.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-zinc-600 text-xs">
+                SELECT A PIXEL TO VIEW DETAILS & TUTORIAL
               </div>
             )}
           </div>

@@ -99,6 +99,104 @@ export function parseViewAngles(raw?: string): { pitch: number; yaw: number } | 
  * Validates and normalizes an incoming CS2 GSI JSON payload.
  * Never throws on malformed input; returns structured validation diagnostics.
  */
+export function detectBombSite(
+  payload: any,
+  playerPos?: { x: number; y: number; z: number }
+): 'A' | 'B' | null {
+  // 1. Explicit GSI bomb site payload field
+  const rawSite = payload.bomb?.site;
+  if (
+    rawSite === 'A' ||
+    rawSite === 'a' ||
+    rawSite === 0 ||
+    rawSite === '0' ||
+    String(rawSite).toLowerCase().includes('site_a') ||
+    String(rawSite).toLowerCase().includes('bombsite_a')
+  ) {
+    return 'A';
+  }
+  if (
+    rawSite === 'B' ||
+    rawSite === 'b' ||
+    rawSite === 1 ||
+    rawSite === '1' ||
+    String(rawSite).toLowerCase().includes('site_b') ||
+    String(rawSite).toLowerCase().includes('bombsite_b')
+  ) {
+    return 'B';
+  }
+
+  // 2. Player place name during plant or defuse
+  const place = String(payload.player?.place || '').toLowerCase();
+  if (
+    place.includes('bombsitea') ||
+    place.includes('site a') ||
+    place === 'a' ||
+    place.includes('sitea') ||
+    place.includes('asite')
+  ) {
+    return 'A';
+  }
+  if (
+    place.includes('bombsiteb') ||
+    place.includes('site b') ||
+    place === 'b' ||
+    place.includes('siteb') ||
+    place.includes('bsite')
+  ) {
+    return 'B';
+  }
+
+  // 3. Bomb coordinates or planting player coordinates
+  let x: number | undefined;
+  let y: number | undefined;
+  let z: number | undefined;
+
+  if (payload.bomb?.position) {
+    if (typeof payload.bomb.position === 'string') {
+      const parts = payload.bomb.position.split(',').map((p: string) => parseFloat(p.trim()));
+      if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        [x, y, z] = parts;
+      }
+    } else if (typeof payload.bomb.position === 'object') {
+      x = payload.bomb.position.x;
+      y = payload.bomb.position.y;
+      z = payload.bomb.position.z;
+    }
+  }
+
+  if (x === undefined && playerPos) {
+    x = playerPos.x;
+    y = playerPos.y;
+    z = playerPos.z;
+  }
+
+  if (x !== undefined && y !== undefined) {
+    const map = String(payload.map?.name || '').toLowerCase();
+    if (map.includes('mirage')) {
+      if (y < -300 && x > -700) return 'A';
+      if (y > 0 && x < -500) return 'B';
+    } else if (map.includes('inferno')) {
+      if (y < 1400) return 'A';
+      if (y >= 1400) return 'B';
+    } else if (map.includes('dust2')) {
+      if (x > 0) return 'A';
+      if (x <= 0) return 'B';
+    } else if (map.includes('nuke')) {
+      if (z !== undefined && z < -600) return 'B';
+      return 'A';
+    } else if (map.includes('ancient')) {
+      if (y > 800) return 'A';
+      if (y <= 800) return 'B';
+    } else if (map.includes('anubis')) {
+      if (x > 0) return 'A';
+      if (x <= 0) return 'B';
+    }
+  }
+
+  return null;
+}
+
 export function parseGsiPayload(
   rawInput: unknown,
   expectedAuthToken?: string,
@@ -316,7 +414,7 @@ export function parseGsiPayload(
     bombState = {
       state: rawBombState,
       countdownSeconds: Number.isFinite(parsedCountdown) ? parsedCountdown : undefined,
-      site: null,
+      site: detectBombSite(payload, playerPosition),
     };
   }
 

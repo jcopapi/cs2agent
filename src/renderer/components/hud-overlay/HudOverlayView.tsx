@@ -254,12 +254,21 @@ export const HudOverlayView: React.FC = () => {
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50 overflow-hidden">
           {/* Centered Lineup Image */}
           {(currentLineup.imageUrl || currentLineup.thumbnailUrl) && (
-            <img
-              src={currentLineup.imageUrl || currentLineup.thumbnailUrl}
-              alt=""
-              className="w-full h-full object-contain pointer-events-none"
-              style={{ opacity: hotkeyConfig.alignOpacity ?? 0.5 }}
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              <img
+                src={currentLineup.imageUrl || currentLineup.thumbnailUrl}
+                alt=""
+                className="w-full h-full object-contain pointer-events-none"
+                style={{ opacity: hotkeyConfig.alignOpacity ?? 0.5 }}
+              />
+              {/* Crossed lines on the centered image to align crosshairs */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.5)" strokeWidth="1" />
+                <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.5)" strokeWidth="1" />
+                <circle cx="50%" cy="50%" r="5" fill="none" stroke="rgba(34, 211, 238, 0.5)" strokeWidth="1" />
+                <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.4)" />
+              </svg>
+            </div>
           )}
 
           {/* Simple Lightweight Throw Instruction at Top */}
@@ -275,23 +284,6 @@ export const HudOverlayView: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ==================================================================== */}
-      {/* 2.5 FULL-SCREEN LINEUP CROSSHAIR (Mathematically Centered in Screen) */}
-      {/* Crossing alignment lines with centered, low-opacity red dot          */}
-      {/* ==================================================================== */}
-      {!isAlignActive && isPhotoActive && currentLineup && (
-        <svg className="fixed inset-0 w-screen h-screen pointer-events-none z-30" preserveAspectRatio="none">
-          {/* Horizontal Line passing through exact 50% */}
-          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
-          {/* Vertical Line passing through exact 50% */}
-          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
-          {/* Cyan center target circle at exact (50%, 50%) */}
-          <circle cx="50%" cy="50%" r="5" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
-          {/* Red dot at the EXACT center intersection with lower opacity */}
-          <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.4)" />
-        </svg>
       )}
 
       {/* ==================================================================== */}
@@ -318,14 +310,23 @@ export const HudOverlayView: React.FC = () => {
             </span>
           </div>
 
-          {/* Reference Screenshot: ONLY single photo, zero zoom loupe */}
+          {/* Reference Screenshot: photo with crossing lines ON THE IMAGE showing aim point */}
           <div className="relative w-full h-36 bg-black rounded border border-zinc-800 overflow-hidden flex items-center justify-center">
             {currentLineup.imageUrl || currentLineup.thumbnailUrl ? (
-              <img
-                src={currentLineup.imageUrl || currentLineup.thumbnailUrl}
-                alt={currentLineup.title}
-                className="w-full h-full object-contain"
-              />
+              <>
+                <img
+                  src={currentLineup.imageUrl || currentLineup.thumbnailUrl}
+                  alt={currentLineup.title}
+                  className="w-full h-full object-contain"
+                />
+                {/* Crossed lines on the screenshot */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                  <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
+                  <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
+                  <circle cx="50%" cy="50%" r="5" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
+                  <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.45)" />
+                </svg>
+              </>
             ) : (
               <span className="text-zinc-600 text-xs">NO SCREENSHOT</span>
             )}
@@ -341,11 +342,11 @@ export const HudOverlayView: React.FC = () => {
             </div>
 
             <div className="flex items-start justify-between gap-1">
-              <span className="text-zinc-500 font-bold shrink-0">AIM:</span>
-              <span className="text-cyan-300 text-[10px] text-right truncate">
+              <span className="text-cyan-400 font-bold shrink-0">AIM:</span>
+              <span className="text-cyan-200 text-[10px] text-right font-medium">
                 {currentLineup.aimReference?.crosshairPlacement ||
                   currentLineup.instructions?.[1] ||
-                  'Aim at visual landmark'}
+                  'Aim at landmark'}
               </span>
             </div>
           </div>

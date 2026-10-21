@@ -55,6 +55,7 @@ export interface IpcDependencies {
   getOverlayWindow: () => BrowserWindow | null;
   getHotkeyConfig?: () => any;
   setHotkeyConfig?: (cfg: any) => void;
+  setFocusMonitorEnabled?: (enabled: boolean) => void;
 }
 
 export class IpcHandlerManager {
@@ -154,7 +155,7 @@ export class IpcHandlerManager {
         const initialSec = Math.max(0, (result.bombState?.countdownSeconds ?? 40.0) - latencyOffset);
         this.bombTimer.onBombPlanted({
           plantTimestampMs: now,
-          site: result.bombState?.site || 'A',
+          site: result.bombState?.site ?? null,
           hasKit: result.hasDefuseKit,
           initialSecondsRemaining: initialSec,
         });
@@ -486,7 +487,11 @@ export class IpcHandlerManager {
     });
 
     this.handle('hud:update-config', async (_event, patch: Partial<HudConfig>): Promise<HudConfig> => {
-      return this.deps.overlayManager.updateConfig(patch);
+      const updated = this.deps.overlayManager.updateConfig(patch);
+      if (typeof patch.enabled === 'boolean') {
+        this.deps.setFocusMonitorEnabled?.(patch.enabled);
+      }
+      return updated;
     });
 
     this.handle('hud:set-calibration-mode', async (_event, interactive: boolean): Promise<void> => {

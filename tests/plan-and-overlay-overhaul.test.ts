@@ -9,6 +9,8 @@ import {
   DEFAULT_PLAYS,
 } from '../src/core/utility/play-database';
 import { BombTimerEngine } from '../src/core/bomb-timer/bomb-timer-engine';
+import { detectBombSite } from '../src/core/match/gsi-parser';
+import { getAllLineups } from '../src/core/utility/lineup-database';
 import type { HotkeyConfig } from '../src/shared/ipc-types';
 
 describe('Tactical Plans & Overlay Enhancements', () => {
@@ -110,5 +112,27 @@ describe('Tactical Plans & Overlay Enhancements', () => {
     expect(config.alignOpacity).toBe(0.5);
     expect(config.cornerCardPosition).toBe('TOP_RIGHT');
     expect(config.bombLatencyOffsetSec).toBe(1.0);
+  });
+
+  it('correctly detects bomb site B from payload and coordinates', () => {
+    // 1. Explicit GSI site field
+    expect(detectBombSite({ bomb: { site: 'B' } })).toBe('B');
+    expect(detectBombSite({ bomb: { site: 1 } })).toBe('B');
+    expect(detectBombSite({ bomb: { site: 'A' } })).toBe('A');
+
+    // 2. Player place name
+    expect(detectBombSite({ player: { place: 'BombsiteB' } })).toBe('B');
+    expect(detectBombSite({ player: { place: 'BombsiteA' } })).toBe('A');
+
+    // 3. Mirage coordinates
+    expect(detectBombSite({ map: { name: 'de_mirage' } }, { x: -800, y: 300, z: -100 })).toBe('B');
+    expect(detectBombSite({ map: { name: 'de_mirage' } }, { x: 100, y: -800, z: -100 })).toBe('A');
+  });
+
+  it('guarantees 100% of returned lineups have real screenshot images', () => {
+    const all = getAllLineups();
+    expect(all.length).toBeGreaterThan(0);
+    const missing = all.filter((l) => !l.imageUrl && !l.thumbnailUrl);
+    expect(missing.length).toBe(0);
   });
 });
