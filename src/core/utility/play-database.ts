@@ -231,3 +231,53 @@ export function advanceActivePlayStep(): { play: Play; stepIndex: number; lineup
   setActivePlayStepIndex(nextStep);
   return { play, stepIndex: nextStep, lineupId: play.lineupIds[nextStep] };
 }
+
+export function exportPlayToCode(play: Play): string {
+  const payload = {
+    n: play.name,
+    m: play.map,
+    s: play.side,
+    d: play.description || '',
+    l: play.lineupIds || [],
+  };
+  const jsonStr = JSON.stringify(payload);
+  let b64: string;
+  if (typeof Buffer !== 'undefined') {
+    b64 = Buffer.from(jsonStr, 'utf8').toString('base64');
+  } else {
+    b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+  }
+  return `JCO-${b64}`;
+}
+
+export function importPlayFromCode(rawCode: string): Play | null {
+  try {
+    let clean = rawCode.trim();
+    if (clean.startsWith('JCO-') || clean.startsWith('JCO:')) {
+      clean = clean.slice(4);
+    }
+    let jsonStr: string;
+    if (typeof Buffer !== 'undefined') {
+      jsonStr = Buffer.from(clean, 'base64').toString('utf8');
+    } else {
+      jsonStr = decodeURIComponent(escape(atob(clean)));
+    }
+    const data = JSON.parse(jsonStr);
+    if (!data.n || !Array.isArray(data.l)) {
+      return null;
+    }
+    const newPlay: Play = {
+      id: `play-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: String(data.n),
+      map: (data.m as CS2Map) || 'de_mirage',
+      side: data.s || 'T',
+      description: data.d || 'Imported Plan',
+      lineupIds: data.l,
+      createdAt: new Date().toISOString(),
+    };
+    savePlay(newPlay);
+    return newPlay;
+  } catch {
+    return null;
+  }
+}

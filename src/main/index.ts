@@ -60,7 +60,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
     minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#09090b',
-    title: 'CS2 Assistant',
+    title: 'jco cs2 assistant',
     show: false, // Prevent white flash before content paints
     autoHideMenuBar: true,
     titleBarStyle: 'default',
@@ -108,6 +108,8 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    // Closing the primary launcher terminates the background overlays and shuts down cleanly
+    app.quit();
   });
 
   // Load URL or dist bundle

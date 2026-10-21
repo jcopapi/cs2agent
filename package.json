@@ -1,5 +1,6 @@
 {
-  "name": "cs2-assistant",
+  "name": "jco-cs2-assistant",
+  "productName": "jco cs2 assistant",
   "version": "1.0.0",
   "private": true,
   "description": "Production-grade, Valve-compliant Windows desktop tactical companion for Counter-Strike 2",

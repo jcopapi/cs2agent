@@ -7,6 +7,8 @@ import {
   removePixelFromPlay,
   movePixelInPlay,
   DEFAULT_PLAYS,
+  exportPlayToCode,
+  importPlayFromCode,
 } from '../src/core/utility/play-database';
 import { BombTimerEngine } from '../src/core/bomb-timer/bomb-timer-engine';
 import { detectBombSite } from '../src/core/match/gsi-parser';
@@ -145,6 +147,26 @@ describe('Tactical Plans & Overlay Enhancements', () => {
     // 3. Mirage coordinates
     expect(detectBombSite({ map: { name: 'de_mirage' } }, { x: -800, y: 300, z: -100 })).toBe('B');
     expect(detectBombSite({ map: { name: 'de_mirage' } }, { x: 100, y: -800, z: -100 })).toBe('A');
+  });
+
+  it('exports and imports tactical plans via share code', () => {
+    const originalPlay = DEFAULT_PLAYS[0];
+    const code = exportPlayToCode(originalPlay);
+
+    expect(code).toBeDefined();
+    expect(code.startsWith('JCO-')).toBe(true);
+
+    const imported = importPlayFromCode(code);
+    expect(imported).not.toBeNull();
+    expect(imported?.name).toBe(originalPlay.name);
+    expect(imported?.map).toBe(originalPlay.map);
+    expect(imported?.side).toBe(originalPlay.side);
+    expect(imported?.lineupIds).toEqual(originalPlay.lineupIds);
+
+    // Clean up imported test plan
+    if (imported) {
+      deletePlay(imported.id);
+    }
   });
 
   it('guarantees 100% of returned lineups have real screenshot images', () => {

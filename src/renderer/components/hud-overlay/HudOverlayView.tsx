@@ -289,10 +289,11 @@ export const HudOverlayView: React.FC = () => {
             </div>
           )}
 
-          {/* Simple Lightweight Throw Instruction at Top */}
+          {/* Simple Lightweight Throw & Utility Instruction at Top */}
           <div className="absolute top-10 left-1/2 -translate-x-1/2 pointer-events-none z-50">
             <div className="flex items-center gap-2 border border-white/10 bg-black/70 px-4 py-1 text-xs font-bold text-cyan-300 tracking-wider shadow-lg">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+              <span className="text-white font-black">[{currentLineup.utilityType === 'FLASHBANG' ? 'FLASH' : currentLineup.utilityType}]</span>
               <span>[{currentLineup.throwType}]</span>
               {currentLineup.movementRequirements && (
                 <span className="text-zinc-400 font-normal">
@@ -306,8 +307,8 @@ export const HudOverlayView: React.FC = () => {
 
       {/* ==================================================================== */}
       {/* 3. CORNER REFERENCE CARD (When Overlay is Open & NOT Aligning)       */}
-      {/* Shows ONLY the pixel name, step indicator, and image with crossing   */}
-      {/* lines. Zero clutter, zero text descriptions, zero hotkey reminders. */}
+      {/* Shows ONLY the pixel name, step indicator, utility type, and image   */}
+      {/* with crossing lines. Zero clutter, zero text descriptions.           */}
       {/* ==================================================================== */}
       {!isAlignActive && isPhotoActive && currentLineup && (
         <div className={`absolute ${cornerPosClass} flex flex-col gap-1.5 pointer-events-none z-50 w-72 border border-zinc-800 bg-[#09090b]/90 p-2 shadow-2xl`}>
@@ -317,9 +318,9 @@ export const HudOverlayView: React.FC = () => {
           <span className="absolute -bottom-1 -left-1 text-cyan-400 text-xs select-none">└</span>
           <span className="absolute -bottom-1 -right-1 text-cyan-400 text-xs select-none">┘</span>
 
-          {/* Title & Plan Step Indicator (e.g. [1/4] A Site Stairs Smoke) */}
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-1 text-xs font-bold">
-            <div className="flex items-center gap-1.5 truncate">
+          {/* Title & Plan Step Indicator & Utility Type Badge */}
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-1 text-xs font-bold gap-2">
+            <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
               <span className="h-2 w-2 rounded-full bg-cyan-400 shrink-0" />
               {planStep && planStep.totalSteps > 0 && (
                 <span className="text-cyan-400 font-black text-[11px] tracking-wider shrink-0">
@@ -330,6 +331,24 @@ export const HudOverlayView: React.FC = () => {
                 {currentLineup.title}
               </span>
             </div>
+
+            <span
+              className={`px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase shrink-0 border ${
+                currentLineup.utilityType === 'SMOKE'
+                  ? 'border-cyan-800 bg-cyan-950/80 text-cyan-300'
+                  : currentLineup.utilityType === 'FLASHBANG'
+                  ? 'border-amber-800 bg-amber-950/80 text-amber-300'
+                  : currentLineup.utilityType === 'MOLOTOV' || currentLineup.utilityType === 'MOLOTOV_INCENDIARY'
+                  ? 'border-orange-800 bg-orange-950/80 text-orange-400'
+                  : 'border-rose-800 bg-rose-950/80 text-rose-300'
+              }`}
+            >
+              {currentLineup.utilityType === 'FLASHBANG'
+                ? 'FLASH'
+                : currentLineup.utilityType === 'MOLOTOV_INCENDIARY'
+                ? 'MOLY'
+                : currentLineup.utilityType}
+            </span>
           </div>
 
           {/* Reference Screenshot: photo with crossing lines ON THE IMAGE showing aim point */}

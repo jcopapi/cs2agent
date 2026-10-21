@@ -120,21 +120,13 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#09090b] text-[#f4f4f5] font-mono select-none overflow-hidden p-4">
-      {/* Top Bar: Match Telemetry & Settings Icon */}
+      {/* Top Bar: Minimal Map Indicator & Settings Icon */}
       <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs font-black tracking-widest text-zinc-100 uppercase">
-            [OVERLAY CENTER // {currentMap}]
+            [{currentMap}]
           </span>
-          <span className="text-xs text-zinc-400 tracking-wider">
-            CT <span className="text-cyan-400 font-bold">{ctScore}</span> : <span className="text-amber-400 font-bold">{tScore}</span> T
-          </span>
-          {matchStatus?.round && (
-            <span className="text-[10px] text-zinc-500 border-l border-zinc-800 pl-2">
-              ROUND {matchStatus.round}
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -173,8 +165,8 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold truncate">{p.name}</span>
-                    <span className="text-[9px] border border-zinc-800 px-1 py-0.2 text-zinc-500">
-                      {p.lineupIds?.length || 0} PIXELS
+                    <span className="text-[10px] font-bold text-zinc-400 tabular-nums">
+                      {p.lineupIds?.length || 0}
                     </span>
                   </div>
                   {isActive && (

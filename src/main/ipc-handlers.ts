@@ -88,6 +88,7 @@ export class IpcHandlerManager {
   private lastAiCoachRequestMs: number = 0;
   private lastGsiBroadcastMs: number = 0;
   private lastBroadcastStatus: GsiStatus | null = null;
+  private heartbeatWatchdog: NodeJS.Timeout | null = null;
 
   constructor(deps: IpcDependencies) {
     this.deps = deps;
@@ -257,6 +258,26 @@ export class IpcHandlerManager {
       this.currentGsiStatus.port = res.port;
       this.broadcast('gsi:status-changed', this.currentGsiStatus);
     }).catch(() => {});
+
+    // Match Lifecycle Watchdog: detects when CS2 closes or match disconnects
+    if (this.heartbeatWatchdog) clearInterval(this.heartbeatWatchdog);
+    this.heartbeatWatchdog = setInterval(() => {
+      const lastHeartbeat = this.gsiListener.getLastHeartbeat();
+      if (
+        this.currentGsiStatus.activeMatch &&
+        lastHeartbeat &&
+        Date.now() - lastHeartbeat > 4000
+      ) {
+        this.currentGsiStatus.activeMatch = false;
+        this.currentGsiStatus.clientConnected = false;
+        this.deps.overlayManager.setMatchActive(false);
+        this.deps.overlayManager.setBombActive(false);
+        this.bombTimer.clear();
+        this.broadcast('tactical:bomb-updated', null);
+        this.broadcast('gsi:status-changed', this.currentGsiStatus);
+        this.broadcast('gsi:update', this.currentGsiStatus);
+      }
+    }, 1000);
     // ----------------------------------------------------
     // GSI & Simulation Channels
     // ----------------------------------------------------
@@ -714,6 +735,10 @@ export class IpcHandlerManager {
   }
 
   public unregister(): void {
+    if (this.heartbeatWatchdog) {
+      clearInterval(this.heartbeatWatchdog);
+      this.heartbeatWatchdog = null;
+    }
     this.gsiListener.stop().catch(() => {});
     for (const channel of this.registeredChannels) {
       ipcMain.removeHandler(channel);

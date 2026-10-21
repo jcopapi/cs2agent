@@ -24,6 +24,8 @@ import {
   addPixelToPlay,
   removePixelFromPlay,
   movePixelInPlay,
+  exportPlayToCode,
+  importPlayFromCode,
 } from '../../../core/utility/play-database';
 
 interface UtilityRoomViewProps {
@@ -64,10 +66,12 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [imageReloadKeys, setImageReloadKeys] = useState<Record<string, number>>({});
 
-  // Plan creation inline state
+  // Plan creation & import inline state
   const [isCreatingPlan, setIsCreatingPlan] = useState<boolean>(false);
   const [newPlanName, setNewPlanName] = useState<string>('');
   const [newPlanSide, setNewPlanSide] = useState<TeamSide>('T');
+  const [isImportingPlan, setIsImportingPlan] = useState<boolean>(false);
+  const [importCodeValue, setImportCodeValue] = useState<string>('');
 
   // Pixel Renaming State
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
@@ -200,6 +204,30 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
     setNewPlanName('');
     setIsCreatingPlan(false);
     showToast(`PLAN CREATED`);
+  };
+
+  const handleExportPlan = (plan: TacticalPlan) => {
+    const code = exportPlayToCode(plan);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(code);
+    }
+    showToast(`PLAN CODE COPIED TO CLIPBOARD`);
+  };
+
+  const handleImportPlanSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importCodeValue.trim()) return;
+    const imported = importPlayFromCode(importCodeValue.trim());
+    if (imported) {
+      const all = getAllPlays();
+      setPlans(all);
+      setSelectedPlanId(imported.id);
+      setIsImportingPlan(false);
+      setImportCodeValue('');
+      showToast(`PLAN IMPORTED: ${imported.name}`);
+    } else {
+      showToast(`INVALID PLAN CODE`);
+    }
   };
 
   // Set as In-Game Active Plan
@@ -558,13 +586,53 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               </div>
 
               <button
-                onClick={() => setIsCreatingPlan(!isCreatingPlan)}
+                onClick={() => {
+                  setIsCreatingPlan(!isCreatingPlan);
+                  setIsImportingPlan(false);
+                }}
                 title="Create New Plan"
                 className="w-7 h-7 border border-cyan-700 bg-cyan-950/70 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900 font-bold flex items-center justify-center text-sm transition-colors shrink-0"
               >
                 +
               </button>
+              <button
+                onClick={() => {
+                  setIsImportingPlan(!isImportingPlan);
+                  setIsCreatingPlan(false);
+                }}
+                title="Import Plan from Share Code"
+                className="w-7 h-7 border border-zinc-700 bg-black text-cyan-400 hover:border-cyan-400 hover:bg-zinc-900 font-bold flex items-center justify-center text-xs transition-colors shrink-0"
+              >
+                ↓
+              </button>
             </div>
+
+            {/* Inline Plan Import Form */}
+            {isImportingPlan && (
+              <form onSubmit={handleImportPlanSubmit} className="flex items-center gap-2 border border-cyan-800 bg-cyan-950/30 p-1.5 shrink-0">
+                <input
+                  type="text"
+                  autoFocus
+                  value={importCodeValue}
+                  onChange={(e) => setImportCodeValue(e.target.value)}
+                  placeholder="PASTE PLAN CODE (JCO-...)"
+                  className="flex-1 bg-black border border-zinc-700 text-xs px-2 py-0.5 text-zinc-200 outline-none focus:border-cyan-400 font-mono"
+                />
+                <button
+                  type="submit"
+                  className="text-xs border border-cyan-500 bg-cyan-950 px-2 py-0.5 text-cyan-300 font-bold hover:bg-cyan-900"
+                >
+                  IMPORT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsImportingPlan(false)}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 px-1"
+                >
+                  ✕
+                </button>
+              </form>
+            )}
 
             {/* Inline Plan Creation Form */}
             {isCreatingPlan && (
@@ -620,25 +688,36 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
                   >
                     {isLiveActive && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />}
                     <span className="font-bold truncate max-w-[130px]">{p.name}</span>
-                    <span className="text-[9px] text-zinc-500 tabular-nums">({p.lineupIds?.length || 0})</span>
+                    <span className="text-[10px] font-bold text-zinc-400 tabular-nums">{p.lineupIds?.length || 0}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* 3. Selected Plan Header with Active In-Game Sync & Trash Can Delete */}
+            {/* 3. Selected Plan Header with Active In-Game Sync, Export Share Code & Trash Can Delete */}
             {currentPlan && (
               <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 shrink-0">
                 <div className="flex items-center gap-2 truncate">
                   <span className="text-xs font-bold text-zinc-200 uppercase truncate">
                     {currentPlan.name}
                   </span>
-                  <span className="text-[10px] text-zinc-500 tabular-nums">
-                    [{currentPlan.lineupIds?.length || 0} PIXELS]
+                  <span className="text-[10px] font-bold text-cyan-400 tabular-nums">
+                    [{currentPlan.lineupIds?.length || 0}]
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  {/* Share / Export Plan Code */}
+                  <button
+                    onClick={() => handleExportPlan(currentPlan)}
+                    title="Export Plan Share Code"
+                    className="p-1 text-zinc-400 hover:text-cyan-300 border border-zinc-800 hover:border-cyan-700 bg-black transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                  </button>
+
                   {currentPlan.id === activePlanId ? (
                     <span className="text-[9px] font-black tracking-wider text-cyan-400 border border-cyan-800 bg-cyan-950 px-2 py-0.5">
                       ● ACTIVE IN-GAME
