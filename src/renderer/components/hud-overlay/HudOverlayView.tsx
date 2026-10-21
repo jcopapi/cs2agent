@@ -278,6 +278,23 @@ export const HudOverlayView: React.FC = () => {
       )}
 
       {/* ==================================================================== */}
+      {/* 2.5 FULL-SCREEN LINEUP CROSSHAIR (Mathematically Centered in Screen) */}
+      {/* Crossing alignment lines with centered, low-opacity red dot          */}
+      {/* ==================================================================== */}
+      {!isAlignActive && isPhotoActive && currentLineup && (
+        <svg className="fixed inset-0 w-screen h-screen pointer-events-none z-30" preserveAspectRatio="none">
+          {/* Horizontal Line passing through exact 50% */}
+          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
+          {/* Vertical Line passing through exact 50% */}
+          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
+          {/* Cyan center target circle at exact (50%, 50%) */}
+          <circle cx="50%" cy="50%" r="5" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
+          {/* Red dot at the EXACT center intersection with lower opacity */}
+          <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.4)" />
+        </svg>
+      )}
+
+      {/* ==================================================================== */}
       {/* 3. CORNER REFERENCE CARD (When Overlay is Open & NOT Aligning)       */}
       {/* ==================================================================== */}
       {!isAlignActive && isPhotoActive && currentLineup && (

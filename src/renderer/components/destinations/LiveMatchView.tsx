@@ -437,12 +437,13 @@ export const LiveMatchView: React.FC = () => {
                   className="w-full h-full object-contain"
                 />
 
-                {/* High-Contrast Crosshair Center Reference */}
-                <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-cyan-400/80 pointer-events-none" />
-                <div className="absolute left-1/2 top-0 bottom-0 w-[1.5px] bg-cyan-400/80 pointer-events-none" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-cyan-300 flex items-center justify-center pointer-events-none">
-                  <div className="w-1 h-1 bg-rose-500 rounded-full" />
-                </div>
+                {/* Mathematically Centered Full Reticle Reference with Low-Opacity Red Dot */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                  <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
+                  <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
+                  <circle cx="50%" cy="50%" r="4" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
+                  <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.4)" />
+                </svg>
               </div>
 
               {/* Instructions and Controls */}
