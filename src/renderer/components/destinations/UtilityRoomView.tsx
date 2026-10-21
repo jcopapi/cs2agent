@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { CS2Map, TeamSide, UtilityType, Lineup } from '../../../core/utility/types';
 import type { Play as TacticalPlan } from '../../../shared/ipc-types';
-import { getAllLineups } from '../../../core/utility/lineup-database';
+import { getAllLineups, saveLineup } from '../../../core/utility/lineup-database';
 import {
   getAllPlays,
   savePlay as dbSavePlay,
@@ -68,6 +68,39 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
   const [isCreatingPlan, setIsCreatingPlan] = useState<boolean>(false);
   const [newPlanName, setNewPlanName] = useState<string>('');
   const [newPlanSide, setNewPlanSide] = useState<TeamSide>('T');
+
+  // Pixel Renaming State
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
+  const [editingTitleValue, setEditingTitleValue] = useState<string>('');
+
+  // Inspector Preview Mode: 'AIM' (aim point with crosshair) or 'RESULT' (smoke bloom result)
+  const [inspectorViewMode, setInspectorViewMode] = useState<'AIM' | 'RESULT'>('AIM');
+
+  const handleSelectInspectedLineup = (l: Lineup) => {
+    setInspectedLineup(l);
+    setIsEditingTitle(false);
+    setInspectorViewMode('AIM');
+  };
+
+  const handleStartRename = (currentTitle: string) => {
+    setEditingTitleValue(currentTitle);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveRename = () => {
+    if (!inspectedLineup || !editingTitleValue.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const updated = saveLineup({
+      ...inspectedLineup,
+      title: editingTitleValue.trim(),
+    });
+    setLineups(getAllLineups());
+    setInspectedLineup(updated);
+    setIsEditingTitle(false);
+    showToast(`PIXEL RENAMED`);
+  };
 
   // Toast feedback
   const [actionToast, setActionToast] = useState<string | null>(null);
@@ -173,8 +206,17 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
   const handleSetActivePlan = (id: string) => {
     setActivePlayId(id);
     setActivePlanIdState(id);
+    const plan = plans.find((p) => p.id === id) || null;
+    window.cs2Assistant?.play?.setActivePlan?.(plan, 0);
     showToast(`SYNCED TO IN-GAME OVERLAY`);
   };
+
+  useEffect(() => {
+    const active = plans.find((p) => p.id === activePlanId) || null;
+    if (active) {
+      window.cs2Assistant?.play?.setActivePlan?.(active, 0);
+    }
+  }, []);
 
   // Image load error & retry
   const handleImageError = (id: string) => {
@@ -379,7 +421,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               return (
                 <div
                   key={lineup.id}
-                  onClick={() => setInspectedLineup(lineup)}
+                  onClick={() => handleSelectInspectedLineup(lineup)}
                   className={`p-2.5 border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     isSelected
                       ? 'border-cyan-400 bg-cyan-950/40 shadow-sm'
@@ -639,7 +681,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
                 return (
                   <div
                     key={`${lineupId}-${idx}`}
-                    onClick={() => setInspectedLineup(lineup)}
+                    onClick={() => handleSelectInspectedLineup(lineup)}
                     className="p-1.5 border border-zinc-800 bg-black/60 hover:border-zinc-700 cursor-pointer flex items-center justify-between gap-2 text-xs transition-colors"
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -718,13 +760,57 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
           <div className="flex flex-col h-1/2 overflow-hidden border border-zinc-800 bg-[#0c0c0e] p-2.5 gap-2">
             {inspectedLineup ? (
               <div className="flex flex-col h-full overflow-hidden">
-                {/* Header: Title, Throw Type, and Reload Button */}
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 shrink-0">
-                  <div className="flex items-center gap-2 truncate">
+                {/* Header: Title, Rename, Throw Type, and Reload Button */}
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 shrink-0 gap-2">
+                  <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                     <span className="h-2 w-2 rounded-full bg-cyan-400 shrink-0" />
-                    <span className="text-xs font-bold text-zinc-100 uppercase truncate">
-                      {inspectedLineup.title}
-                    </span>
+                    {isEditingTitle ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSaveRename();
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingTitleValue}
+                          onChange={(e) => setEditingTitleValue(e.target.value)}
+                          className="bg-black border border-cyan-400 text-xs px-2 py-0.5 text-zinc-100 outline-none w-48"
+                        />
+                        <button
+                          type="submit"
+                          title="Save Name"
+                          className="text-[9px] border border-cyan-500 bg-cyan-950 px-1.5 py-0.5 text-cyan-300 font-bold hover:bg-cyan-900"
+                        >
+                          SAVE
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTitle(false)}
+                          title="Cancel"
+                          className="text-xs text-zinc-500 hover:text-zinc-300 px-1"
+                        >
+                          ✕
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-xs font-bold text-zinc-100 uppercase truncate">
+                          {inspectedLineup.title}
+                        </span>
+                        <button
+                          onClick={() => handleStartRename(inspectedLineup.title)}
+                          title="Rename Pixel"
+                          className="p-1 text-zinc-500 hover:text-cyan-300 transition-colors shrink-0"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                     <span className="border border-cyan-800 bg-cyan-950 text-cyan-300 px-1.5 py-0.2 text-[9px] font-bold shrink-0">
                       {inspectedLineup.throwType}
                     </span>
@@ -750,23 +836,97 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
 
                 {/* Content: Enlarged Image (Left) + Description & Tutorial (Right) */}
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 overflow-hidden">
-                  {/* Left: Enlarged Screenshot with Crossed Lines ON the image */}
+                  {/* Left: Enlarged Screenshot with Aim / Smoke Result Mode Switcher */}
                   <div className="relative h-full bg-black border border-zinc-800 rounded overflow-hidden flex items-center justify-center">
+                    {/* View Mode Tabs: Aim Point vs Smoke Result */}
+                    <div className="absolute top-1.5 left-1.5 z-20 flex items-center gap-1 bg-black/80 p-0.5 border border-zinc-800 rounded">
+                      <button
+                        onClick={() => setInspectorViewMode('AIM')}
+                        className={`px-2 py-0.5 text-[9px] font-bold rounded transition-colors ${
+                          inspectorViewMode === 'AIM'
+                            ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/50'
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        AIM POINT
+                      </button>
+                      {(inspectedLineup.thumbnailUrl || inspectedLineup.resultImageUrl) && (
+                        <button
+                          onClick={() => setInspectorViewMode('RESULT')}
+                          className={`px-2 py-0.5 text-[9px] font-bold rounded transition-colors ${
+                            inspectorViewMode === 'RESULT'
+                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/50'
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          SMOKE RESULT
+                        </button>
+                      )}
+                    </div>
+
                     {inspectedLineup.imageUrl || inspectedLineup.thumbnailUrl ? (
                       <div className="relative w-full h-full flex items-center justify-center">
-                        <img
-                          key={`${inspectedLineup.id}-${imageReloadKeys[inspectedLineup.id] || 0}`}
-                          src={inspectedLineup.imageUrl || inspectedLineup.thumbnailUrl}
-                          alt={inspectedLineup.title}
-                          className="w-full h-full object-contain"
-                        />
-                        {/* Crossed lines on the screenshot */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
-                          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1.5" />
-                          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1.5" />
-                          <circle cx="50%" cy="50%" r="6" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
-                          <circle cx="50%" cy="50%" r="2" fill="rgba(244, 63, 94, 0.45)" />
-                        </svg>
+                        {inspectorViewMode === 'AIM' ? (
+                          <>
+                            <img
+                              key={`${inspectedLineup.id}-aim-${imageReloadKeys[inspectedLineup.id] || 0}`}
+                              src={inspectedLineup.imageUrl || inspectedLineup.thumbnailUrl}
+                              alt={inspectedLineup.title}
+                              className="w-full h-full object-contain"
+                            />
+                            {/* Crossed lines on the aim screenshot with NO circle */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                              <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.85)" strokeWidth="1.2" />
+                              <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.85)" strokeWidth="1.2" />
+                            </svg>
+
+                            {/* Corner Inset: Click to switch to Smoke Result */}
+                            {(inspectedLineup.thumbnailUrl || inspectedLineup.resultImageUrl) && (
+                              <div
+                                onClick={() => setInspectorViewMode('RESULT')}
+                                title="Click to view Smoke Result / Bloom"
+                                className="absolute bottom-1 right-1 w-20 h-14 bg-black/90 border border-cyan-500/60 rounded overflow-hidden shadow-lg cursor-pointer hover:border-cyan-300 transition-colors"
+                              >
+                                <img
+                                  src={inspectedLineup.thumbnailUrl || inspectedLineup.resultImageUrl}
+                                  alt="Smoke Result"
+                                  className="w-full h-full object-cover"
+                                />
+                                <span className="absolute bottom-0 left-0 right-0 bg-black/80 text-[7px] text-cyan-300 font-bold text-center leading-none py-0.5">
+                                  RESULT ↗
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <img
+                              key={`${inspectedLineup.id}-res-${imageReloadKeys[inspectedLineup.id] || 0}`}
+                              src={inspectedLineup.thumbnailUrl || inspectedLineup.resultImageUrl || inspectedLineup.imageUrl}
+                              alt="Smoke Landing Result"
+                              className="w-full h-full object-contain"
+                            />
+                            <div className="absolute top-1.5 right-1.5 bg-black/80 border border-cyan-800 text-cyan-400 px-2 py-0.5 text-[8px] font-bold">
+                              SMOKE BLOOM / LANDING
+                            </div>
+
+                            {/* Corner Inset: Click to switch back to Aim Point */}
+                            <div
+                              onClick={() => setInspectorViewMode('AIM')}
+                              title="Click to view Aim Crosshair"
+                              className="absolute bottom-1 right-1 w-20 h-14 bg-black/90 border border-cyan-500/60 rounded overflow-hidden shadow-lg cursor-pointer hover:border-cyan-300 transition-colors"
+                            >
+                              <img
+                                src={inspectedLineup.imageUrl || inspectedLineup.thumbnailUrl}
+                                alt="Aim Point"
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-0 left-0 right-0 bg-black/80 text-[7px] text-cyan-300 font-bold text-center leading-none py-0.5">
+                                AIM ↖
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : (
                       <span className="text-zinc-600 text-xs">NO SCREENSHOT</span>

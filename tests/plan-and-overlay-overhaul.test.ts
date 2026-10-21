@@ -75,23 +75,41 @@ describe('Tactical Plans & Overlay Enhancements', () => {
     deletePlay(testPlay.id);
   });
 
-  it('initializes BombTimer with latency compensation offset', () => {
+  it('initializes BombTimer with 2.0s latency compensation offset and dynamic site update', () => {
     const timer = new BombTimerEngine();
     const now = Date.now();
-    const latencyOffset = 1.0;
+    const latencyOffset = 2.0;
     const initialSec = Math.max(0, 40.0 - latencyOffset);
 
     timer.onBombPlanted({
       plantTimestampMs: now,
-      site: 'B',
+      site: null,
       hasKit: true,
       initialSecondsRemaining: initialSec,
     });
 
-    const snapshot = timer.getSnapshot();
+    let snapshot = timer.getSnapshot();
     expect(snapshot.planted).toBe(true);
+    expect(snapshot.site).toBeNull();
+    expect(snapshot.countdownSeconds).toBe(38.0);
+
+    // Dynamic site discovery on subsequent GSI tick
+    timer.setSite('B');
+    snapshot = timer.getSnapshot();
     expect(snapshot.site).toBe('B');
-    expect(snapshot.countdownSeconds).toBe(39.0);
+  });
+
+  it('correctly detects bomb site when payload.map is omitted but knownMap is provided', () => {
+    // In live GSI, payload.map is omitted if unchanged; knownMap ensures accurate detection
+    const bPlantPayload = {
+      bomb: { position: '-1580, -190, -160' },
+    };
+    expect(detectBombSite(bPlantPayload, undefined, 'de_mirage')).toBe('B');
+
+    const aPlantPayload = {
+      bomb: { position: '-250, -880, -160' },
+    };
+    expect(detectBombSite(aPlantPayload, undefined, 'de_mirage')).toBe('A');
   });
 
   it('validates HotkeyConfig structure and defaults', () => {

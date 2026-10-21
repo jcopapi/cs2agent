@@ -201,6 +201,15 @@ const api: ICS2AssistantAPI = {
         ipcRenderer.removeListener('hud:active-lineup-photo-changed', handler);
       };
     },
+    getPlanStep: (): Promise<{ stepIndex: number; totalSteps: number; planName: string }> =>
+      ipcRenderer.invoke('hud:get-plan-step'),
+    onPlanStepChange: (callback: (data: { stepIndex: number; totalSteps: number; planName: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('hud:plan-step-changed', handler);
+      return () => {
+        ipcRenderer.removeListener('hud:plan-step-changed', handler);
+      };
+    },
     onConfigChange: (callback: (config: HudConfig) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: HudConfig) => callback(data);
       ipcRenderer.on('hud:config-updated', handler);
@@ -211,10 +220,12 @@ const api: ICS2AssistantAPI = {
   },
 
   play: {
-    nextPixel: (): Promise<void> =>
+    nextPixel: (): Promise<any> =>
       ipcRenderer.invoke('play:next-pixel'),
-    onNextPixel: (callback: () => void): (() => void) => {
-      const handler = () => callback();
+    setActivePlan: (plan: any, stepIndex?: number): Promise<void> =>
+      ipcRenderer.invoke('play:set-active-plan', { plan, stepIndex }),
+    onNextPixel: (callback: (data?: any) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
       ipcRenderer.on('play:next-pixel', handler);
       return () => {
         ipcRenderer.removeListener('play:next-pixel', handler);

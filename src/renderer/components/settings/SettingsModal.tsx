@@ -25,7 +25,7 @@ const DEFAULT_CONFIG: HotkeyConfig = {
   nextPixelKey: 'F2',
   cornerCardPosition: 'TOP_RIGHT',
   indicatorPosition: 'TOP_RIGHT',
-  bombLatencyOffsetSec: 1.0,
+  bombLatencyOffsetSec: 2.0,
 };
 
 const COMMON_KEYS = ['CapsLock', 'F1', 'F2', 'F3', 'F4', 'ScrollLock', 'Insert', 'Home', 'PageUp', 'PageDown'];
@@ -232,20 +232,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[11px] font-bold text-zinc-200">C4 DETECTION OFFSET</div>
-                <div className="text-[9px] text-zinc-500">Compensates GSI plant notification delay</div>
+                <div className="text-[9px] text-zinc-500">Compensates GSI plant notification delay (default: 2.0s)</div>
               </div>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
                   min="0"
-                  max="3.0"
+                  max="4.0"
                   step="0.5"
-                  value={config.bombLatencyOffsetSec ?? 1.0}
-                  onChange={(e) => setConfig({ ...config, bombLatencyOffsetSec: parseFloat(e.target.value) || 1.0 })}
+                  value={config.bombLatencyOffsetSec ?? 2.0}
+                  onChange={(e) => setConfig({ ...config, bombLatencyOffsetSec: parseFloat(e.target.value) || 2.0 })}
                   className="w-16 bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 text-center outline-none"
                 />
                 <span className="text-[10px] text-zinc-500">sec</span>
               </div>
+            </div>
+          </div>
+
+          {/* Section 5: Valve Anti-Cheat (VAC) Integrity & Security Audit */}
+          <div className="border border-emerald-900/60 bg-emerald-950/20 p-2.5 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+              <span className="text-[10px] font-black tracking-wider text-emerald-300 uppercase">
+                100% VAC SAFE // ZERO MEMORY HOOKS
+              </span>
+            </div>
+            <div className="text-[9px] text-zinc-400 leading-relaxed">
+              Functions 100% externally like Steam/Discord/Crosshair X overlays. Zero DLL injection, zero ReadProcessMemory, zero game binary modifications. Telemetry is parsed strictly via Valve's official GSI HTTP protocol.
             </div>
           </div>
         </div>

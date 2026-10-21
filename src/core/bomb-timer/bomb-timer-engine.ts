@@ -89,6 +89,12 @@ export class BombTimerEngine {
     this.defusing = Boolean(defusing);
   }
 
+  public setSite(site: 'A' | 'B' | null): void {
+    if (site && !this.site) {
+      this.site = site;
+    }
+  }
+
   /**
    * Terminates and removes the timer on bomb defusal, explosion, or round end.
    */

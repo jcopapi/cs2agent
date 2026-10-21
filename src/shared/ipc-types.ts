@@ -91,6 +91,8 @@ export interface Lineup {
   svgReference: string;
   imageUrl?: string;
   thumbnailUrl?: string;
+  standImageUrl?: string;
+  resultImageUrl?: string;
   instructions: string[];
   tags: string[];
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
@@ -359,14 +361,17 @@ export interface ICS2AssistantAPI {
     setHotkeyConfig?(config: HotkeyConfig): Promise<HotkeyConfig>;
     onHotkeyConfigChange?(callback: (config: HotkeyConfig) => void): () => void;
     setMainWindowVisible?(visible: boolean): Promise<void>;
+    getPlanStep?(): Promise<{ stepIndex: number; totalSteps: number; planName: string }>;
+    onPlanStepChange?(callback: (data: { stepIndex: number; totalSteps: number; planName: string }) => void): () => void;
     onActiveLineupPhotoChange?(callback: (lineup: Lineup | null) => void): () => void;
     onConfigChange?(callback: (config: HudConfig) => void): () => void;
   };
 
   // --- Tactical Plays Sequencer ---
   play?: {
-    nextPixel(): Promise<void>;
-    onNextPixel(callback: () => void): () => void;
+    nextPixel(): Promise<any>;
+    setActivePlan?(plan: any, stepIndex?: number): Promise<void>;
+    onNextPixel(callback: (data?: any) => void): () => void;
   };
 
   // --- Compliance & Capability Gating ---

@@ -8,7 +8,7 @@
 
 import { BrowserWindow, screen } from 'electron';
 import * as url from 'url';
-import type { Rect, SafeZones, HudConfig, Lineup } from '../shared/ipc-types';
+import type { Rect, SafeZones, HudConfig, Lineup, Play } from '../shared/ipc-types';
 
 export class OverlayManager {
   private overlayWindow: BrowserWindow | null = null;
@@ -20,6 +20,8 @@ export class OverlayManager {
   private isBombActive: boolean = false;
   private isMatchActive: boolean = false;
   private isAlignActive: boolean = false;
+  private activePlan: Play | null = null;
+  private activeStepIndex: number = 0;
 
   private currentConfig: HudConfig = {
     enabled: true,
@@ -45,6 +47,46 @@ export class OverlayManager {
 
   public getConfig(): HudConfig {
     return { ...this.currentConfig };
+  }
+
+  public setActivePlan(plan: Play | null, stepIndex: number = 0): void {
+    this.activePlan = plan;
+    this.activeStepIndex = stepIndex;
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.webContents.send('hud:plan-step-changed', {
+        stepIndex: this.activeStepIndex,
+        totalSteps: this.activePlan?.lineupIds?.length ?? 0,
+        planName: this.activePlan?.name ?? '',
+      });
+    }
+  }
+
+  public getPlanStep(): { stepIndex: number; totalSteps: number; planName: string } {
+    return {
+      stepIndex: this.activeStepIndex,
+      totalSteps: this.activePlan?.lineupIds?.length ?? 0,
+      planName: this.activePlan?.name ?? '',
+    };
+  }
+
+  public advanceNextPixel(): { stepIndex: number; totalSteps: number; lineupId: string | null } {
+    if (!this.activePlan || !this.activePlan.lineupIds || this.activePlan.lineupIds.length === 0) {
+      return { stepIndex: 0, totalSteps: 0, lineupId: null };
+    }
+    this.activeStepIndex = (this.activeStepIndex + 1) % this.activePlan.lineupIds.length;
+    const lineupId = this.activePlan.lineupIds[this.activeStepIndex];
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.webContents.send('hud:plan-step-changed', {
+        stepIndex: this.activeStepIndex,
+        totalSteps: this.activePlan.lineupIds.length,
+        planName: this.activePlan.name,
+      });
+    }
+    return {
+      stepIndex: this.activeStepIndex,
+      totalSteps: this.activePlan.lineupIds.length,
+      lineupId,
+    };
   }
 
   public getActiveLineupPhoto(): Lineup | null {
@@ -180,6 +222,7 @@ export class OverlayManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        backgroundThrottling: false,
         additionalArguments: ['--window-type=overlay'],
       },
     });

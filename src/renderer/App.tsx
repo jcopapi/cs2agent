@@ -55,7 +55,11 @@ export default function App(): JSX.Element {
     const api = window.cs2Assistant;
     if (!api?.play?.onNextPixel) return;
 
-    const unsubPlay = api.play.onNextPixel(() => {
+    const unsubPlay = api.play.onNextPixel((data) => {
+      if (data && typeof data.stepIndex === 'number') {
+        setActivePlayStepIndex(data.stepIndex);
+        return;
+      }
       const { lineupId } = advanceActivePlayStep();
       if (lineupId) {
         const lineup = getLineupById(lineupId);

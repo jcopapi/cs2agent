@@ -95,13 +95,22 @@ export function parseViewAngles(raw?: string): { pitch: number; yaw: number } | 
   return { pitch: parts[0], yaw: parts[1] };
 }
 
+const CS2_MAP_SITES: Record<string, { A: { x: number; y: number }; B: { x: number; y: number } }> = {
+  mirage: { A: { x: -280, y: -900 }, B: { x: -1600, y: -200 } },
+  inferno: { A: { x: 2000, y: 400 }, B: { x: 400, y: 2500 } },
+  dust2: { A: { x: 1150, y: 2400 }, B: { x: -1400, y: 2650 } },
+  ancient: { A: { x: -400, y: 1600 }, B: { x: -1600, y: 0 } },
+  anubis: { A: { x: 1200, y: 600 }, B: { x: -600, y: 700 } },
+};
+
 /**
  * Validates and normalizes an incoming CS2 GSI JSON payload.
  * Never throws on malformed input; returns structured validation diagnostics.
  */
 export function detectBombSite(
   payload: any,
-  playerPos?: { x: number; y: number; z: number }
+  playerPos?: { x: number; y: number; z: number },
+  knownMap?: string | null
 ): 'A' | 'B' | null {
   // 1. Explicit GSI bomb site payload field
   const rawSite = payload.bomb?.site;
@@ -172,26 +181,23 @@ export function detectBombSite(
   }
 
   if (x !== undefined && y !== undefined) {
-    const map = String(payload.map?.name || '').toLowerCase();
-    if (map.includes('mirage')) {
-      if (y < -300 && x > -700) return 'A';
-      if (y > 0 && x < -500) return 'B';
-    } else if (map.includes('inferno')) {
-      if (y < 1400) return 'A';
-      if (y >= 1400) return 'B';
-    } else if (map.includes('dust2')) {
-      if (x > 0) return 'A';
-      if (x <= 0) return 'B';
-    } else if (map.includes('nuke')) {
-      if (z !== undefined && z < -600) return 'B';
+    const map = String(knownMap || payload.map?.name || '').toLowerCase();
+    if (map.includes('nuke')) {
+      if (z !== undefined && z < -550) return 'B';
       return 'A';
-    } else if (map.includes('ancient')) {
-      if (y > 800) return 'A';
-      if (y <= 800) return 'B';
-    } else if (map.includes('anubis')) {
-      if (x > 0) return 'A';
-      if (x <= 0) return 'B';
     }
+
+    for (const [key, siteCoords] of Object.entries(CS2_MAP_SITES)) {
+      if (map.includes(key)) {
+        const distA = Math.hypot(x - siteCoords.A.x, y - siteCoords.A.y);
+        const distB = Math.hypot(x - siteCoords.B.x, y - siteCoords.B.y);
+        return distA < distB ? 'A' : 'B';
+      }
+    }
+
+    // Default fallback based on general coordinate partitioning if map name is unrecognized
+    if (x > 0) return 'A';
+    if (x <= 0) return 'B';
   }
 
   return null;
@@ -414,7 +420,7 @@ export function parseGsiPayload(
     bombState = {
       state: rawBombState,
       countdownSeconds: Number.isFinite(parsedCountdown) ? parsedCountdown : undefined,
-      site: detectBombSite(payload, playerPosition),
+      site: detectBombSite(payload, playerPosition, mapName),
     };
   }
 

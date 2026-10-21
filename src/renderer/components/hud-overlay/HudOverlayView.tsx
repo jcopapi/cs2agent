@@ -60,7 +60,7 @@ export const HudOverlayView: React.FC = () => {
     nextPixelKey: 'F2',
     cornerCardPosition: 'TOP_RIGHT',
     indicatorPosition: 'TOP_RIGHT',
-    bombLatencyOffsetSec: 1.0,
+    bombLatencyOffsetSec: 2.0,
   });
 
   const [bombState, setBombState] = useState<BombState | null>(null);
@@ -68,6 +68,7 @@ export const HudOverlayView: React.FC = () => {
   const [activeLineupPhoto, setActiveLineupPhoto] = useState<Lineup | null>(null);
   const [isAlignActive, setIsAlignActive] = useState<boolean>(false);
   const [isMatchActive, setIsMatchActive] = useState<boolean>(false);
+  const [planStep, setPlanStep] = useState<{ stepIndex: number; totalSteps: number; planName?: string } | null>(null);
 
   // Transparent root canvas
   useEffect(() => {
@@ -88,6 +89,10 @@ export const HudOverlayView: React.FC = () => {
       if (cfg) setHotkeyConfig((prev) => ({ ...prev, ...cfg }));
     }).catch(() => {});
 
+    api.hud.getPlanStep?.().then((step) => {
+      if (step && step.totalSteps > 0) setPlanStep(step);
+    }).catch(() => {});
+
     api.hud.getActiveLineupPhoto?.().then((lineup) => {
       if (lineup) {
         setActiveLineupPhoto(lineup);
@@ -97,6 +102,7 @@ export const HudOverlayView: React.FC = () => {
         if (plan?.lineupIds && plan.lineupIds.length > 0) {
           const first = getLineupById(plan.lineupIds[0]);
           if (first) setActiveLineupPhoto(first);
+          setPlanStep({ stepIndex: 0, totalSteps: plan.lineupIds.length, planName: plan.name });
         }
       }
     }).catch(() => {});
@@ -124,6 +130,14 @@ export const HudOverlayView: React.FC = () => {
       setHotkeyConfig((prev) => ({ ...prev, ...cfg }));
     });
 
+    const unsubStep = api.hud.onPlanStepChange?.((step) => {
+      if (step && step.totalSteps > 0) setPlanStep(step);
+    });
+
+    const unsubPlay = api.play?.onNextPixel?.((data) => {
+      if (data?.totalSteps) setPlanStep(data);
+    });
+
     const unsubBomb = api.tactical.onBombUpdate((b) => {
       setBombState(b);
       if (b?.planted) {
@@ -148,6 +162,8 @@ export const HudOverlayView: React.FC = () => {
     return () => {
       unsubConfig?.();
       unsubHotkey?.();
+      unsubStep?.();
+      unsubPlay?.();
       unsubBomb?.();
       unsubPhoto?.();
       unsubAlign?.();
@@ -237,9 +253,13 @@ export const HudOverlayView: React.FC = () => {
             >
               {remainingSeconds.toFixed(1)}s
             </span>
-            {bombState?.site && (
+            {bombState?.site ? (
               <span className="text-xs font-bold text-zinc-300 uppercase pl-1.5 border-l border-white/15">
                 [{bombState.site}]
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-zinc-500 uppercase pl-1.5 border-l border-white/15">
+                [?]
               </span>
             )}
           </div>
@@ -261,12 +281,10 @@ export const HudOverlayView: React.FC = () => {
                 className="w-full h-full object-contain pointer-events-none"
                 style={{ opacity: hotkeyConfig.alignOpacity ?? 0.5 }}
               />
-              {/* Crossed lines on the centered image to align crosshairs */}
+              {/* Crossed lines on the centered image cleanly intersecting */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
-                <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.5)" strokeWidth="1" />
-                <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.5)" strokeWidth="1" />
-                <circle cx="50%" cy="50%" r="5" fill="none" stroke="rgba(34, 211, 238, 0.5)" strokeWidth="1" />
-                <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.4)" />
+                <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.8)" strokeWidth="1.2" />
+                <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.8)" strokeWidth="1.2" />
               </svg>
             </div>
           )}
@@ -288,30 +306,34 @@ export const HudOverlayView: React.FC = () => {
 
       {/* ==================================================================== */}
       {/* 3. CORNER REFERENCE CARD (When Overlay is Open & NOT Aligning)       */}
+      {/* Shows ONLY the pixel name, step indicator, and image with crossing   */}
+      {/* lines. Zero clutter, zero text descriptions, zero hotkey reminders. */}
       {/* ==================================================================== */}
       {!isAlignActive && isPhotoActive && currentLineup && (
-        <div className={`absolute ${cornerPosClass} flex flex-col gap-1.5 pointer-events-none z-50 w-72 border border-zinc-800 bg-[#09090b]/90 p-2.5 shadow-2xl`}>
+        <div className={`absolute ${cornerPosClass} flex flex-col gap-1.5 pointer-events-none z-50 w-72 border border-zinc-800 bg-[#09090b]/90 p-2 shadow-2xl`}>
           {/* Cyber-brutalist Corner Notches */}
           <span className="absolute -top-1 -left-1 text-cyan-400 text-xs select-none">┌</span>
           <span className="absolute -top-1 -right-1 text-cyan-400 text-xs select-none">┐</span>
           <span className="absolute -bottom-1 -left-1 text-cyan-400 text-xs select-none">└</span>
           <span className="absolute -bottom-1 -right-1 text-cyan-400 text-xs select-none">┘</span>
 
-          {/* Title & Utility Type */}
+          {/* Title & Plan Step Indicator (e.g. [1/4] A Site Stairs Smoke) */}
           <div className="flex items-center justify-between border-b border-zinc-800 pb-1 text-xs font-bold">
             <div className="flex items-center gap-1.5 truncate">
-              <span className="h-2 w-2 rounded-full bg-cyan-400" />
+              <span className="h-2 w-2 rounded-full bg-cyan-400 shrink-0" />
+              {planStep && planStep.totalSteps > 0 && (
+                <span className="text-cyan-400 font-black text-[11px] tracking-wider shrink-0">
+                  [{planStep.stepIndex + 1}/{planStep.totalSteps}]
+                </span>
+              )}
               <span className="text-zinc-100 uppercase tracking-wide truncate text-[11px]">
                 {currentLineup.title}
               </span>
             </div>
-            <span className="border border-cyan-800 bg-cyan-950 text-cyan-400 px-1.5 py-0.2 text-[9px] font-bold">
-              {currentLineup.throwType}
-            </span>
           </div>
 
           {/* Reference Screenshot: photo with crossing lines ON THE IMAGE showing aim point */}
-          <div className="relative w-full h-36 bg-black rounded border border-zinc-800 overflow-hidden flex items-center justify-center">
+          <div className="relative w-full h-40 bg-black rounded border border-zinc-800 overflow-hidden flex items-center justify-center">
             {currentLineup.imageUrl || currentLineup.thumbnailUrl ? (
               <>
                 <img
@@ -319,42 +341,29 @@ export const HudOverlayView: React.FC = () => {
                   alt={currentLineup.title}
                   className="w-full h-full object-contain"
                 />
-                {/* Crossed lines on the screenshot */}
+                {/* Crossed lines on the screenshot intersecting across the entire image */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
-                  <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
-                  <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.7)" strokeWidth="1" />
-                  <circle cx="50%" cy="50%" r="5" fill="none" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1" />
-                  <circle cx="50%" cy="50%" r="1.5" fill="rgba(244, 63, 94, 0.45)" />
+                  <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(34, 211, 238, 0.85)" strokeWidth="1.2" />
+                  <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(34, 211, 238, 0.85)" strokeWidth="1.2" />
                 </svg>
+
+                {/* Stand Image Inset (Smaller scale in corner if available) */}
+                {currentLineup.standImageUrl && (
+                  <div className="absolute bottom-1 right-1 w-20 h-14 bg-black/95 border border-cyan-500/60 rounded overflow-hidden shadow-lg">
+                    <img
+                      src={currentLineup.standImageUrl}
+                      alt="Stand Position"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 left-0 right-0 bg-black/80 text-[7px] text-cyan-300 font-bold text-center leading-none py-0.5">
+                      STAND
+                    </span>
+                  </div>
+                )}
               </>
             ) : (
               <span className="text-zinc-600 text-xs">NO SCREENSHOT</span>
             )}
-          </div>
-
-          {/* Where to Stand & Where to Aim */}
-          <div className="space-y-1 text-[11px] pt-1 border-t border-zinc-800 text-zinc-300">
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500 font-bold">STAND:</span>
-              <span className="text-zinc-100 font-semibold truncate">
-                {currentLineup.startPosition?.callout || 'Position'}
-              </span>
-            </div>
-
-            <div className="flex items-start justify-between gap-1">
-              <span className="text-cyan-400 font-bold shrink-0">AIM:</span>
-              <span className="text-cyan-200 text-[10px] text-right font-medium">
-                {currentLineup.aimReference?.crosshairPlacement ||
-                  currentLineup.instructions?.[1] ||
-                  'Aim at landmark'}
-              </span>
-            </div>
-          </div>
-
-          {/* In-Card Hotkey Reminder */}
-          <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-500">
-            <span>[{hotkeyConfig.overlayKey}] TOGGLE</span>
-            <span className="text-cyan-400 font-bold">[{hotkeyConfig.nextPixelKey}] NEXT PIXEL</span>
           </div>
         </div>
       )}

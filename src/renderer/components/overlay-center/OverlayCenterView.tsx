@@ -59,7 +59,17 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
       setPinnedLineup(lineup);
     });
 
-    const unsubPlay = api.play?.onNextPixel?.(() => {
+    const unsubPlay = api.play?.onNextPixel?.((data) => {
+      if (data && typeof data.stepIndex === 'number') {
+        setActiveStepIndex(data.stepIndex);
+      }
+      refreshData();
+    });
+
+    const unsubStep = api.hud?.onPlanStepChange?.((step) => {
+      if (step && typeof step.stepIndex === 'number') {
+        setActiveStepIndex(step.stepIndex);
+      }
       refreshData();
     });
 
@@ -67,6 +77,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
       unsubGsi?.();
       unsubPhoto?.();
       unsubPlay?.();
+      unsubStep?.();
     };
   }, []);
 
@@ -75,6 +86,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
     const updated = getAllPlays().find((p) => p.id === planId) || null;
     setActivePlan(updated);
     setActiveStepIndex(0);
+    window.cs2Assistant?.play?.setActivePlan?.(updated, 0);
 
     // Auto-pin the first pixel of the newly chosen plan
     if (updated?.lineupIds && updated.lineupIds.length > 0) {
@@ -89,6 +101,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
   const handlePinPixel = (lineupId: string, idx: number) => {
     setActivePlayStepIndex(idx);
     setActiveStepIndex(idx);
+    window.cs2Assistant?.play?.setActivePlan?.(activePlan, idx);
     const lineup = getLineupById(lineupId);
     if (lineup) {
       window.cs2Assistant?.hud.setActiveLineupPhoto(lineup);

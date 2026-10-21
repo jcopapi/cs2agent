@@ -14,6 +14,7 @@ import { IpcHandlerManager } from './ipc-handlers';
 import { CapabilityGate } from '../core/compliance/capability-gate';
 import { NativeFocusMonitor } from './native-focus-monitor';
 import type { HotkeyConfig } from '../shared/ipc-types';
+import { getAllLineups } from '../core/utility/lineup-database';
 
 // ---------------------------------------------------------------------------
 // 1. Single Instance Lock
@@ -70,6 +71,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
       sandbox: true,
       webSecurity: true,
       devTools: isDev,
+      backgroundThrottling: false,
     },
   });
 
@@ -169,7 +171,7 @@ app.whenReady().then(async () => {
     nextPixelKey: 'F2',
     cornerCardPosition: 'TOP_RIGHT',
     indicatorPosition: 'TOP_RIGHT',
-    bombLatencyOffsetSec: 1.0,
+    bombLatencyOffsetSec: 2.0,
   };
 
   // Dedicated Native Focus Monitor:
@@ -190,7 +192,14 @@ app.whenReady().then(async () => {
       ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
     },
     onNextPixel: () => {
-      ipcManager?.broadcast('play:next-pixel', null);
+      const stepResult = overlayManager?.advanceNextPixel();
+      if (stepResult && stepResult.lineupId) {
+        const lineup = getAllLineups().find((l) => l.id === stepResult.lineupId) || null;
+        if (lineup) {
+          overlayManager?.setActiveLineupPhoto(lineup);
+        }
+      }
+      ipcManager?.broadcast('play:next-pixel', stepResult || null);
     },
   });
 

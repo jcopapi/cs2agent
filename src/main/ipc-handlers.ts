@@ -44,7 +44,7 @@ import { BombTimerEngine } from '../core/bomb-timer/bomb-timer-engine';
 import { GeminiTacticalCoach } from '../core/ai/gemini-coach';
 import { HistoryAnalyticsEngine } from '../core/history/history-analytics';
 import { GsiHttpListener } from './gsi-listener';
-import type { GsiParseResult } from '../core/match/gsi-parser';
+import { type GsiParseResult, detectBombSite } from '../core/match/gsi-parser';
 import type { RawGsiPayload } from '../core/match/types';
 
 export interface IpcDependencies {
@@ -149,20 +149,27 @@ export class IpcHandlerManager {
     if (rawBomb === 'planted') {
       this.deps.overlayManager.setBombActive(true);
       const currentSnap = this.bombTimer.getSnapshot();
+      const cfg = this.deps.getHotkeyConfig?.() || {};
+      const latencyOffset = typeof cfg.bombLatencyOffsetSec === 'number' ? cfg.bombLatencyOffsetSec : 2.0;
+
+      // Continuously detect or update site if not yet set
+      const detectedSite =
+        result.bombState?.site ||
+        detectBombSite(raw, result.playerPosition, this.currentGsiStatus.map);
+      if (detectedSite) {
+        this.bombTimer.setSite(detectedSite);
+      }
+
       if (!currentSnap.planted) {
-        const cfg = this.deps.getHotkeyConfig?.() || {};
-        const latencyOffset = typeof cfg.bombLatencyOffsetSec === 'number' ? cfg.bombLatencyOffsetSec : 1.0;
         const initialSec = Math.max(0, (result.bombState?.countdownSeconds ?? 40.0) - latencyOffset);
         this.bombTimer.onBombPlanted({
           plantTimestampMs: now,
-          site: result.bombState?.site ?? null,
+          site: detectedSite ?? null,
           hasKit: result.hasDefuseKit,
           initialSecondsRemaining: initialSec,
         });
         this.lastBombTickMs = now;
       } else if (result.bombState?.countdownSeconds) {
-        const cfg = this.deps.getHotkeyConfig?.() || {};
-        const latencyOffset = typeof cfg.bombLatencyOffsetSec === 'number' ? cfg.bombLatencyOffsetSec : 1.0;
         const syncedSec = Math.max(0, result.bombState.countdownSeconds - latencyOffset);
         this.bombTimer.syncRemainingSeconds(syncedSec);
         this.lastBombTickMs = now;
@@ -526,8 +533,24 @@ export class IpcHandlerManager {
       return this.deps.overlayManager.getAlignActive();
     });
 
-    this.handle('play:next-pixel', async (): Promise<void> => {
-      this.broadcast('play:next-pixel', null);
+    this.handle('play:next-pixel', async (): Promise<any> => {
+      const stepResult = this.deps.overlayManager.advanceNextPixel();
+      if (stepResult && stepResult.lineupId) {
+        const lineup = getAllLineups().find((l) => l.id === stepResult.lineupId) || null;
+        if (lineup) {
+          this.deps.overlayManager.setActiveLineupPhoto(lineup);
+        }
+      }
+      this.broadcast('play:next-pixel', stepResult || null);
+      return stepResult;
+    });
+
+    this.handle('play:set-active-plan', async (_event, data: { plan: any; stepIndex?: number }): Promise<void> => {
+      this.deps.overlayManager.setActivePlan(data?.plan || null, data?.stepIndex ?? 0);
+    });
+
+    this.handle('hud:get-plan-step', async (): Promise<any> => {
+      return this.deps.overlayManager.getPlanStep();
     });
 
     this.handle('hud:get-hotkey-config', async (): Promise<any> => {
