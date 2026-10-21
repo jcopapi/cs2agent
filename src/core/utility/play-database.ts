@@ -155,6 +155,35 @@ export function reorderLineups(playId: string, lineupIds: string[]): Play | null
   return savePlay(play);
 }
 
+export function addPixelToPlay(playId: string, lineupId: string): Play | null {
+  const play = getPlayById(playId);
+  if (!play) return null;
+  play.lineupIds = [...(play.lineupIds || []), lineupId];
+  return savePlay(play);
+}
+
+export function removePixelFromPlay(playId: string, index: number): Play | null {
+  const play = getPlayById(playId);
+  if (!play || !play.lineupIds) return null;
+  const next = [...play.lineupIds];
+  next.splice(index, 1);
+  play.lineupIds = next;
+  return savePlay(play);
+}
+
+export function movePixelInPlay(playId: string, index: number, direction: 'UP' | 'DOWN'): Play | null {
+  const play = getPlayById(playId);
+  if (!play || !play.lineupIds) return null;
+  const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= play.lineupIds.length) return play;
+  const next = [...play.lineupIds];
+  const item = next[index];
+  next[index] = next[targetIndex];
+  next[targetIndex] = item;
+  play.lineupIds = next;
+  return savePlay(play);
+}
+
 const ACTIVE_PLAY_KEY = 'cs2_assistant_active_play_id';
 const ACTIVE_PLAY_STEP_KEY = 'cs2_assistant_active_play_step';
 

@@ -2,25 +2,23 @@
  * CS2 Assistant - Root Application Shell
  * File: src/renderer/App.tsx
  *
- * Implements the precision minimalist dark design system shell,
- * coordinates exactly three primary destinations (LIVE MATCH, UTILITY ROOM, HISTORY),
- * the compact secondary menu drawer, keyboard shortcuts, and HUD overlay routing.
+ * Streamlined launcher:
+ * - Utility Room (Split-screen Pixels & Plans) as primary launcher
+ * - Seamless transition to in-match OverlayCenterView when CS2 match is active
+ * - Settings modal accessible via gear icon in top-left
+ * - Transparent HudOverlayView for in-game overlay window
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import Navbar from './components/navigation/Navbar';
-import SecondaryMenu, { type SecondaryMenuTab } from './components/navigation/SecondaryMenu';
-import LiveMatchView from './components/destinations/LiveMatchView';
+import React, { useState, useEffect } from 'react';
 import UtilityRoomView from './components/destinations/UtilityRoomView';
-import HistoryView from './components/destinations/HistoryView';
+import OverlayCenterView from './components/overlay-center/OverlayCenterView';
 import HudOverlayView from './components/hud-overlay/HudOverlayView';
+import SettingsModal from './components/settings/SettingsModal';
 import { advanceActivePlayStep } from '../core/utility/play-database';
 import { getLineupById } from '../core/utility/lineup-database';
 
-export type PrimaryDestination = 'LIVE_MATCH' | 'UTILITY_ROOM' | 'HISTORY';
-
 export default function App(): JSX.Element {
-  // 1. Overlay Window Detection (for Electron transparent window)
+  // 1. Transparent Overlay Window Routing
   const isOverlayMode =
     Boolean(window.cs2Assistant?.isOverlay) ||
     window.location.hash.includes('overlay') ||
@@ -30,15 +28,11 @@ export default function App(): JSX.Element {
     return <HudOverlayView />;
   }
 
-  // 2. Primary Navigation State (default: UTILITY_ROOM as requested)
-  const [activeDestination, setActiveDestination] = useState<PrimaryDestination>('UTILITY_ROOM');
+  // 2. Active Match & Settings State
   const [isMatchActive, setIsMatchActive] = useState<boolean>(false);
-  const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState<boolean>(false);
-  const [secondaryMenuTab, setSecondaryMenuTab] = useState<SecondaryMenuTab>('GEMINI_API_KEY');
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
-  // 3. Match Lifecycle & Automatic GSI Detection
-  // When a live match starts, auto-switch to LIVE_MATCH and suspend/unmount all background views
-  // When match ends, automatically restore UTILITY_ROOM
+  // 3. Match Lifecycle Listener via Valve GSI
   useEffect(() => {
     const api = window.cs2Assistant;
     if (!api?.gsi) return;
@@ -46,24 +40,17 @@ export default function App(): JSX.Element {
     api.gsi.getStatus().then((status) => {
       if (status?.activeMatch) {
         setIsMatchActive(true);
-        setActiveDestination('LIVE_MATCH');
       }
     }).catch(() => {});
 
     const unsubGsi = api.gsi.onStatusChange((status) => {
-      if (status.activeMatch) {
-        setIsMatchActive(true);
-        setActiveDestination('LIVE_MATCH');
-      } else {
-        setIsMatchActive(false);
-        setActiveDestination((prev) => (prev === 'LIVE_MATCH' ? 'UTILITY_ROOM' : prev));
-      }
+      setIsMatchActive(Boolean(status?.activeMatch));
     });
 
     return unsubGsi;
   }, []);
 
-  // 4. Global Hotkey F2: Advance to Next Pixel in Active Play Routine
+  // 4. Global Hotkey F2: Step through pixels in active Tactical Plan
   useEffect(() => {
     const api = window.cs2Assistant;
     if (!api?.play?.onNextPixel) return;
@@ -81,98 +68,23 @@ export default function App(): JSX.Element {
     return unsubPlay;
   }, []);
 
-  // 5. Closed Loop Deep-Link State (History -> Utility Room)
-  const [utilitySelection, setUtilitySelection] = useState<{ map?: string; strategyId?: string }>({});
-
-  // 6. Closed Loop Practice Retake Trigger Handler
-  const handleTriggerPracticeRetake = useCallback((map: string, strategyId: string) => {
-    setUtilitySelection({ map, strategyId });
-    setActiveDestination('UTILITY_ROOM');
-  }, []);
-
-  // 7. Global Keyboard Shortcuts (1, 2, 3, S, Esc, ?)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Input isolation: Ignore number shortcuts when typing in inputs/textareas
-      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (targetTag === 'input' || targetTag === 'textarea') {
-        if (e.key === 'Escape') {
-          (e.target as HTMLElement).blur();
-        }
-        return;
-      }
-
-      // If a live match is running, lock to LIVE_MATCH to keep zero background overhead
-      if (isMatchActive && (e.key === '1' || e.key === '2' || e.key === '3')) {
-        return;
-      }
-
-      if (e.key === '1' || (e.altKey && e.key === '1')) {
-        e.preventDefault();
-        setActiveDestination('UTILITY_ROOM');
-      } else if (e.key === '2' || (e.altKey && e.key === '2')) {
-        e.preventDefault();
-        setActiveDestination('LIVE_MATCH');
-      } else if (e.key === '3' || (e.altKey && e.key === '3')) {
-        e.preventDefault();
-        setActiveDestination('HISTORY');
-      } else if (e.key.toLowerCase() === 's' || (e.ctrlKey && e.key === ',')) {
-        e.preventDefault();
-        setIsSecondaryMenuOpen((prev) => !prev);
-      } else if (e.key === 'Escape') {
-        if (isSecondaryMenuOpen) {
-          e.preventDefault();
-          setIsSecondaryMenuOpen(false);
-        }
-      } else if (e.key === '?') {
-        e.preventDefault();
-        setSecondaryMenuTab('HELP');
-        setIsSecondaryMenuOpen(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSecondaryMenuOpen, isMatchActive]);
-
   return (
     <div
       data-testid="app-shell"
-      className="flex h-screen w-screen flex-col bg-[#09090b] text-zinc-100 select-none overflow-hidden font-mono"
+      className="flex h-screen w-screen flex-col bg-[#09090b] text-[#f4f4f5] select-none overflow-hidden font-mono"
     >
-      <Navbar
-        activeDestination={activeDestination}
-        onSelectDestination={(dest) => {
-          if (!isMatchActive || dest === 'LIVE_MATCH') {
-            setActiveDestination(dest);
-          }
-        }}
-        onOpenSecondaryMenu={(tab) => {
-          if (tab) setSecondaryMenuTab(tab);
-          setIsSecondaryMenuOpen(true);
-        }}
-      />
-
       <main data-testid="active-view-container" className="flex-1 overflow-hidden relative">
-        {/* During an active match, ONLY LiveMatchView is mounted to eliminate CPU/RAM usage */}
-        {activeDestination === 'LIVE_MATCH' && <LiveMatchView />}
-        {!isMatchActive && activeDestination === 'UTILITY_ROOM' && (
-          <UtilityRoomView
-            initialMap={utilitySelection.map}
-            initialStrategyId={utilitySelection.strategyId}
-          />
-        )}
-        {!isMatchActive && activeDestination === 'HISTORY' && (
-          <HistoryView onTriggerPracticeRetake={handleTriggerPracticeRetake} />
+        {isMatchActive ? (
+          <OverlayCenterView onOpenSettings={() => setIsSettingsOpen(true)} />
+        ) : (
+          <UtilityRoomView onOpenSettings={() => setIsSettingsOpen(true)} />
         )}
       </main>
 
-      {/* Slide-out Secondary Menu Drawer */}
-      <SecondaryMenu
-        isOpen={isSecondaryMenuOpen}
-        activeTab={secondaryMenuTab}
-        onSelectTab={setSecondaryMenuTab}
-        onClose={() => setIsSecondaryMenuOpen(false)}
+      {/* Global Configuration Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );

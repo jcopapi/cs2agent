@@ -170,6 +170,17 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.invoke('hud:get-active-lineup-photo'),
     toggleActiveLineupPhoto: (): Promise<void> =>
       ipcRenderer.invoke('hud:toggle-active-lineup-photo'),
+    setAlignState: (active: boolean): Promise<void> =>
+      ipcRenderer.invoke('hud:set-align-state', active),
+    getAlignState: (): Promise<boolean> =>
+      ipcRenderer.invoke('hud:get-align-state'),
+    onAlignStateChange: (callback: (active: boolean) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: boolean) => callback(data);
+      ipcRenderer.on('hud:align-state-changed', handler);
+      return () => {
+        ipcRenderer.removeListener('hud:align-state-changed', handler);
+      };
+    },
     getHotkeyConfig: (): Promise<any> =>
       ipcRenderer.invoke('hud:get-hotkey-config'),
     setHotkeyConfig: (config: any): Promise<any> =>

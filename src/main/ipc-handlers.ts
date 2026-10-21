@@ -149,15 +149,21 @@ export class IpcHandlerManager {
       this.deps.overlayManager.setBombActive(true);
       const currentSnap = this.bombTimer.getSnapshot();
       if (!currentSnap.planted) {
+        const cfg = this.deps.getHotkeyConfig?.() || {};
+        const latencyOffset = typeof cfg.bombLatencyOffsetSec === 'number' ? cfg.bombLatencyOffsetSec : 1.0;
+        const initialSec = Math.max(0, (result.bombState?.countdownSeconds ?? 40.0) - latencyOffset);
         this.bombTimer.onBombPlanted({
           plantTimestampMs: now,
           site: result.bombState?.site || 'A',
           hasKit: result.hasDefuseKit,
-          initialSecondsRemaining: result.bombState?.countdownSeconds ?? 40.0,
+          initialSecondsRemaining: initialSec,
         });
         this.lastBombTickMs = now;
       } else if (result.bombState?.countdownSeconds) {
-        this.bombTimer.syncRemainingSeconds(result.bombState.countdownSeconds);
+        const cfg = this.deps.getHotkeyConfig?.() || {};
+        const latencyOffset = typeof cfg.bombLatencyOffsetSec === 'number' ? cfg.bombLatencyOffsetSec : 1.0;
+        const syncedSec = Math.max(0, result.bombState.countdownSeconds - latencyOffset);
+        this.bombTimer.syncRemainingSeconds(syncedSec);
         this.lastBombTickMs = now;
       } else {
         const delta = Math.max(0, (now - (this.lastBombTickMs || now)) / 1000);
@@ -207,22 +213,9 @@ export class IpcHandlerManager {
       }
     }
 
-    // Auto-hide the heavy main application window when a CS2 match begins, leaving ONLY
-    // the ultra-lightweight click-through overlay window running to prevent any game lag.
-    // When the match ends, automatically restore the main window.
-    const mainWin = this.deps.getMainWindow();
+    // Synchronize match activity to OverlayManager so in-game overlay hints are rendered
     const isNowActive = Boolean(this.currentGsiStatus.activeMatch);
-    if (this.lastBroadcastStatus && this.lastBroadcastStatus.activeMatch !== isNowActive) {
-      if (isNowActive) {
-        if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
-          mainWin.hide();
-        }
-      } else {
-        if (mainWin && !mainWin.isDestroyed() && !mainWin.isVisible()) {
-          mainWin.show();
-        }
-      }
-    }
+    this.deps.overlayManager.setMatchActive(isNowActive);
 
     // Throttled GSI broadcasts: Avoid sending 4 IPC messages every 100ms
     const hasStatusChanged =
@@ -517,6 +510,15 @@ export class IpcHandlerManager {
       this.deps.overlayManager.toggleActiveLineupPhoto();
       const current = this.deps.overlayManager.getActiveLineupPhoto();
       this.broadcast('hud:active-lineup-photo-changed', current);
+    });
+
+    this.handle('hud:set-align-state', async (_event, active: boolean): Promise<void> => {
+      this.deps.overlayManager.setAlignActive(active);
+      this.broadcast('hud:align-state-changed', active);
+    });
+
+    this.handle('hud:get-align-state', async (): Promise<boolean> => {
+      return this.deps.overlayManager.getAlignActive();
     });
 
     this.handle('play:next-pixel', async (): Promise<void> => {

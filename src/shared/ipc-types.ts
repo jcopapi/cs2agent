@@ -228,9 +228,20 @@ export interface Rect {
   height: number;
 }
 
+export type ScreenCorner = 'TOP_RIGHT' | 'TOP_LEFT' | 'BOTTOM_RIGHT' | 'BOTTOM_LEFT';
+
 export interface HotkeyConfig {
-  key: string; // e.g. 'F1', 'CapsLock', 'F3', 'F4', 'ScrollLock'
-  mode: 'TOGGLE' | 'HOLD';
+  key?: string; // e.g. 'F1', 'CapsLock' (backward compat)
+  mode?: 'TOGGLE' | 'HOLD'; // backward compat
+  alignKey: string; // default 'CapsLock'
+  alignMode: 'HOLD' | 'TOGGLE'; // default 'HOLD'
+  alignOpacity: number; // default 0.5
+  overlayKey: string; // default 'F1'
+  overlayMode: 'HOLD' | 'TOGGLE'; // default 'TOGGLE'
+  nextPixelKey: string; // default 'F2'
+  cornerCardPosition: ScreenCorner; // default 'TOP_RIGHT'
+  indicatorPosition: ScreenCorner; // default 'TOP_RIGHT'
+  bombLatencyOffsetSec: number; // default 1.0
 }
 
 export interface HudConfig {
@@ -341,6 +352,9 @@ export interface ICS2AssistantAPI {
     setActiveLineupPhoto(lineup: Lineup | null): Promise<void>;
     getActiveLineupPhoto(): Promise<Lineup | null>;
     toggleActiveLineupPhoto(): Promise<void>;
+    setAlignState?(active: boolean): Promise<void>;
+    getAlignState?(): Promise<boolean>;
+    onAlignStateChange?(callback: (active: boolean) => void): () => void;
     getHotkeyConfig?(): Promise<HotkeyConfig>;
     setHotkeyConfig?(config: HotkeyConfig): Promise<HotkeyConfig>;
     onHotkeyConfigChange?(callback: (config: HotkeyConfig) => void): () => void;

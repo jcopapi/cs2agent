@@ -12,6 +12,7 @@ import { SafeStorageCredentialStore } from './credential-store';
 import { OverlayManager } from './overlay-manager';
 import { IpcHandlerManager } from './ipc-handlers';
 import { CapabilityGate } from '../core/compliance/capability-gate';
+import type { HotkeyConfig } from '../shared/ipc-types';
 
 // ---------------------------------------------------------------------------
 // 1. Single Instance Lock
@@ -155,16 +156,26 @@ app.whenReady().then(async () => {
 
   overlayManager = new OverlayManager(preloadPath, rendererUrl);
 
-  let hotkeyConfig: { key: string; mode: 'TOGGLE' | 'HOLD' } = {
+  let hotkeyConfig: HotkeyConfig = {
     key: 'F1',
     mode: 'TOGGLE',
+    alignKey: 'CapsLock',
+    alignMode: 'HOLD',
+    alignOpacity: 0.5,
+    overlayKey: 'F1',
+    overlayMode: 'TOGGLE',
+    nextPixelKey: 'F2',
+    cornerCardPosition: 'TOP_RIGHT',
+    indicatorPosition: 'TOP_RIGHT',
+    bombLatencyOffsetSec: 1.0,
   };
 
-  let holdTimeout: NodeJS.Timeout | null = null;
+  let alignHoldTimeout: NodeJS.Timeout | null = null;
+  let overlayHoldTimeout: NodeJS.Timeout | null = null;
 
-  const registerGlobalHotkeys = (cfg?: { key: string; mode: 'TOGGLE' | 'HOLD' }) => {
+  const registerGlobalHotkeys = (cfg?: Partial<HotkeyConfig>) => {
     if (cfg) {
-      hotkeyConfig = { ...cfg };
+      hotkeyConfig = { ...hotkeyConfig, ...cfg };
     }
 
     try {
@@ -173,33 +184,71 @@ app.whenReady().then(async () => {
       // ignore
     }
 
+    // 1. Align with Crosshair Key
+    const alignKey = hotkeyConfig.alignKey || 'CapsLock';
     try {
-      globalShortcut.register(hotkeyConfig.key, () => {
-        if (hotkeyConfig.mode === 'HOLD') {
-          const current = overlayManager?.getActiveLineupPhoto();
-          if (!current) {
-            overlayManager?.toggleActiveLineupPhoto();
-            ipcManager?.broadcast('hud:active-lineup-photo-changed', overlayManager?.getActiveLineupPhoto() || null);
+      globalShortcut.register(alignKey, () => {
+        if (hotkeyConfig.alignMode === 'HOLD') {
+          if (!overlayManager?.getAlignActive()) {
+            overlayManager?.setAlignActive(true);
+            ipcManager?.broadcast('hud:align-state-changed', true);
           }
-          if (holdTimeout) clearTimeout(holdTimeout);
-          holdTimeout = setTimeout(() => {
-            if (overlayManager?.getActiveLineupPhoto()) {
-              overlayManager?.setActiveLineupPhoto(null);
-              ipcManager?.broadcast('hud:active-lineup-photo-changed', null);
+          if (alignHoldTimeout) clearTimeout(alignHoldTimeout);
+          alignHoldTimeout = setTimeout(() => {
+            if (overlayManager?.getAlignActive()) {
+              overlayManager?.setAlignActive(false);
+              ipcManager?.broadcast('hud:align-state-changed', false);
             }
           }, 260);
         } else {
-          overlayManager?.toggleActiveLineupPhoto();
-          const current = overlayManager?.getActiveLineupPhoto() || null;
-          ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
+          const next = !overlayManager?.getAlignActive();
+          overlayManager?.setAlignActive(next);
+          ipcManager?.broadcast('hud:align-state-changed', next);
         }
       });
-
-      globalShortcut.register('F2', () => {
-        ipcManager?.broadcast('play:next-pixel', null);
-      });
     } catch (err) {
-      console.warn(`[Main] Failed to register global shortcut ${hotkeyConfig.key}:`, err);
+      console.warn(`[Main] Failed to register global shortcut ${alignKey}:`, err);
+    }
+
+    // 2. Overlay / Lineup Key
+    const overlayKey = hotkeyConfig.overlayKey || hotkeyConfig.key || 'F1';
+    if (overlayKey !== alignKey) {
+      try {
+        globalShortcut.register(overlayKey, () => {
+          if (hotkeyConfig.overlayMode === 'HOLD') {
+            const current = overlayManager?.getActiveLineupPhoto();
+            if (!current) {
+              overlayManager?.toggleActiveLineupPhoto();
+              ipcManager?.broadcast('hud:active-lineup-photo-changed', overlayManager?.getActiveLineupPhoto() || null);
+            }
+            if (overlayHoldTimeout) clearTimeout(overlayHoldTimeout);
+            overlayHoldTimeout = setTimeout(() => {
+              if (overlayManager?.getActiveLineupPhoto()) {
+                overlayManager?.setActiveLineupPhoto(null);
+                ipcManager?.broadcast('hud:active-lineup-photo-changed', null);
+              }
+            }, 260);
+          } else {
+            overlayManager?.toggleActiveLineupPhoto();
+            const current = overlayManager?.getActiveLineupPhoto() || null;
+            ipcManager?.broadcast('hud:active-lineup-photo-changed', current);
+          }
+        });
+      } catch (err) {
+        console.warn(`[Main] Failed to register global shortcut ${overlayKey}:`, err);
+      }
+    }
+
+    // 3. Next Pixel Key
+    const nextKey = hotkeyConfig.nextPixelKey || 'F2';
+    if (nextKey !== alignKey && nextKey !== overlayKey) {
+      try {
+        globalShortcut.register(nextKey, () => {
+          ipcManager?.broadcast('play:next-pixel', null);
+        });
+      } catch (err) {
+        console.warn(`[Main] Failed to register global shortcut ${nextKey}:`, err);
+      }
     }
   };
 

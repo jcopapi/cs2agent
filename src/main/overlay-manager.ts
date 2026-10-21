@@ -18,6 +18,8 @@ export class OverlayManager {
   private activeLineupPhoto: Lineup | null = null;
   private lastLineupPhoto: Lineup | null = null;
   private isBombActive: boolean = false;
+  private isMatchActive: boolean = false;
+  private isAlignActive: boolean = false;
 
   private currentConfig: HudConfig = {
     enabled: true,
@@ -79,11 +81,34 @@ export class OverlayManager {
     }
   }
 
+  public setMatchActive(active: boolean): void {
+    if (this.isMatchActive !== active) {
+      this.isMatchActive = active;
+      this.syncVisibility();
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.webContents.send('hud:match-active-changed', active);
+      }
+    }
+  }
+
+  public getAlignActive(): boolean {
+    return this.isAlignActive;
+  }
+
+  public setAlignActive(active: boolean): void {
+    if (this.isAlignActive !== active) {
+      this.isAlignActive = active;
+      this.syncVisibility();
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.webContents.send('hud:align-state-changed', active);
+      }
+    }
+  }
+
   /**
    * Dynamically controls window visibility.
-   * If neither the C4 bomb countdown nor a lineup pixel photo is active,
-   * the overlay window is completely hidden from Windows DWM, granting CS2
-   * 100% native FPS with ZERO DWM composition overhead.
+   * Overlay window is displayed whenever a match is active (showing key hints or C4),
+   * during align mode, when a lineup photo is pinned, or during calibration.
    */
   public syncVisibility(): void {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
@@ -96,6 +121,8 @@ export class OverlayManager {
     }
 
     const shouldBeVisible =
+      Boolean(this.isMatchActive) ||
+      Boolean(this.isAlignActive) ||
       Boolean(this.currentConfig.calibrationMode) ||
       Boolean(this.currentConfig.showBombTimer && this.isBombActive) ||
       Boolean(this.currentConfig.showPixelPhoto !== false && this.activeLineupPhoto);
