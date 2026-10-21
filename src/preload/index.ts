@@ -164,6 +164,17 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.invoke('hud:set-calibration-mode', interactive),
     getSafeZones: (): Promise<SafeZones> =>
       ipcRenderer.invoke('hud:get-safe-zones'),
+    setActiveLineupPhoto: (lineup: Lineup | null): Promise<void> =>
+      ipcRenderer.invoke('hud:set-active-lineup-photo', lineup),
+    getActiveLineupPhoto: (): Promise<Lineup | null> =>
+      ipcRenderer.invoke('hud:get-active-lineup-photo'),
+    onActiveLineupPhotoChange: (callback: (lineup: Lineup | null) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: Lineup | null) => callback(data);
+      ipcRenderer.on('hud:active-lineup-photo-changed', handler);
+      return () => {
+        ipcRenderer.removeListener('hud:active-lineup-photo-changed', handler);
+      };
+    },
     onConfigChange: (callback: (config: HudConfig) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: HudConfig) => callback(data);
       ipcRenderer.on('hud:config-updated', handler);

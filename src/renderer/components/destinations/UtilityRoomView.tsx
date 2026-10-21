@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Radio,
   X,
+  Pin,
 } from 'lucide-react';
 import type {
   CS2Map,
@@ -79,6 +80,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const [isCreatorOpen, setIsCreatorOpen] = useState<boolean>(false);
   const [isImportExportOpen, setIsImportExportOpen] = useState<boolean>(false);
   const [importExportTab, setImportExportTab] = useState<'IMPORT' | 'EXPORT'>('IMPORT');
+  const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
 
   // -------------------------------------------------------------------------
   // Load Data from IPC if available, otherwise keep verified defaults
@@ -105,11 +107,23 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
             setIsProfileBound(profile.active);
           }
         }
+        if (window.cs2Assistant?.hud?.getActiveLineupPhoto) {
+          const photo = await window.cs2Assistant.hud.getActiveLineupPhoto();
+          if (photo) setPinnedLineup(photo);
+        }
       } catch (err) {
         console.error('[UtilityRoomView] Error loading data from IPC:', err);
       }
     }
     loadData();
+
+    const unsubPhoto = window.cs2Assistant?.hud?.onActiveLineupPhotoChange?.((photo) => {
+      setPinnedLineup(photo);
+    });
+
+    return () => {
+      unsubPhoto?.();
+    };
   }, []);
 
   // Synchronize when initial props change (e.g. from History closed loop trigger)
@@ -602,6 +616,27 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     LINEUP & LANDMARK INSPECTOR
                   </span>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const isPinned = pinnedLineup?.id === activeLineup.id;
+                        if (isPinned) {
+                          await window.cs2Assistant?.hud.setActiveLineupPhoto(null);
+                          setPinnedLineup(null);
+                        } else {
+                          await window.cs2Assistant?.hud.setActiveLineupPhoto(activeLineup);
+                          setPinnedLineup(activeLineup);
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                        pinnedLineup?.id === activeLineup.id
+                          ? 'bg-tactical-emerald text-zinc-950 shadow-sm'
+                          : 'border border-tactical-cyan/40 bg-tactical-cyan/15 text-tactical-cyan hover:bg-tactical-cyan/25'
+                      }`}
+                      title="Fixa ou remove a foto do pixel real diretamente na tela do jogo"
+                    >
+                      <Pin className="h-3 w-3" />
+                      <span>{pinnedLineup?.id === activeLineup.id ? 'Fixado na Tela' : 'Fixar na Overlay'}</span>
+                    </button>
                     <a
                       href={generateCsnadesUrl(activeLineup)}
                       target="_blank"

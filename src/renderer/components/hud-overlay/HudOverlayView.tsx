@@ -1,18 +1,23 @@
 /**
- * CS2 Assistant - Standalone Transparent Click-Through HUD Overlay
+ * CS2 Assistant - Ultra-Lightweight In-Game Overlay
  * File: src/renderer/components/hud-overlay/HudOverlayView.tsx
  *
- * Rendered in Electron's topmost frameless transparent window.
- * Enforces 100% click-through (pointer-events-none + OS WS_EX_TRANSPARENT),
- * safe-zone exclusions, and large, glanceable typography for real-time in-game use.
+ * Dedicated strictly to the two essential in-game features:
+ * 1. C4 Bomb Countdown to Explosion (with 5s / 10s defusal viability)
+ * 2. Real CSNADES Pixel Screenshot on Screen (with aim landmark & bloom)
+ *
+ * Optimized for ZERO lost FPS:
+ * - 0 backdrop-blur / 0 Gaussian shader passes
+ * - 0 CSS keyframe opacity animations
+ * - 0 mouse-event forwarding
+ * - Returns null when neither bomb nor photo is active
  */
 
 import React, { useState, useEffect } from 'react';
 import type {
   HudConfig,
   BombState,
-  TacticalObservation,
-  TacticalRecommendation,
+  Lineup,
   GsiStatus,
 } from '../../../shared/ipc-types';
 
@@ -20,28 +25,27 @@ export const HudOverlayView: React.FC = () => {
   const [hudConfig, setHudConfig] = useState<HudConfig>({
     enabled: true,
     scale: 1.0,
-    opacity: 0.95,
+    opacity: 1.0,
     crosshairSafeZonePx: 450,
-    showRadarOverlay: true,
+    showRadarOverlay: false,
     showBombTimer: true,
-    showLastSeen: true,
-    showTacticalFeed: true,
+    showPixelPhoto: true,
+    showLastSeen: false,
+    showTacticalFeed: false,
     calibrationMode: false,
   });
 
-  const [gsiStatus, setGsiStatus] = useState<GsiStatus | null>(null);
   const [bombState, setBombState] = useState<BombState | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
-  const [observations, setObservations] = useState<TacticalObservation[]>([]);
-  const [recommendation, setRecommendation] = useState<TacticalRecommendation | null>(null);
+  const [activeLineupPhoto, setActiveLineupPhoto] = useState<Lineup | null>(null);
 
-  // Ensure root HTML/body surfaces are 100% transparent in overlay window
+  // Ensure root surfaces remain 100% transparent
   useEffect(() => {
     document.documentElement.style.backgroundColor = 'transparent';
     document.body.style.backgroundColor = 'transparent';
   }, []);
 
-  // Subscribe to IPC configuration and real tactical state
+  // Subscribe to real-time events
   useEffect(() => {
     const api = window.cs2Assistant;
     if (!api) return;
@@ -50,8 +54,8 @@ export const HudOverlayView: React.FC = () => {
       if (cfg) setHudConfig(cfg);
     }).catch(() => {});
 
-    api.gsi.getStatus().then((st) => {
-      if (st) setGsiStatus(st);
+    api.hud.getActiveLineupPhoto?.().then((lineup) => {
+      if (lineup) setActiveLineupPhoto(lineup);
     }).catch(() => {});
 
     api.tactical.getBombState().then((b) => {
@@ -61,16 +65,8 @@ export const HudOverlayView: React.FC = () => {
       }
     }).catch(() => {});
 
-    api.tactical.getObservations().then((obs) => {
-      if (obs) setObservations(obs);
-    }).catch(() => {});
-
     const unsubConfig = api.hud.onConfigChange?.((cfg) => {
       setHudConfig(cfg);
-    });
-
-    const unsubGsi = api.gsi.onStatusChange((st) => {
-      setGsiStatus(st);
     });
 
     const unsubBomb = api.tactical.onBombUpdate((b) => {
@@ -82,24 +78,18 @@ export const HudOverlayView: React.FC = () => {
       }
     });
 
-    const unsubObs = api.tactical.onObservationUpdate((obs) => {
-      setObservations(obs || []);
-    });
-
-    const unsubRec = api.onTacticalRecommendation?.((rec) => {
-      setRecommendation(rec);
+    const unsubPhoto = api.hud.onActiveLineupPhotoChange?.((lineup) => {
+      setActiveLineupPhoto(lineup);
     });
 
     return () => {
       unsubConfig?.();
-      unsubGsi?.();
       unsubBomb?.();
-      unsubObs?.();
-      unsubRec?.();
+      unsubPhoto?.();
     };
   }, []);
 
-  // Tick down active bomb timer only while planted, stopping at 0.0 (never looping)
+  // Smooth local tickdown only while bomb is planted
   useEffect(() => {
     if (!bombState?.planted || remainingSeconds <= 0) {
       return;
@@ -119,15 +109,30 @@ export const HudOverlayView: React.FC = () => {
     return () => clearInterval(timer);
   }, [bombState?.planted, remainingSeconds > 0]);
 
+  // Global escape key to close lineup photo on screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeLineupPhoto) {
+        window.cs2Assistant?.hud.setActiveLineupPhoto(null);
+        setActiveLineupPhoto(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeLineupPhoto]);
+
   if (!hudConfig.enabled) {
     return null;
   }
 
+  const isBombActive = Boolean(hudConfig.showBombTimer !== false && bombState?.planted && remainingSeconds > 0);
+  const isPhotoActive = Boolean(hudConfig.showPixelPhoto !== false && activeLineupPhoto);
   const chDim = hudConfig.crosshairSafeZonePx || 450;
-  const isBombActive = Boolean(bombState?.planted && remainingSeconds > 0);
-  const activeObs = observations.slice(0, 3);
-  const currentMap = (gsiStatus?.map || 'de_mirage').toUpperCase().replace('DE_', '');
-  const roundNum = gsiStatus?.round ?? 1;
+
+  // Ultra-optimized: If nothing is active, render NOTHING!
+  if (!isBombActive && !isPhotoActive && !hudConfig.calibrationMode) {
+    return null;
+  }
 
   return (
     <div
@@ -140,31 +145,34 @@ export const HudOverlayView: React.FC = () => {
       }}
     >
       {/* ==================================================================== */}
-      {/* 1. TOP-CENTER: SYNCHRONIZED BOMB TIMER (When Planted)                */}
+      {/* 1. TOP-CENTER: C4 BOMB COUNTDOWN (Appears ONLY when planted)         */}
       {/* ==================================================================== */}
-      {hudConfig.showBombTimer && isBombActive && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-50">
-          <div className="rounded-lg border-2 border-tactical-rose bg-zinc-950/95 backdrop-blur-md px-6 py-2 shadow-hud flex items-center gap-4 pointer-events-none">
-            <span className="font-mono text-xs text-tactical-rose font-black uppercase tracking-widest animate-pulse">
-              BOMB PLANTED
-            </span>
-            <span
-              className={`font-mono text-3xl font-black tabular-nums ${
-                remainingSeconds > 20
-                  ? 'text-tactical-emerald'
-                  : remainingSeconds > 10
-                  ? 'text-tactical-amber'
-                  : 'text-tactical-rose animate-pulse'
-              }`}
-            >
-              00:{remainingSeconds.toFixed(1).padStart(4, '0')}
-            </span>
-            <div className="flex flex-col text-[10px] font-mono leading-tight">
-              <span className={remainingSeconds >= 5 ? 'text-tactical-emerald font-bold' : 'text-tactical-rose font-bold'}>
-                KIT (5s): {remainingSeconds >= 5 ? 'VIÁVEL' : 'SEM TEMPO'}
+      {isBombActive && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-50">
+          <div className="rounded-lg border-2 border-rose-500 bg-[#09090b] px-6 py-2.5 shadow-2xl flex items-center gap-5 pointer-events-none">
+            <div className="flex flex-col">
+              <span className="font-mono text-[11px] text-rose-500 font-black uppercase tracking-widest leading-tight">
+                C4 EXPLOSÃO {bombState?.site ? `// SITE ${bombState.site}` : ''}
               </span>
-              <span className={remainingSeconds >= 10 ? 'text-tactical-emerald font-bold' : 'text-tactical-rose font-bold'}>
-                SEM KIT (10s): {remainingSeconds >= 10 ? 'VIÁVEL' : 'GUARDE'}
+              <span
+                className={`font-mono text-3xl font-black tabular-nums leading-none mt-0.5 ${
+                  remainingSeconds > 20
+                    ? 'text-emerald-400'
+                    : remainingSeconds > 10
+                    ? 'text-amber-400'
+                    : 'text-rose-500'
+                }`}
+              >
+                00:{remainingSeconds.toFixed(1).padStart(4, '0')}
+              </span>
+            </div>
+
+            <div className="flex flex-col text-[11px] font-mono font-bold leading-snug border-l border-zinc-800 pl-4">
+              <span className={remainingSeconds >= 5 ? 'text-emerald-400' : 'text-rose-500'}>
+                KIT (5s): {remainingSeconds >= 5 ? '✓ TEMPO DE SOBRA' : '✕ SEM TEMPO'}
+              </span>
+              <span className={remainingSeconds >= 10 ? 'text-emerald-400' : 'text-rose-500'}>
+                SEM KIT (10s): {remainingSeconds >= 10 ? '✓ TEMPO DE SOBRA' : '✕ GUARDE A ARMA'}
               </span>
             </div>
           </div>
@@ -172,57 +180,58 @@ export const HudOverlayView: React.FC = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* 2. LATERAL SHELF (LEFT): STRATEGIC COACH CALLOUT & LINEUP WIDGET     */}
-      {/* Positioned safely below CS2 radar (Y: 340px)                         */}
+      {/* 2. TOP-RIGHT: FOTO DO PIXEL NA TELA (Real CS2 Screenshot)            */}
       {/* ==================================================================== */}
-      <div className="absolute top-[340px] left-4 flex flex-col gap-2 max-w-[340px] pointer-events-none">
-        {/* Tactical Coach Card */}
-        <div className="rounded-lg border border-tactical-cyan/60 bg-zinc-950/92 backdrop-blur-md p-3 shadow-hud space-y-1.5 pointer-events-none">
-          <div className="flex items-center justify-between text-[11px] font-mono">
-            <span className="rounded bg-tactical-cyan/20 px-1.5 py-0.5 font-bold text-tactical-cyan uppercase">
-              COACH // {currentMap} R{roundNum}
-            </span>
-            <span className="text-zinc-400 font-semibold">
-              {isBombActive ? 'POST-PLANT' : 'ROUND CALL'}
-            </span>
-          </div>
-
-          <div className="text-sm font-black text-zinc-100 leading-tight">
-            {recommendation
-              ? recommendation.shortDisplayText
-              : isBombActive
-              ? 'JOGUE NO TEMPO DA C4 & CRUZE A MIRA'
-              : 'EXECUÇÃO SINCRONIZADA & CONTROLE DE MEIO'}
-          </div>
-
-          <p className="text-[11px] text-zinc-300 leading-snug">
-            {recommendation
-              ? recommendation.detailedExplanation
-              : isBombActive
-              ? 'Segure posição passiva. Force o CT a defusar sob o som da C4.'
-              : 'Prepare granadas de utilitárias antes de avançar nos pontos.'}
-          </p>
-        </div>
-
-        {/* Recent Tactical Callouts / Last Seen Shelf */}
-        {hudConfig.showLastSeen && activeObs.length > 0 && (
-          <div className="rounded-lg border border-border-subtle bg-zinc-950/90 backdrop-blur-md p-2.5 shadow-subtle space-y-1 pointer-events-none">
-            <div className="text-[10px] font-mono font-bold text-tactical-amber uppercase tracking-wider">
-              ÚLTIMAS POSIÇÕES INIMIGAS:
+      {isPhotoActive && activeLineupPhoto && (
+        <div className="absolute top-4 right-4 flex flex-col gap-1.5 pointer-events-none z-50 max-w-[440px] rounded-lg border-2 border-cyan-500 bg-[#09090b] p-2.5 shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between text-xs font-mono font-black border-b border-zinc-800 pb-1.5">
+            <div className="flex items-center gap-2 truncate max-w-[320px]">
+              <span className="h-2 w-2 rounded-full bg-cyan-400" />
+              <span className="text-cyan-400 uppercase tracking-wide truncate">
+                {activeLineupPhoto.title}
+              </span>
             </div>
-            {activeObs.map((obs) => (
-              <div key={obs.eventId} className="flex items-center justify-between text-[11px] font-mono">
-                <span className="text-zinc-200">
-                  • <span className="font-bold text-tactical-amber">{obs.location?.callout || 'Meio'}</span>
-                </span>
-                <span className="text-zinc-400 text-[10px]">
-                  {Math.max(0, Math.round((Date.now() - obs.timestamp) / 1000))}s atrás
-                </span>
-              </div>
-            ))}
+            <span className="rounded bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 text-[10px] font-bold">
+              {activeLineupPhoto.throwType}
+            </span>
           </div>
-        )}
-      </div>
+
+          {/* Real CSNADES In-Game Photo */}
+          <div className="relative w-full h-[250px] bg-black rounded overflow-hidden flex items-center justify-center my-0.5">
+            <img
+              src={activeLineupPhoto.imageUrl || activeLineupPhoto.thumbnailUrl}
+              alt={activeLineupPhoto.title}
+              className="w-full h-full object-contain rounded"
+            />
+            {/* Picture-in-picture Landing Bloom Result */}
+            {activeLineupPhoto.thumbnailUrl && (
+              <div className="absolute bottom-1.5 right-1.5 rounded border border-cyan-500 bg-[#09090b] p-0.5 shadow-md flex flex-col items-center">
+                <span className="text-[8px] font-mono font-bold text-cyan-400 px-1">BLOOM</span>
+                <img
+                  src={activeLineupPhoto.thumbnailUrl}
+                  alt="Bloom"
+                  className="w-20 h-13 object-cover rounded"
+                />
+              </div>
+            )}
+            <div className="absolute top-1.5 left-1.5 bg-[#09090b]/90 border border-zinc-700 px-2 py-0.5 rounded font-mono text-[9px] text-zinc-300 font-bold">
+              PIXEL CS2 OFICIAL
+            </div>
+          </div>
+
+          {/* Alignment instruction & position */}
+          <div className="flex flex-col text-[11px] font-mono text-zinc-300 pt-1 border-t border-zinc-800 gap-0.5">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span>Posição: <strong className="text-zinc-200">{activeLineupPhoto.startPosition?.callout || 'Spawn'}</strong></span>
+              <span className="text-cyan-400 font-bold text-[10px]">[ESC] FECHAR</span>
+            </div>
+            <div className="text-zinc-300 font-semibold truncate">
+              {activeLineupPhoto.aimReference?.crosshairPlacement || activeLineupPhoto.instructions?.[1] || 'Alinhe a mira no pixel indicado'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* 3. CALIBRATION SAFE-ZONE GUIDES (When Calibration Active)            */}
@@ -230,7 +239,7 @@ export const HudOverlayView: React.FC = () => {
       {hudConfig.calibrationMode && (
         <div className="absolute inset-0 pointer-events-none">
           <div
-            className="absolute border border-dashed border-tactical-rose/60 bg-tactical-rose/5 flex items-center justify-center pointer-events-none"
+            className="absolute border border-dashed border-rose-500/60 bg-rose-500/5 flex items-center justify-center pointer-events-none"
             style={{
               width: `${chDim}px`,
               height: `${chDim}px`,
@@ -238,7 +247,7 @@ export const HudOverlayView: React.FC = () => {
               top: `calc(50% - ${chDim / 2}px)`,
             }}
           >
-            <span className="font-mono text-[10px] text-tactical-rose bg-background/80 px-2 py-0.5 rounded">
+            <span className="font-mono text-[10px] text-rose-500 bg-[#09090b] px-2 py-0.5 rounded border border-rose-500/40">
               CROSSHAIR SAFE ZONE ({chDim}x{chDim}px)
             </span>
           </div>

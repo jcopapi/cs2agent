@@ -8,23 +8,26 @@
 
 import { BrowserWindow, screen } from 'electron';
 import * as url from 'url';
-import type { Rect, SafeZones, HudConfig } from '../shared/ipc-types';
+import type { Rect, SafeZones, HudConfig, Lineup } from '../shared/ipc-types';
 
 export class OverlayManager {
   private overlayWindow: BrowserWindow | null = null;
   private preloadPath: string;
   private rendererUrl: string;
   private isCalibrationMode: boolean = false;
+  private activeLineupPhoto: Lineup | null = null;
+  private isBombActive: boolean = false;
 
   private currentConfig: HudConfig = {
     enabled: true,
     scale: 1.0,
-    opacity: 0.95,
+    opacity: 1.0,
     crosshairSafeZonePx: 450,
-    showRadarOverlay: true,
+    showRadarOverlay: false,
     showBombTimer: true,
-    showLastSeen: true,
-    showTacticalFeed: true,
+    showPixelPhoto: true,
+    showLastSeen: false,
+    showTacticalFeed: false,
     calibrationMode: false,
   };
 
@@ -41,17 +44,65 @@ export class OverlayManager {
     return { ...this.currentConfig };
   }
 
-  public updateConfig(patch: Partial<HudConfig>): HudConfig {
-    this.currentConfig = { ...this.currentConfig, ...patch };
+  public getActiveLineupPhoto(): Lineup | null {
+    return this.activeLineupPhoto;
+  }
+
+  public setActiveLineupPhoto(lineup: Lineup | null): void {
+    this.activeLineupPhoto = lineup;
+    this.syncVisibility();
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-      this.overlayWindow.setFocusable(false);
-      if (this.currentConfig.enabled) {
-        this.overlayWindow.showInactive();
-        this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-      } else {
+      this.overlayWindow.webContents.send('hud:active-lineup-photo-changed', lineup);
+    }
+  }
+
+  public setBombActive(active: boolean): void {
+    if (this.isBombActive !== active) {
+      this.isBombActive = active;
+      this.syncVisibility();
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.webContents.send('hud:bomb-active-changed', active);
+      }
+    }
+  }
+
+  /**
+   * Dynamically controls window visibility.
+   * If neither the C4 bomb countdown nor a lineup pixel photo is active,
+   * the overlay window is completely hidden from Windows DWM, granting CS2
+   * 100% native FPS with ZERO DWM composition overhead.
+   */
+  public syncVisibility(): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+
+    if (!this.currentConfig.enabled) {
+      if (this.overlayWindow.isVisible()) {
         this.overlayWindow.hide();
       }
+      return;
+    }
+
+    const shouldBeVisible =
+      Boolean(this.currentConfig.calibrationMode) ||
+      Boolean(this.currentConfig.showBombTimer && this.isBombActive) ||
+      Boolean(this.currentConfig.showPixelPhoto !== false && this.activeLineupPhoto);
+
+    if (shouldBeVisible) {
+      if (!this.overlayWindow.isVisible()) {
+        this.overlayWindow.showInactive();
+        this.overlayWindow.setIgnoreMouseEvents(true);
+      }
+    } else {
+      if (this.overlayWindow.isVisible()) {
+        this.overlayWindow.hide();
+      }
+    }
+  }
+
+  public updateConfig(patch: Partial<HudConfig>): HudConfig {
+    this.currentConfig = { ...this.currentConfig, ...patch };
+    this.syncVisibility();
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       this.overlayWindow.webContents.send('hud:config-updated', this.currentConfig);
     }
     return { ...this.currentConfig };
@@ -83,7 +134,7 @@ export class OverlayManager {
       movable: false,
       hasShadow: false,
       focusable: false,
-      show: false,
+      show: false, // Starts hidden until bomb or lineup is active
       webPreferences: {
         preload: this.preloadPath,
         contextIsolation: true,
@@ -97,8 +148,9 @@ export class OverlayManager {
     this.overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     this.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-    // Strict OS-level click-through (WS_EX_TRANSPARENT) so mouse is never blocked
-    this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+    // Strict OS-level click-through (WS_EX_TRANSPARENT) so mouse is NEVER intercepted
+    // Note: Never use { forward: true } on game overlays; it forwards 1000Hz gaming mouse events into Electron!
+    this.overlayWindow.setIgnoreMouseEvents(true);
 
     // Overlay URL routes to the overlay destination in the renderer
     let targetUrl: string;
@@ -113,11 +165,8 @@ export class OverlayManager {
 
     this.overlayWindow.once('ready-to-show', () => {
       if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-        this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-        if (this.currentConfig.enabled) {
-          this.overlayWindow.showInactive();
-          this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-        }
+        this.overlayWindow.setIgnoreMouseEvents(true);
+        this.syncVisibility();
       }
     });
 
@@ -139,21 +188,12 @@ export class OverlayManager {
       this.currentConfig.enabled = true;
     }
 
-    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+    this.syncVisibility();
 
-    // Never disable ignoreMouseEvents on fullscreen Windows overlay
-    this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-    this.overlayWindow.setFocusable(false);
-
-    if (this.currentConfig.enabled) {
-      this.overlayWindow.showInactive();
-      this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-    } else {
-      this.overlayWindow.hide();
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.webContents.send('hud:config-updated', this.currentConfig);
+      this.overlayWindow.webContents.send('hud:calibration-changed', { interactive });
     }
-
-    this.overlayWindow.webContents.send('hud:config-updated', this.currentConfig);
-    this.overlayWindow.webContents.send('hud:calibration-changed', { interactive });
   }
 
   /**

@@ -21,6 +21,7 @@ import {
   Copy,
   ExternalLink,
   RotateCcw,
+  Zap,
 } from 'lucide-react';
 import { COMPLIANCE_MATRIX } from '../../../core/compliance/compliance-matrix';
 import type { EnvironmentMode } from '../../../shared/ipc-types';
@@ -55,6 +56,8 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
   const [overlayEnabled, setOverlayEnabled] = useState<boolean>(false);
   const [overlayScale, setOverlayScale] = useState<number>(1.0);
   const [overlayOpacity, setOverlayOpacity] = useState<number>(0.9);
+  const [showBombTimer, setShowBombTimer] = useState<boolean>(true);
+  const [showPixelPhoto, setShowPixelPhoto] = useState<boolean>(true);
   const [safeZonePreview, setSafeZonePreview] = useState<boolean>(false);
 
   // GSI snippet copy state
@@ -80,6 +83,8 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
           setOverlayScale(cfg.scale);
           setOverlayOpacity(cfg.opacity);
           setSafeZonePreview(cfg.calibrationMode);
+          setShowBombTimer(cfg.showBombTimer !== false);
+          setShowPixelPhoto(cfg.showPixelPhoto !== false);
         }
       }).catch(() => {});
 
@@ -167,12 +172,16 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
     setOverlayEnabled(false);
     setOverlayScale(1.0);
     setOverlayOpacity(0.9);
+    setShowBombTimer(true);
+    setShowPixelPhoto(true);
     setSafeZonePreview(false);
     if (window.cs2Assistant?.hud) {
       await window.cs2Assistant.hud.updateConfig({
         enabled: false,
         scale: 1.0,
         opacity: 0.9,
+        showBombTimer: true,
+        showPixelPhoto: true,
         calibrationMode: false,
       });
     }
@@ -464,6 +473,72 @@ export const SecondaryMenu: React.FC<SecondaryMenuProps> = ({
                 >
                   {overlayEnabled ? 'Enabled' : 'Disabled'}
                 </button>
+              </div>
+
+              {/* Zero-FPS-Loss Optimization Info Card */}
+              <div className="rounded border border-tactical-cyan/40 bg-tactical-cyan/10 p-3 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-bold text-tactical-cyan">
+                  <Zap className="h-4 w-4" />
+                  <span>Otimização Máxima (Zero Perda de FPS)</span>
+                </div>
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  A overlay é renderizada sem shaders pesados ou backdrop-blur. Quando nem a C4 nem uma foto de granada estiverem ativas, a janela é 100% ocultada do Windows DWM, mantendo o CS2 com taxa de quadros e latência de entrada nativas (100% do seu FPS).
+                </p>
+              </div>
+
+              {/* Focused Overlay Modules */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-zinc-300">
+                  Módulos Essenciais da Overlay
+                </label>
+
+                {/* C4 Explosion Countdown */}
+                <div className="flex items-center justify-between rounded border border-border-subtle bg-background-panel p-3">
+                  <div className="pr-3">
+                    <div className="text-xs font-semibold text-zinc-100">Timer de Explosão da C4</div>
+                    <div className="text-[11px] text-zinc-400">
+                      Cronômetro sincronizado de 40.0s com cálculo de tempo de defuse (5s com kit / 10s sem kit). Só aparece enquanto a bomba estiver plantada.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const next = !showBombTimer;
+                      setShowBombTimer(next);
+                      window.cs2Assistant?.hud?.updateConfig({ showBombTimer: next });
+                    }}
+                    className={`rounded px-3 py-1 text-xs font-medium transition-colors cursor-pointer shrink-0 ${
+                      showBombTimer
+                        ? 'bg-tactical-emerald text-zinc-950 font-semibold'
+                        : 'border border-border-subtle text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {showBombTimer ? 'Ativado' : 'Desativado'}
+                  </button>
+                </div>
+
+                {/* Pixel Screenshot Guide */}
+                <div className="flex items-center justify-between rounded border border-border-subtle bg-background-panel p-3">
+                  <div className="pr-3">
+                    <div className="text-xs font-semibold text-zinc-100">Foto do Pixel na Tela (Overlay)</div>
+                    <div className="text-[11px] text-zinc-400">
+                      Exibe a foto real em alta resolução do alinhamento de mira e do ponto de impacto da granada (CSNADES) para alinhar pixels no jogo.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const next = !showPixelPhoto;
+                      setShowPixelPhoto(next);
+                      window.cs2Assistant?.hud?.updateConfig({ showPixelPhoto: next });
+                    }}
+                    className={`rounded px-3 py-1 text-xs font-medium transition-colors cursor-pointer shrink-0 ${
+                      showPixelPhoto
+                        ? 'bg-tactical-emerald text-zinc-950 font-semibold'
+                        : 'border border-border-subtle text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {showPixelPhoto ? 'Ativado' : 'Desativado'}
+                  </button>
+                </div>
               </div>
 
               {/* Environment Mode Selector */}

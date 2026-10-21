@@ -224,6 +224,8 @@ export interface HudConfig {
   crosshairSafeZonePx: number; // default 450
   showRadarOverlay: boolean;
   showBombTimer: boolean;
+  showPixelPhoto?: boolean;
+  activeLineupPhoto?: Lineup | null;
   showLastSeen: boolean;
   showTacticalFeed: boolean;
   calibrationMode: boolean;
@@ -319,6 +321,9 @@ export interface ICS2AssistantAPI {
     updateConfig(config: Partial<HudConfig>): Promise<HudConfig>;
     setCalibrationMode(interactive: boolean): Promise<void>;
     getSafeZones(): Promise<SafeZones>;
+    setActiveLineupPhoto(lineup: Lineup | null): Promise<void>;
+    getActiveLineupPhoto(): Promise<Lineup | null>;
+    onActiveLineupPhotoChange?(callback: (lineup: Lineup | null) => void): () => void;
     onConfigChange?(callback: (config: HudConfig) => void): () => void;
   };
 

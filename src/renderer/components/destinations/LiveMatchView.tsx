@@ -24,6 +24,7 @@ import {
   ChevronRight,
   ShieldAlert,
   MapPin,
+  Pin,
 } from 'lucide-react';
 import type {
   GsiStatus,
@@ -59,6 +60,8 @@ export const LiveMatchView: React.FC = () => {
   const [selectedLineupIndex, setSelectedLineupIndex] = useState<number>(0);
   const [fsmState, setFsmState] = useState<LineupFsmState>('POSITIONING');
   const [lastCompletionType, setLastCompletionType] = useState<CompletionType | null>(null);
+  const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
+  const [autoPinToOverlay, setAutoPinToOverlay] = useState<boolean>(false);
 
   // Gemini Tactical Coach Recommendation
   const [recommendation, setRecommendation] = useState<TacticalRecommendation | null>(null);
@@ -87,6 +90,10 @@ export const LiveMatchView: React.FC = () => {
       if (obs) setObservations(obs);
     }).catch(() => {});
 
+    api.hud.getActiveLineupPhoto?.().then((photo) => {
+      setPinnedLineup(photo);
+    }).catch(() => {});
+
     const unsubGsi = api.gsi.onStatusChange((st) => {
       setGsiStatus(st);
       if (st.map) {
@@ -110,11 +117,16 @@ export const LiveMatchView: React.FC = () => {
       setRecommendation(rec);
     });
 
+    const unsubPhoto = api.hud.onActiveLineupPhotoChange?.((photo) => {
+      setPinnedLineup(photo);
+    });
+
     return () => {
       unsubGsi();
       unsubBomb();
       unsubObs();
       unsubRec?.();
+      unsubPhoto?.();
     };
   }, []);
 
@@ -237,6 +249,14 @@ export const LiveMatchView: React.FC = () => {
   const activeLineup = mapLineups[selectedLineupIndex] || mapLineups[0];
   const isMatchSessionOpen = gsiStatus.activeMatch || isSimulationMode;
   const isBombPlanted = Boolean(bombState?.planted && bombCountdown > 0);
+
+  // Auto-pin active lineup photo to HUD overlay when auto-pin is enabled
+  useEffect(() => {
+    if (autoPinToOverlay && activeLineup && window.cs2Assistant?.hud) {
+      window.cs2Assistant.hud.setActiveLineupPhoto(activeLineup);
+      setPinnedLineup(activeLineup);
+    }
+  }, [autoPinToOverlay, activeLineup]);
 
   // ==========================================================================
   // STATE 1: WAITING FOR CS2 MATCH (STANDBY)
@@ -422,20 +442,34 @@ export const LiveMatchView: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-1 flex-wrap">
-              {mapLineups.map((lu, idx) => (
-                <button
-                  key={lu.id}
-                  onClick={() => setSelectedLineupIndex(idx)}
-                  className={`rounded px-2.5 py-1 font-mono text-xs font-bold transition-colors cursor-pointer ${
-                    idx === selectedLineupIndex
-                      ? 'bg-tactical-cyan text-zinc-950 shadow-sm'
-                      : 'border border-border-subtle bg-background text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  {lu.title.replace(/^(Mirage|Inferno|Dust II|Nuke|Ancient|Anubis)\s+/i, '')}
-                </button>
-              ))}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <label className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoPinToOverlay}
+                  onChange={(e) => setAutoPinToOverlay(e.target.checked)}
+                  className="rounded border-zinc-700 bg-zinc-900 text-tactical-cyan accent-tactical-cyan h-3 w-3 cursor-pointer"
+                />
+                <span>Auto-fixar na tela</span>
+              </label>
+
+              <div className="h-3 w-px bg-border-subtle" />
+
+              <div className="flex items-center gap-1 flex-wrap">
+                {mapLineups.map((lu, idx) => (
+                  <button
+                    key={lu.id}
+                    onClick={() => setSelectedLineupIndex(idx)}
+                    className={`rounded px-2.5 py-1 font-mono text-xs font-bold transition-colors cursor-pointer ${
+                      idx === selectedLineupIndex
+                        ? 'bg-tactical-cyan text-zinc-950 shadow-sm'
+                        : 'border border-border-subtle bg-background text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {lu.title.replace(/^(Mirage|Inferno|Dust II|Nuke|Ancient|Anubis)\s+/i, '')}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -499,6 +533,32 @@ export const LiveMatchView: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={async () => {
+                      const isPinned = pinnedLineup?.id === activeLineup.id;
+                      if (isPinned) {
+                        await window.cs2Assistant?.hud.setActiveLineupPhoto(null);
+                        setPinnedLineup(null);
+                      } else {
+                        await window.cs2Assistant?.hud.setActiveLineupPhoto(activeLineup);
+                        setPinnedLineup(activeLineup);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1.5 font-bold text-xs transition-colors cursor-pointer ${
+                      pinnedLineup?.id === activeLineup.id
+                        ? 'bg-tactical-emerald text-zinc-950 shadow-sm'
+                        : 'border border-tactical-cyan/40 bg-tactical-cyan/15 text-tactical-cyan hover:bg-tactical-cyan/25'
+                    }`}
+                    title="Fixa ou remove a foto real do pixel na tela/overlay do CS2"
+                  >
+                    <Pin className="h-3.5 w-3.5" />
+                    <span>
+                      {pinnedLineup?.id === activeLineup.id
+                        ? 'Foto Fixada no CS2'
+                        : 'Fixar na Tela (Overlay)'}
+                    </span>
+                  </button>
+
+                  <button
                     onClick={() => {
                       if (selectedLineupIndex < mapLineups.length - 1) {
                         setSelectedLineupIndex((prev) => prev + 1);
@@ -506,9 +566,9 @@ export const LiveMatchView: React.FC = () => {
                         setSelectedLineupIndex(0);
                       }
                     }}
-                    className="flex items-center gap-1 rounded bg-tactical-cyan text-zinc-950 px-3 py-1.5 font-bold text-xs hover:bg-tactical-cyan/90 cursor-pointer"
+                    className="flex items-center gap-1 rounded bg-background border border-border-elevated text-zinc-300 hover:text-white px-3 py-1.5 font-bold text-xs hover:bg-background-elevated cursor-pointer"
                   >
-                    <span>Próxima Granada</span>
+                    <span>Próxima</span>
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>

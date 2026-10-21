@@ -82,6 +82,9 @@ export class IpcHandlerManager {
   private activeProfile: MatchPreparationProfile | null = null;
   private gsiListener: GsiHttpListener;
   private lastBombTickMs: number = 0;
+  private lastAiCoachRequestMs: number = 0;
+  private lastGsiBroadcastMs: number = 0;
+  private lastBroadcastStatus: GsiStatus | null = null;
 
   constructor(deps: IpcDependencies) {
     this.deps = deps;
@@ -141,6 +144,7 @@ export class IpcHandlerManager {
     // Bomb transitions from real CS2 GSI
     const rawBomb = result.bombState?.state;
     if (rawBomb === 'planted') {
+      this.deps.overlayManager.setBombActive(true);
       const currentSnap = this.bombTimer.getSnapshot();
       if (!currentSnap.planted) {
         this.bombTimer.onBombPlanted({
@@ -167,6 +171,7 @@ export class IpcHandlerManager {
       result.roundPhase === 'freezetime' ||
       !result.eligibleMatchDetected
     ) {
+      this.deps.overlayManager.setBombActive(false);
       this.lastBombTickMs = 0;
       if (this.bombTimer.getSnapshot().planted) {
         this.bombTimer.clear();
@@ -200,35 +205,54 @@ export class IpcHandlerManager {
       }
     }
 
-    // Auto-generate AI Tactical Coach recommendation for live round
-    const side = raw.player?.team === 'T' ? 'T' : 'CT';
-    const activeMap = result.map || this.currentGsiStatus.map || 'de_mirage';
-    this.geminiCoach.analyzeContext({
-      map: activeMap,
-      round: result.roundNumber || 1,
-      score: {
-        ct: raw.map?.team_ct?.score ?? 0,
-        t: raw.map?.team_t?.score ?? 0,
-      },
-      side,
-      alivePlayers: { ct: 4, t: 4 },
-      economy: {
-        teamMoney: raw.player?.state?.money ?? 4000,
-        enemyEstimatedEconomy: 'FULL_BUY',
-      },
-      bombPlanted: Boolean(rawBomb === 'planted'),
-      recentObservations: this.tacticalMemory.getActiveObservations(now),
-    }).then((rec) => {
-      if (rec) {
-        this.broadcast('tactical:recommendation', rec);
-      }
-    }).catch(() => {});
+    // Auto-generate AI Tactical Coach recommendation ONLY on ROUND_START event (never hammer every 100ms)
+    const hasRoundStartEvent = result.events.some((e) => e.eventType === 'ROUND_START');
+    if (hasRoundStartEvent && now - this.lastAiCoachRequestMs >= 15000) {
+      this.lastAiCoachRequestMs = now;
+      const side = raw.player?.team === 'T' ? 'T' : 'CT';
+      const activeMap = result.map || this.currentGsiStatus.map || 'de_mirage';
+      this.geminiCoach.analyzeContext({
+        map: activeMap,
+        round: result.roundNumber || 1,
+        score: {
+          ct: raw.map?.team_ct?.score ?? 0,
+          t: raw.map?.team_t?.score ?? 0,
+        },
+        side,
+        alivePlayers: { ct: 4, t: 4 },
+        economy: {
+          teamMoney: raw.player?.state?.money ?? 4000,
+          enemyEstimatedEconomy: 'FULL_BUY',
+        },
+        bombPlanted: Boolean(rawBomb === 'planted'),
+        recentObservations: this.tacticalMemory.getActiveObservations(now),
+      }).then((rec) => {
+        if (rec) {
+          this.broadcast('tactical:recommendation', rec);
+        }
+      }).catch(() => {});
+    }
 
-    const activeObs = this.tacticalMemory.getActiveObservations(now);
-    this.broadcast('tactical:observation-updated', activeObs);
-    this.broadcast('tactical:observations-updated', activeObs);
-    this.broadcast('gsi:status-changed', this.currentGsiStatus);
-    this.broadcast('gsi:update', this.currentGsiStatus);
+    // Throttled GSI broadcasts: Avoid sending 4 IPC messages every 100ms
+    const hasStatusChanged =
+      this.lastBroadcastStatus?.round !== this.currentGsiStatus.round ||
+      this.lastBroadcastStatus?.roundPhase !== this.currentGsiStatus.roundPhase ||
+      this.lastBroadcastStatus?.map !== this.currentGsiStatus.map ||
+      this.lastBroadcastStatus?.ctScore !== this.currentGsiStatus.ctScore ||
+      this.lastBroadcastStatus?.tScore !== this.currentGsiStatus.tScore ||
+      this.lastBroadcastStatus?.playerHealth !== this.currentGsiStatus.playerHealth ||
+      this.lastBroadcastStatus?.playerPlace !== this.currentGsiStatus.playerPlace ||
+      this.lastBroadcastStatus?.activeMatch !== this.currentGsiStatus.activeMatch ||
+      now - this.lastGsiBroadcastMs >= 250;
+
+    if (hasStatusChanged) {
+      this.lastGsiBroadcastMs = now;
+      this.lastBroadcastStatus = { ...this.currentGsiStatus };
+      const activeObs = this.tacticalMemory.getActiveObservations(now);
+      this.broadcast('tactical:observation-updated', activeObs);
+      this.broadcast('gsi:status-changed', this.currentGsiStatus);
+      this.broadcast('gsi:update', this.currentGsiStatus);
+    }
   }
 
   public register(): void {
@@ -487,6 +511,15 @@ export class IpcHandlerManager {
 
     this.handle('hud:get-safe-zones', async (): Promise<SafeZones> => {
       return this.deps.overlayManager.getSafeZones();
+    });
+
+    this.handle('hud:set-active-lineup-photo', async (_event, lineup: Lineup | null): Promise<void> => {
+      this.deps.overlayManager.setActiveLineupPhoto(lineup);
+      this.broadcast('hud:active-lineup-photo-changed', lineup);
+    });
+
+    this.handle('hud:get-active-lineup-photo', async (): Promise<Lineup | null> => {
+      return this.deps.overlayManager.getActiveLineupPhoto();
     });
 
     // ----------------------------------------------------
