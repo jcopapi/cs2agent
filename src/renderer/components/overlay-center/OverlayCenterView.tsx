@@ -1,20 +1,27 @@
 /**
- * CS2 Assistant - Ultra-Lightweight In-Match Overlay Center (Tactical Queues)
+ * CS2 Assistant - In-Match Overlay Manager (Stitch UI Overhaul)
  * File: src/renderer/components/overlay-center/OverlayCenterView.tsx
  *
- * Dedicated in-match cockpit for managing live "Queues" and browsing pixels mid-game:
- * 1. Primary Left Tabs:
- *    - [PLANS]: Map-specific pre-made plans (Replace Queue / Add to Queue)
- *    - [ALL PIXELS]: Map pixel bank with filter/search to add any pixel on the fly
- *    - [FAVORITES]: Quick 1-click addition of favorite map lineups
- * 2. Right Panel (TACTICAL QUEUE):
- *    - Reorderable live queue of pixels (#01, #02, #03...)
- *    - Step cycling (F2), in-game pinning, clear & delete
- * 3. Hotkey status and zero-FPS-overhead architecture
+ * Implements the Google Stitch Overlay Manager aesthetic:
+ * - Top Header: Map & Queue status, Settings, Window actions (no manual cross-navigation button)
+ * - On-Demand Lazy Pixel Loading:
+ *   - By default, pixels are completely unloaded to preserve zero-overhead native CS2 FPS
+ *   - Explicit "Carregar Pixels" option to load map lineups on-demand; can be unloaded at any time
+ * - Left Column (7 Cols):
+ *   - Map Selector row (Mirage, Inferno, Dust II, Nuke, Ancient, Anubis)
+ *   - Unified Category Bar (Plans, All, Smokes, Flashes, Molotovs, HE) + T/CT Side Toggle
+ *   - Search & Quick Filter bar
+ *   - Tactical Plans Grid (with Load Queue & Add actions)
+ *   - Fast Add Spot to Queue (individual utility cards with 1-click addition once loaded)
+ * - Right Column (5 Cols):
+ *   - In-Game Tactical Queue Cockpit
+ *   - Pulsing live indicator, Clear & Reverse sequence controls
+ *   - F2 / F3 Hotkey badges
+ *   - Ordered Queue List with thumbnails, live step highlight, PIN indicators, and reorder controls
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { GsiStatus, Lineup, Play, CS2Map, UtilityType } from '../../../shared/ipc-types';
+import type { GsiStatus, Lineup, Play, CS2Map, UtilityType, TeamSide } from '../../../shared/ipc-types';
 import {
   getAllPlays,
   TacticalQueue,
@@ -26,26 +33,63 @@ import {
   clearQueue,
   saveActiveQueue,
 } from '../../../core/utility/play-database';
-import { getAllLineups, getLineupById, getLineupsByMap } from '../../../core/utility/lineup-database';
+import { getAllLineups, getLineupById } from '../../../core/utility/lineup-database';
 
 interface OverlayCenterViewProps {
   onOpenSettings: () => void;
   onGoToLauncher?: () => void;
 }
 
-export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSettings, onGoToLauncher }) => {
+const COMPETITIVE_MAPS: { id: CS2Map; label: string }[] = [
+  { id: 'de_mirage', label: 'Mirage' },
+  { id: 'de_inferno', label: 'Inferno' },
+  { id: 'de_dust2', label: 'Dust II' },
+  { id: 'de_nuke', label: 'Nuke' },
+  { id: 'de_ancient', label: 'Ancient' },
+  { id: 'de_anubis', label: 'Anubis' },
+];
+
+export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
+  onOpenSettings,
+}) => {
   const [matchStatus, setMatchStatus] = useState<GsiStatus | null>(null);
   const [plans, setPlans] = useState<Play[]>([]);
   const [activeQueue, setActiveQueueState] = useState<TacticalQueue>(() => getActiveQueue());
   const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
 
-  // Left Library Tabs & Filters
-  const [libraryTab, setLibraryTab] = useState<'PLANS' | 'ALL_PIXELS' | 'FAVORITES'>('PLANS');
-  const [pixelSearch, setPixelSearch] = useState<string>('');
-  const [utilityFilter, setUtilityFilter] = useState<UtilityType | 'ALL'>('ALL');
+  // Active Map (default from GSI or manual selection)
+  const [selectedMap, setSelectedMap] = useState<CS2Map>(() => {
+    return (matchStatus?.map as CS2Map) || 'de_mirage';
+  });
 
-  const currentMapId: CS2Map = (matchStatus?.map as CS2Map) || 'de_mirage';
-  const currentMapLabel = currentMapId.replace('de_', '').toUpperCase();
+  // Keep selectedMap in sync if GSI updates map
+  useEffect(() => {
+    if (matchStatus?.map) {
+      setSelectedMap(matchStatus.map as CS2Map);
+    }
+  }, [matchStatus?.map]);
+
+  // Category & Side Filters
+  const [categoryTab, setCategoryTab] = useState<'PLANS' | 'ALL' | UtilityType>('PLANS');
+  const [selectedSide, setSelectedSide] = useState<TeamSide | 'ALL'>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // On-demand pixel loading state (starts unloaded as requested to preserve maximum performance)
+  const [isPixelsLoaded, setIsPixelsLoaded] = useState<boolean>(false);
+  const [loadedLineups, setLoadedLineups] = useState<Lineup[]>([]);
+
+  const handleLoadPixels = () => {
+    setLoadedLineups(getAllLineups());
+    setIsPixelsLoaded(true);
+  };
+
+  const handleUnloadPixels = () => {
+    setLoadedLineups([]);
+    setIsPixelsLoaded(false);
+    if (categoryTab !== 'PLANS') {
+      setCategoryTab('PLANS');
+    }
+  };
 
   // Sync queue state to IPC in-game overlay
   const syncQueueToOverlay = (q: TacticalQueue, targetStepIndex?: number) => {
@@ -54,7 +98,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
     const pseudoPlay: Play = {
       id: 'active-match-queue',
       name: 'TACTICAL QUEUE',
-      map: currentMapId,
+      map: selectedMap,
       side: 'T',
       lineupIds: q.lineupIds,
       createdAt: new Date().toISOString(),
@@ -128,29 +172,35 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
     };
   }, []);
 
-  // Filter plans strictly by current match map
+  // Filter plans for selected map
   const mapPlans = useMemo(() => {
-    return plans.filter((p) => !p.map || p.map === currentMapId);
-  }, [plans, currentMapId]);
+    return plans.filter((p) => {
+      if (p.map && p.map !== selectedMap) return false;
+      if (selectedSide !== 'ALL' && p.side && p.side !== selectedSide) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return p.name.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [plans, selectedMap, selectedSide, searchQuery]);
 
-  // Filter lineups for current map
+  // Filter lineups for selected map (only computed from loadedLineups)
   const mapLineups = useMemo(() => {
-    const all = getAllLineups().filter((l) => l.map === currentMapId);
+    if (!isPixelsLoaded) return [];
+    const all = loadedLineups.filter((l) => l.map === selectedMap);
     return all.filter((l) => {
-      if (utilityFilter !== 'ALL' && l.utilityType !== utilityFilter) return false;
-      if (pixelSearch.trim()) {
-        const q = pixelSearch.toLowerCase();
+      if (categoryTab !== 'PLANS' && categoryTab !== 'ALL' && l.utilityType !== categoryTab) return false;
+      if (selectedSide !== 'ALL' && l.side !== selectedSide) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
         const mTitle = l.title.toLowerCase().includes(q);
         const mSpot = l.startPosition?.callout?.toLowerCase().includes(q);
         if (!mTitle && !mSpot) return false;
       }
       return true;
     });
-  }, [currentMapId, utilityFilter, pixelSearch]);
-
-  const favoriteLineups = useMemo(() => {
-    return mapLineups.filter((l) => Boolean(l.favorite));
-  }, [mapLineups]);
+  }, [loadedLineups, isPixelsLoaded, selectedMap, categoryTab, selectedSide, searchQuery]);
 
   // Queue actions
   const handleLoadPlanToQueue = (planId: string, mode: 'REPLACE' | 'APPEND') => {
@@ -178,6 +228,14 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
     syncQueueToOverlay(updated);
   };
 
+  const handleReverseQueue = () => {
+    const q = getActiveQueue();
+    q.lineupIds.reverse();
+    q.activeStepIndex = 0;
+    saveActiveQueue(q);
+    syncQueueToOverlay(q, 0);
+  };
+
   const handlePinQueueStep = (idx: number) => {
     const q = getActiveQueue();
     q.activeStepIndex = idx;
@@ -190,277 +248,527 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
     setPinnedLineup(null);
   };
 
+  // Helper for utility icons and color accents
+  const getUtilityMeta = (type: UtilityType) => {
+    switch (type) {
+      case 'SMOKE':
+        return { icon: 'cloud', textClass: 'text-secondary', bgClass: 'bg-secondary' };
+      case 'FLASHBANG':
+        return { icon: 'flare', textClass: 'text-tertiary', bgClass: 'bg-tertiary' };
+      case 'MOLOTOV':
+        return { icon: 'local_fire_department', textClass: 'text-danger', bgClass: 'bg-danger' };
+      case 'HE_GRENADE':
+        return { icon: 'bomb', textClass: 'text-success', bgClass: 'bg-success' };
+      default:
+        return { icon: 'layers', textClass: 'text-primary', bgClass: 'bg-primary' };
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#09090b] text-[#f4f4f5] font-mono select-none overflow-hidden p-4">
-      {/* Top Bar: Minimal Map Indicator, Queue Counter & Navigation */}
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs font-black tracking-widest text-zinc-100 uppercase">
-            [{currentMapLabel}]
-          </span>
-          <span className="text-[10px] font-bold text-cyan-400 border border-cyan-800 bg-cyan-950/70 px-2 py-0.5">
-            QUEUE: {activeQueue.lineupIds.length} PIXELS
-          </span>
+    <div className="flex flex-col h-screen w-screen bg-surface text-text-primary antialiased select-none overflow-hidden font-sans">
+      {/* ==================================================================== */}
+      {/* TOP APP BAR (Stitch Design, no cross-navigation buttons)             */}
+      {/* ==================================================================== */}
+      <header className="h-12 w-full bg-surface-subtle/80 backdrop-blur-md border-b border-border-subtle shrink-0 flex items-center justify-between px-4 z-40">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-white">
+              Overlay Manager
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-container text-secondary">
+              {activeQueue.lineupIds.length} IN QUEUE
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-border-subtle" />
+
+          {/* On-Demand Pixel Loading Option Pill */}
+          {isPixelsLoaded ? (
+            <button
+              onClick={handleUnloadPixels}
+              title="Clique para descarregar os pixels da memória"
+              type="button"
+              className="px-2.5 py-0.5 rounded-lg bg-success-soft border border-success/30 text-success text-[11px] font-mono flex items-center gap-1.5 hover:bg-danger-soft hover:text-danger hover:border-danger/30 transition-all"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span>PIXELS CARREGADOS</span>
+              <span className="material-symbols-outlined text-[13px]">eject</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleLoadPixels}
+              title="Carregar banco de pixels na memória"
+              type="button"
+              className="px-2.5 py-0.5 rounded-lg bg-surface-container hover:bg-primary hover:text-surface border border-border-subtle hover:border-transparent text-text-secondary text-[11px] font-medium flex items-center gap-1.5 transition-all"
+            >
+              <span className="material-symbols-outlined text-[14px] text-primary">download</span>
+              <span>Carregar Pixels</span>
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {onGoToLauncher && (
+        {/* Right Controls */}
+        <div className="flex items-center gap-3">
+          {pinnedLineup && (
             <button
-              onClick={onGoToLauncher}
-              title="Return to Main Launcher to add plans / browse pixels"
-              className="flex items-center gap-1.5 border border-zinc-700 bg-black/80 px-2.5 py-1 text-xs text-zinc-300 hover:text-cyan-300 hover:border-cyan-500 transition-colors"
+              onClick={handleUnpin}
+              className="px-2 py-0.5 rounded-lg text-[10px] font-mono bg-danger-soft text-danger border border-danger/30 hover:bg-danger hover:text-white transition-all"
             >
-              <span>←</span>
-              <span className="font-bold text-[10px] tracking-wide uppercase">LAUNCHER / PIXELS</span>
+              UNPIN HUD
             </button>
           )}
 
           <button
             onClick={onOpenSettings}
+            className="w-7 h-7 rounded-lg hover:bg-surface-container hover:text-white flex items-center justify-center transition-colors text-text-secondary"
             title="Settings"
-            className="p-1.5 text-zinc-400 hover:text-cyan-300 border border-zinc-800 hover:border-zinc-700 bg-zinc-950 transition-colors"
+            type="button"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <span className="material-symbols-outlined text-[16px]">tune</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Split Cockpit: Left (Library: Plans / Pixels / Favs) | Right (Active Queue) */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 overflow-hidden">
+      {/* ==================================================================== */}
+      {/* MAIN ASYMMETRIC COCKPIT (7 Cols Left / 5 Cols Right)                 */}
+      {/* ==================================================================== */}
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-surface p-3 gap-3">
         {/* ==================================================================== */}
-        {/* LEFT COLUMN: LIBRARY (PLANS / ALL PIXELS / FAVORITES)                 */}
+        {/* LEFT COLUMN: TACTICS & PRESET EXPLORER (7 Cols)                      */}
         {/* ==================================================================== */}
-        <div className="flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2 overflow-hidden">
-          {/* Sub-Tabs: PLANS (Main) / ALL PIXELS / FAVORITES */}
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-2 shrink-0">
-            <div className="flex items-center gap-1 border border-zinc-800 bg-black p-0.5">
+        <div className="lg:col-span-7 flex flex-col h-full bg-surface-container-lowest p-3 rounded-2xl border border-border-subtle gap-3 overflow-hidden shadow-sm">
+          {/* Map Selector Row */}
+          <div className="flex flex-wrap gap-1 p-1 bg-surface-container-low rounded-xl shrink-0">
+            {COMPETITIVE_MAPS.map((m) => {
+              const active = m.id === selectedMap;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMap(m.id)}
+                  type="button"
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                    active
+                      ? 'bg-primary text-surface font-semibold shadow-sm'
+                      : 'text-text-secondary hover:text-white hover:bg-surface-container'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Unified Category & Faction Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-surface-container-low p-1.5 rounded-xl shrink-0">
+            {/* Category Tabs with Plans first */}
+            <div className="flex items-center gap-1 flex-wrap">
               <button
-                onClick={() => setLibraryTab('PLANS')}
-                className={`px-3 py-1 text-xs font-bold transition-colors ${
-                  libraryTab === 'PLANS'
-                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/50'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                onClick={() => setCategoryTab('PLANS')}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  categoryTab === 'PLANS'
+                    ? 'bg-surface-container-high text-primary font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white hover:bg-surface-container'
                 }`}
               >
-                PLANS ({mapPlans.length})
+                <span className="material-symbols-outlined text-[16px]">tactic</span>
+                <span>Plans</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCategoryTab('ALL');
+                  if (!isPixelsLoaded) handleLoadPixels();
+                }}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  categoryTab === 'ALL'
+                    ? 'bg-surface-container-high text-white font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white hover:bg-surface-container'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">apps</span>
+                <span>All</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCategoryTab('SMOKE');
+                  if (!isPixelsLoaded) handleLoadPixels();
+                }}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  categoryTab === 'SMOKE'
+                    ? 'bg-surface-container-high text-secondary font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white hover:bg-surface-container'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">cloud</span>
+                <span>Smokes</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCategoryTab('FLASHBANG');
+                  if (!isPixelsLoaded) handleLoadPixels();
+                }}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  categoryTab === 'FLASHBANG'
+                    ? 'bg-surface-container-high text-tertiary font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white hover:bg-surface-container'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">flare</span>
+                <span>Flashes</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCategoryTab('MOLOTOV');
+                  if (!isPixelsLoaded) handleLoadPixels();
+                }}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  categoryTab === 'MOLOTOV'
+                    ? 'bg-surface-container-high text-danger font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white hover:bg-surface-container'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">local_fire_department</span>
+                <span>Molotovs</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setCategoryTab('HE_GRENADE');
+                  if (!isPixelsLoaded) handleLoadPixels();
+                }}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  categoryTab === 'HE_GRENADE'
+                    ? 'bg-surface-container-high text-success font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white hover:bg-surface-container'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">bomb</span>
+                <span>HE</span>
+              </button>
+            </div>
+
+            {/* Side Toggle Pill */}
+            <div className="flex items-center bg-surface-container p-0.5 rounded-full">
+              <button
+                onClick={() => setSelectedSide(selectedSide === 'T' ? 'ALL' : 'T')}
+                type="button"
+                className={`px-2.5 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 transition-all ${
+                  selectedSide === 'T'
+                    ? 'bg-tertiary text-on-tertiary font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">groups</span>
+                <span>T-Side</span>
               </button>
               <button
-                onClick={() => setLibraryTab('ALL_PIXELS')}
-                className={`px-3 py-1 text-xs font-bold transition-colors ${
-                  libraryTab === 'ALL_PIXELS'
-                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/50'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                onClick={() => setSelectedSide(selectedSide === 'CT' ? 'ALL' : 'CT')}
+                type="button"
+                className={`px-2.5 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 transition-all ${
+                  selectedSide === 'CT'
+                    ? 'bg-secondary text-surface font-semibold shadow-sm'
+                    : 'text-text-secondary hover:text-white'
                 }`}
               >
-                ALL PIXELS ({mapLineups.length})
-              </button>
-              <button
-                onClick={() => setLibraryTab('FAVORITES')}
-                className={`px-3 py-1 text-xs font-bold transition-colors ${
-                  libraryTab === 'FAVORITES'
-                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/50'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                ★ FAVS ({favoriteLineups.length})
+                <span className="material-symbols-outlined text-[14px]">shield</span>
+                <span>CT-Side</span>
               </button>
             </div>
           </div>
 
-          {/* Search & Utility Filter (for Pixels & Favs tabs) */}
-          {libraryTab !== 'PLANS' && (
-            <div className="flex items-center gap-2 shrink-0">
+          {/* Search & Quick Filter Bar */}
+          <div className="flex items-center justify-between gap-3 px-1 shrink-0">
+            <div className="flex items-center gap-2 text-text-secondary text-xs">
+              <span className="material-symbols-outlined text-[18px] text-primary">tactic</span>
+              <span className="text-white font-semibold">
+                {categoryTab === 'PLANS' ? 'Tactical Plans' : 'Utility Spot Bank'}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-container text-text-muted">
+                {categoryTab === 'PLANS'
+                  ? `${mapPlans.length} PRESETS`
+                  : isPixelsLoaded
+                  ? `${mapLineups.length} SPOTS`
+                  : 'DESCARREGADO'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-surface-container-low px-2.5 py-1 rounded-xl border border-border-subtle">
+              <span className="material-symbols-outlined text-text-muted text-[16px]">search</span>
               <input
                 type="text"
-                value={pixelSearch}
-                onChange={(e) => setPixelSearch(e.target.value)}
-                placeholder="SEARCH PIXEL..."
-                className="flex-1 bg-black border border-zinc-800 text-xs px-2.5 py-1 text-zinc-200 outline-none focus:border-cyan-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter plans or spots..."
+                className="bg-transparent text-xs text-white focus:outline-none placeholder:text-text-muted/60 w-36"
               />
-              <div className="flex items-center border border-zinc-800 bg-black">
-                {(['ALL', 'SMOKE', 'FLASHBANG', 'MOLOTOV'] as const).map((u) => (
-                  <button
-                    key={u}
-                    onClick={() => setUtilityFilter(u)}
-                    className={`px-1.5 py-0.5 text-[9px] font-bold ${
-                      utilityFilter === u ? 'bg-cyan-950 text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    {u === 'ALL' ? 'ALL' : u === 'FLASHBANG' ? 'FLASH' : u === 'MOLOTOV' ? 'MOLY' : u}
-                  </button>
-                ))}
+            </div>
+          </div>
+
+          {/* Content Area: Plans Grid OR Lineup Spots Grid */}
+          <div className="flex-1 overflow-y-auto pr-1">
+            {categoryTab === 'PLANS' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {mapPlans.map((p) => {
+                  return (
+                    <div
+                      key={p.id}
+                      className="bg-surface-container-low hover:bg-surface-container p-3 rounded-2xl border border-border-subtle hover:border-border-medium transition-all flex flex-col justify-between gap-3 group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-surface transition-all shrink-0">
+                            <span className="material-symbols-outlined text-[20px]">flag</span>
+                          </div>
+                          <div className="truncate">
+                            <h3 className="text-xs font-semibold text-white truncate">{p.name}</h3>
+                            <p className="text-[11px] text-text-muted truncate">
+                              {p.side ? `${p.side}-Side` : 'Execute'} • {p.lineupIds?.length || 0} Lineups
+                            </p>
+                          </div>
+                        </div>
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-surface-container-high text-primary shrink-0">
+                          {p.lineupIds?.length || 0} Items
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        {/* Miniature Utility preview pills */}
+                        <div className="flex -space-x-1 overflow-hidden">
+                          {p.lineupIds?.slice(0, 4).map((lid, i) => {
+                            const l = getLineupById(lid);
+                            const meta = l ? getUtilityMeta(l.utilityType) : { icon: 'layers', textClass: 'text-text-muted' };
+                            return (
+                              <span
+                                key={i}
+                                className="w-5 h-5 rounded-full bg-surface-container-highest border border-border-subtle flex items-center justify-center text-[11px]"
+                              >
+                                <span className={`material-symbols-outlined ${meta.textClass} text-[12px]`}>
+                                  {meta.icon}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleLoadPlanToQueue(p.id, 'REPLACE')}
+                            title="Replace active queue"
+                            type="button"
+                            className="px-2.5 py-1 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-xs font-medium text-white transition-all flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">play_circle</span>
+                            <span>Load Queue</span>
+                          </button>
+                          <button
+                            onClick={() => handleLoadPlanToQueue(p.id, 'APPEND')}
+                            title="Append to active queue"
+                            type="button"
+                            className="px-2 py-1 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs text-text-secondary hover:text-white transition-all"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {mapPlans.length === 0 && (
+                  <div className="col-span-2 h-40 flex flex-col items-center justify-center text-text-muted text-xs gap-1">
+                    <span className="material-symbols-outlined text-[24px]">flag</span>
+                    <span>No plans found for this map</span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-
-          {/* TAB 1: PLANS (Primary Category) */}
-          {libraryTab === 'PLANS' && (
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {mapPlans.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-2.5 border border-zinc-800 bg-black/60 hover:border-zinc-700 flex items-center justify-between gap-3 text-xs"
+            ) : !isPixelsLoaded ? (
+              /* If user switched to pixels but hasn't loaded them yet */
+              <div className="h-56 flex flex-col items-center justify-center text-text-muted text-xs gap-3 p-4">
+                <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-[26px]">memory</span>
+                </div>
+                <div className="text-center">
+                  <div className="text-white font-semibold text-sm">Banco de Pixels Descarregado</div>
+                  <div className="text-[11px] text-text-muted mt-1 max-w-xs">
+                    Por padrão, os pixels não são mantidos na memória para garantir 0% de interferência e performance máxima durante o jogo.
+                  </div>
+                </div>
+                <button
+                  onClick={handleLoadPixels}
+                  type="button"
+                  className="px-4 py-2 rounded-xl bg-primary text-surface font-semibold text-xs hover:bg-primary/90 flex items-center gap-2 shadow-sm transition-all"
                 >
-                  <div className="flex flex-col truncate flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span className="font-bold text-zinc-100 truncate">{p.name}</span>
-                      <span className="text-[10px] text-cyan-400 font-bold tabular-nums">
-                        [{p.lineupIds?.length || 0}]
-                      </span>
-                    </div>
-                    {p.description && (
-                      <span className="text-[10px] text-zinc-500 truncate">{p.description}</span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => handleLoadPlanToQueue(p.id, 'REPLACE')}
-                      title="Replace current queue with this plan"
-                      className="px-2 py-1 text-[9px] font-bold border border-cyan-700 bg-cyan-950/80 text-cyan-300 hover:bg-cyan-900 transition-colors"
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span>Carregar Pixels do Mapa</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {mapLineups.map((lineup) => {
+                  const meta = getUtilityMeta(lineup.utilityType);
+                  return (
+                    <div
+                      key={lineup.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-border-medium transition-all"
                     >
-                      LOAD QUEUE
-                    </button>
-                    <button
-                      onClick={() => handleLoadPlanToQueue(p.id, 'APPEND')}
-                      title="Append pixels from this plan to current queue"
-                      className="px-2 py-1 text-[9px] font-bold border border-zinc-700 bg-black text-zinc-300 hover:border-cyan-500 hover:text-cyan-300 transition-colors"
-                    >
-                      + ADD
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
+                          <span className={`material-symbols-outlined ${meta.textClass} text-[18px]`}>
+                            {meta.icon}
+                          </span>
+                        </div>
+                        <div className="truncate">
+                          <div className="text-xs font-medium text-white truncate">{lineup.title}</div>
+                          <div className="text-[10px] text-text-muted font-mono truncate">
+                            {lineup.startPosition?.callout || 'Spot'} • {lineup.throwType}
+                          </div>
+                        </div>
+                      </div>
 
-              {mapPlans.length === 0 && (
-                <div className="h-full flex items-center justify-center text-zinc-600 text-xs">
-                  NO PLANS FOR {currentMapLabel}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 2 & 3: ALL PIXELS & FAVORITES */}
-          {libraryTab !== 'PLANS' && (
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {(libraryTab === 'ALL_PIXELS' ? mapLineups : favoriteLineups).map((lineup) => (
-                <div
-                  key={lineup.id}
-                  className="p-2 border border-zinc-800 bg-black/50 hover:border-zinc-700 flex items-center justify-between gap-2 text-xs"
-                >
-                  <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                    <div className="w-10 h-7 bg-zinc-900 border border-zinc-800 rounded shrink-0 overflow-hidden">
-                      <img
-                        src={lineup.imageUrl || lineup.thumbnailUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
+                      <button
+                        onClick={() => handleAddPixel(lineup.id)}
+                        title="Add spot to queue"
+                        type="button"
+                        className="w-7 h-7 rounded-lg bg-surface-container hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all shrink-0 ml-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">add</span>
+                      </button>
                     </div>
-                    <div className="flex flex-col truncate">
-                      <span className="font-bold text-zinc-200 truncate text-[11px]">{lineup.title}</span>
-                      <span className="text-[9px] text-zinc-500 truncate">
-                        {lineup.utilityType} • {lineup.startPosition?.callout || 'Spot'}
-                      </span>
-                    </div>
-                  </div>
+                  );
+                })}
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleAddPixel(lineup.id)}
-                      title="Add to Tactical Queue"
-                      className="px-2 py-0.5 text-[9px] font-bold border border-cyan-800 bg-cyan-950 text-cyan-300 hover:bg-cyan-900 transition-colors"
-                    >
-                      + QUEUE
-                    </button>
+                {mapLineups.length === 0 && (
+                  <div className="col-span-2 h-40 flex flex-col items-center justify-center text-text-muted text-xs gap-1">
+                    <span className="material-symbols-outlined text-[24px]">filter_alt_off</span>
+                    <span>No lineups match this category</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ==================================================================== */}
-        {/* RIGHT COLUMN: ACTIVE TACTICAL QUEUE (IN-GAME LIVE SEQUENCER)         */}
+        {/* RIGHT COLUMN: ACTIVE EXECUTION QUEUE COCKPIT (5 Cols)                */}
         {/* ==================================================================== */}
-        <div className="flex flex-col border border-zinc-800 bg-[#0c0c0e] p-3 gap-2 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-2 shrink-0">
-            <div className="flex items-center gap-2 truncate">
-              <span className="text-xs font-black text-cyan-400 tracking-wider uppercase">
-                // TACTICAL QUEUE
-              </span>
-              <span className="text-[9px] font-black tracking-widest text-emerald-400 border border-emerald-800 bg-emerald-950 px-1.5 py-0.2">
-                ● LIVE F2 SYNC
-              </span>
+        <div className="lg:col-span-5 flex flex-col h-full bg-surface-container-lowest p-3 rounded-2xl border border-border-subtle gap-3 overflow-hidden shadow-md">
+          {/* Queue Header */}
+          <div className="flex flex-col gap-1 pb-2 border-b border-border-subtle shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse" />
+                <h2 className="text-sm font-semibold text-white">In-Game Queue</h2>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {activeQueue.lineupIds.length > 0 && (
+                  <>
+                    <button
+                      onClick={handleReverseQueue}
+                      title="Reverse sequence"
+                      type="button"
+                      className="w-7 h-7 rounded-lg bg-surface-container hover:bg-surface-container-high text-text-secondary hover:text-white flex items-center justify-center transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">swap_vert</span>
+                    </button>
+                    <button
+                      onClick={handleClearQueue}
+                      title="Clear queue"
+                      type="button"
+                      className="w-7 h-7 rounded-lg bg-surface-container hover:bg-danger-soft hover:text-danger text-text-secondary flex items-center justify-center transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {pinnedLineup && (
-                <button
-                  onClick={handleUnpin}
-                  className="text-[9px] border border-rose-900 bg-rose-950/50 text-rose-300 px-2 py-0.5 hover:bg-rose-900 transition-colors"
-                >
-                  UNPIN
-                </button>
-              )}
-              {activeQueue.lineupIds.length > 0 && (
-                <button
-                  onClick={handleClearQueue}
-                  className="text-[9px] border border-zinc-700 bg-black text-zinc-400 hover:text-rose-400 hover:border-rose-900 px-2 py-0.5 transition-colors"
-                >
-                  CLEAR
-                </button>
-              )}
+            {/* Hotkey Quick Indicators */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="px-2 py-0.5 rounded-md bg-surface-container font-mono text-[10px] text-text-muted">
+                HOTKEY <strong className="text-secondary font-semibold">F2</strong> : CYCLE NEXT
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-surface-container font-mono text-[10px] text-text-muted">
+                HOTKEY <strong className="text-white font-semibold">F1</strong> : HUD
+              </span>
             </div>
           </div>
 
-          {/* Queue Items List */}
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+          {/* Ordered Queue List */}
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
             {activeQueue.lineupIds.map((lineupId, idx) => {
               const lineup = getLineupById(lineupId);
               if (!lineup) return null;
+              const isCurrent = idx === activeQueue.activeStepIndex;
               const isPinned = pinnedLineup?.id === lineup.id;
-              const isCurrentStep = idx === activeQueue.activeStepIndex;
+              const meta = getUtilityMeta(lineup.utilityType);
+              const imgUrl = lineup.imageUrl || lineup.thumbnailUrl;
 
               return (
                 <div
                   key={`${lineupId}-${idx}`}
                   onClick={() => handlePinQueueStep(idx)}
-                  className={`cursor-pointer p-2 border transition-all flex items-center justify-between gap-2 ${
-                    isPinned
-                      ? 'border-cyan-400 bg-cyan-950/60 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
-                      : isCurrentStep
-                      ? 'border-cyan-700 bg-cyan-950/20'
-                      : 'border-zinc-800 bg-black/50 hover:border-zinc-700'
+                  className={`p-2.5 rounded-2xl flex items-center justify-between transition-all cursor-pointer group relative overflow-hidden ${
+                    isCurrent
+                      ? 'bg-surface-container border border-primary/50 shadow-md ring-1 ring-primary/30'
+                      : 'bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-border-medium'
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                    <span className="text-[10px] font-bold text-zinc-500 tabular-nums">
-                      #{String(idx + 1).padStart(2, '0')}
-                    </span>
+                  {isCurrent && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
 
-                    <div className="w-10 h-7 bg-zinc-900 border border-zinc-800 rounded shrink-0 overflow-hidden flex items-center justify-center">
-                      <img
-                        src={lineup.imageUrl || lineup.thumbnailUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex flex-col items-center shrink-0 w-6">
+                      <span className={`font-mono text-xs font-bold ${isCurrent ? 'text-primary' : 'text-text-muted'}`}>
+                        #{idx + 1}
+                      </span>
+                      {isCurrent && (
+                        <span className="font-mono text-[8px] uppercase tracking-wider text-primary">LIVE</span>
+                      )}
                     </div>
 
-                    <div className="flex flex-col truncate">
-                      <span className={`text-xs font-bold truncate ${isPinned ? 'text-cyan-300' : 'text-zinc-200'}`}>
-                        {lineup.title}
-                      </span>
-                      <span className="text-[9px] text-zinc-500 truncate">
-                        {lineup.throwType} • {lineup.startPosition?.callout || 'Spot'}
-                      </span>
+                    {/* Thumbnail */}
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-container-highest shrink-0 relative border border-border-subtle flex items-center justify-center">
+                      {imgUrl ? (
+                        <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className={`material-symbols-outlined ${meta.textClass} text-[18px]`}>
+                          {meta.icon}
+                        </span>
+                      )}
+                      <span className={`absolute top-1 left-1 w-1.5 h-1.5 rounded-full ${meta.bgClass}`} />
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`material-symbols-outlined ${meta.textClass} text-[15px]`}>
+                          {meta.icon}
+                        </span>
+                        <span className="text-xs font-semibold text-white truncate">{lineup.title}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 truncate">
+                        <span className="px-1.5 py-0.2 rounded bg-surface-container-high text-text-muted font-mono text-[9px] truncate">
+                          {lineup.startPosition?.callout || 'Spot'}
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-primary-soft text-primary font-mono text-[9px] font-semibold truncate">
+                          {lineup.throwType}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Ordering (▲ / ▼), Pin Indicator, and Remove (✕) */}
+                  {/* Row Controls: Move Up, Move Down, Pin, Remove */}
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       disabled={idx === 0}
@@ -468,9 +776,11 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
                         e.stopPropagation();
                         handleMovePixel(idx, 'UP');
                       }}
-                      className="p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-20 text-[10px]"
+                      title="Move Up"
+                      type="button"
+                      className="w-6 h-6 rounded-lg bg-surface-container hover:bg-surface-container-high text-text-muted hover:text-white flex items-center justify-center disabled:opacity-20"
                     >
-                      ▲
+                      <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
                     </button>
                     <button
                       disabled={idx === activeQueue.lineupIds.length - 1}
@@ -478,13 +788,15 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
                         e.stopPropagation();
                         handleMovePixel(idx, 'DOWN');
                       }}
-                      className="p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-20 text-[10px]"
+                      title="Move Down"
+                      type="button"
+                      className="w-6 h-6 rounded-lg bg-surface-container hover:bg-surface-container-high text-text-muted hover:text-white flex items-center justify-center disabled:opacity-20"
                     >
-                      ▼
+                      <span className="material-symbols-outlined text-[14px]">arrow_downward</span>
                     </button>
 
                     {isPinned ? (
-                      <span className="text-[8px] font-black tracking-wider text-cyan-400 border border-cyan-800 bg-cyan-950 px-1.5 py-0.2">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-primary text-surface">
                         PINNED
                       </span>
                     ) : (
@@ -493,7 +805,9 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
                           e.stopPropagation();
                           handlePinQueueStep(idx);
                         }}
-                        className="text-[9px] font-bold text-zinc-400 border border-zinc-800 px-1.5 py-0.2 hover:text-cyan-300 hover:border-cyan-500"
+                        title="Pin to HUD"
+                        type="button"
+                        className="px-1.5 py-0.5 rounded text-[9px] font-mono text-text-muted hover:text-secondary hover:bg-surface-container"
                       >
                         PIN
                       </button>
@@ -504,10 +818,11 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
                         e.stopPropagation();
                         handleRemovePixel(idx);
                       }}
-                      title="Remove from Queue"
-                      className="p-0.5 text-zinc-500 hover:text-rose-400 text-xs ml-1"
+                      title="Remove from queue"
+                      type="button"
+                      className="w-6 h-6 rounded-lg bg-surface-container hover:bg-danger-soft hover:text-danger text-text-muted flex items-center justify-center"
                     >
-                      ✕
+                      <span className="material-symbols-outlined text-[14px]">close</span>
                     </button>
                   </div>
                 </div>
@@ -515,28 +830,29 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
             })}
 
             {activeQueue.lineupIds.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-zinc-600 text-xs gap-1">
-                <span>TACTICAL QUEUE IS EMPTY</span>
-                <span className="text-[9px] text-zinc-700">
-                  Select a Plan on the left or add Pixels directly from the library
+              <div className="h-full flex flex-col items-center justify-center text-text-muted text-xs gap-2 py-8">
+                <span className="material-symbols-outlined text-[28px] text-text-muted/60">queue_music</span>
+                <span>Tactical Queue is empty</span>
+                <span className="text-[10px] text-text-muted/60 text-center max-w-[220px]">
+                  Select a Plan on the left or load pixels to add individual spots
                 </span>
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Footer Hotkey Reminder Bar */}
-      <div className="flex items-center justify-between border-t border-zinc-800 pt-3 mt-3 text-[10px] text-zinc-500">
-        <div className="flex items-center gap-4">
-          <span>HOLD <strong className="text-zinc-300">[CAPSLOCK]</strong>: ALIGN CROSSHAIR</span>
-          <span>PRESS <strong className="text-zinc-300">[F1]</strong>: CORNER OVERLAY</span>
-          <span>PRESS <strong className="text-cyan-400">[F2]</strong>: NEXT PIXEL IN QUEUE</span>
+          {/* Quick HUD Telemetry Status */}
+          <div className="p-2.5 rounded-xl bg-surface-container border border-border-subtle flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-secondary text-[18px]">my_location</span>
+              <div>
+                <div className="text-xs font-medium text-white">Auto-Cycle Reticle</div>
+                <div className="text-[10px] text-text-muted">Advances to next lineup on throw or F2</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono text-success">ACTIVE</span>
+          </div>
         </div>
-        <div className="text-[9px] text-zinc-600">
-          ZERO BACKGROUND OVERHEAD // 100% NATIVE CS2 FPS
-        </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,0 +1,817 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="web_standard" name="shell-type">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #0c0c0e;
+        color: #e5e1e4;
+        font-family: 'Geist', sans-serif;
+      }
+      body { overscroll-behavior: none; }
+    }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #26262d; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f4a; }
+  </style>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#0c0c0e",
+            "surface-subtle": "#121216",
+            "surface-container": "#17171d",
+            "surface-container-high": "#1f1f27",
+            "surface-container-highest": "#282833",
+            "border-subtle": "#22222a",
+            "border-medium": "#2d2d38",
+            "border-focus": "#4953bc",
+            "primary": "#818cf8",
+            "primary-soft": "rgba(129, 140, 248, 0.12)",
+            "primary-container": "#6366f1",
+            "secondary": "#7bd0ff",
+            "secondary-soft": "rgba(123, 208, 255, 0.12)",
+            "tertiary": "#f7bd3e",
+            "tertiary-soft": "rgba(247, 189, 62, 0.12)",
+            "danger": "#f87171",
+            "danger-soft": "rgba(248, 113, 113, 0.12)",
+            "success": "#34d399",
+            "success-soft": "rgba(52, 211, 153, 0.12)",
+            "text-primary": "#f3f4f6",
+            "text-secondary": "#9ca3af",
+            "text-muted": "#6b7280"
+          },
+          fontFamily: {
+            sans: ['Geist', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-surface text-text-primary antialiased select-none flex flex-col h-screen overflow-hidden">
+<!-- TOP APP BAR -->
+<header class="h-12 w-full bg-surface-subtle/80 backdrop-blur-md border-b border-border-subtle shrink-0 flex items-center justify-between px-4 z-40">
+<!-- Brand & Active Session -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-sm"><svg class="w-4 h-4 fill-white" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg></div>
+<span class="font-semibold text-sm tracking-tight text-white">github/jcopapi</span>
+</div>
+<div class="h-4 w-px bg-border-subtle"></div>
+<!-- Navigation tabs -->
+<nav class="flex items-center gap-1">
+<a class="px-3 py-1 rounded-lg text-xs font-medium bg-surface-container text-white border border-border-subtle transition-colors flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[15px] text-primary">layers</span>
+          Lineups
+        </a>
+<a class="px-3 py-1 rounded-lg text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-colors flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[15px]">radar</span>
+          Radar
+        </a>
+<a class="px-3 py-1 rounded-lg text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-colors flex items-center gap-1.5" href="#">
+<span class="material-symbols-outlined text-[15px]">monitoring</span>
+          Analytics
+        </a>
+</nav>
+</div>
+<!-- Center Active Map Pill -->
+
+<!-- Right Utility Controls -->
+<div class="flex items-center gap-3">
+
+<div class="flex items-center gap-1 text-text-secondary">
+<button class="w-7 h-7 rounded-lg hover:bg-surface-container hover:text-white flex items-center justify-center transition-colors" title="Settings" type="button">
+<span class="material-symbols-outlined text-[16px]">tune</span>
+</button>
+<button class="w-7 h-7 rounded-lg hover:bg-surface-container hover:text-white flex items-center justify-center transition-colors" title="User Profile" type="button">
+<span class="material-symbols-outlined text-[16px]">account_circle</span>
+</button>
+</div>
+<div class="h-3.5 w-px bg-border-subtle"></div>
+<!-- Window controls -->
+<div class="flex items-center gap-0.5 text-text-muted">
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container hover:text-white" title="Minimize">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container hover:text-white" title="Maximize">
+<span class="material-symbols-outlined text-[14px]">crop_square</span>
+</button>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-danger-soft hover:text-danger" title="Close">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+</div>
+</header>
+<!-- TOAST NOTIFICATION CONTAINER -->
+<div class="fixed top-14 right-6 z-50 pointer-events-none flex flex-col gap-2 transition-all" id="toast-slot"></div>
+<!-- MAIN DUAL-COLUMN WORKSPACE -->
+<main class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-surface">
+<!-- ========================================== -->
+<!-- LEFT COLUMN: LINEUP EXPLORER (Cols 5)      -->
+<!-- ========================================== -->
+<div class="lg:col-span-5 border-r border-border-subtle flex flex-col h-full bg-surface-subtle/50">
+<!-- Map Selector Strip (Smooth rounded chips) -->
+<div class="p-3 border-b border-border-subtle flex items-center justify-between gap-2 overflow-x-auto">
+<div class="flex items-center gap-1.5">
+<button class="map-tab active px-3 py-1.5 rounded-xl text-xs font-medium bg-primary text-surface font-semibold shadow-sm flex items-center gap-1.5 transition-all" data-map="mirage" type="button">
+<span class="">Mirage</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">84</span>
+</button>
+<button class="map-tab px-3 py-1.5 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-all flex items-center gap-1.5" data-map="inferno" type="button">
+<span class="">Inferno</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container text-text-muted font-mono">62</span>
+</button>
+<button class="map-tab px-3 py-1.5 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-all flex items-center gap-1.5" data-map="dust2" type="button">
+<span class="">Dust II</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container text-text-muted font-mono">45</span>
+</button>
+<button class="map-tab px-3 py-1.5 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-all flex items-center gap-1.5" data-map="nuke" type="button">
+<span class="">Nuke</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container text-text-muted font-mono">51</span>
+</button>
+<button class="map-tab px-3 py-1.5 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-all flex items-center gap-1.5" data-map="ancient" type="button">
+<span class="">Ancient</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container text-text-muted font-mono">39</span>
+</button>
+<button class="map-tab px-3 py-1.5 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-all flex items-center gap-1.5" data-map="anubis" type="button">
+<span class="">Anubis</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container text-text-muted font-mono">42</span>
+</button>
+</div>
+</div>
+<!-- Icon-First Filter & Action Bar -->
+<div class="px-3 py-2 border-b border-border-subtle flex items-center justify-between gap-2">
+<!-- Faction Icon Buttons -->
+<div class="flex items-center p-0.5 rounded-xl bg-surface-container border border-border-subtle">
+<button class="faction-filter active px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-container-high text-white transition-all" data-faction="all" title="All Sides" type="button">
+            All
+          </button>
+<button class="faction-filter px-2 py-1 rounded-lg text-text-muted hover:text-tertiary transition-all flex items-center justify-center" data-faction="t" title="Terrorists (T-Side)" type="button">
+<span class="material-symbols-outlined text-[16px]">local_fire_department</span>
+</button>
+<button class="faction-filter px-2 py-1 rounded-lg text-text-muted hover:text-secondary transition-all flex items-center justify-center" data-faction="ct" title="Counter-Terrorists (CT-Side)" type="button">
+<span class="material-symbols-outlined text-[16px]">shield</span>
+</button>
+</div>
+<!-- Grenade Icon Toggles -->
+<div class="flex items-center gap-1 p-0.5 rounded-xl bg-surface-container border border-border-subtle">
+<button class="util-filter active w-7 h-7 rounded-lg bg-surface-container-high text-secondary flex items-center justify-center transition-all" data-util="smoke" title="Smoke Grenade" type="button">
+<span class="material-symbols-outlined text-[16px]">cloud</span>
+</button>
+<button class="util-filter w-7 h-7 rounded-lg text-text-muted hover:text-tertiary flex items-center justify-center transition-all" data-util="flash" title="Flashbang" type="button">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+</button>
+<button class="util-filter w-7 h-7 rounded-lg text-text-muted hover:text-danger flex items-center justify-center transition-all" data-util="molo" title="Molotov / Incendiary" type="button">
+<span class="material-symbols-outlined text-[16px]">local_fire_department</span>
+</button>
+<button class="util-filter w-7 h-7 rounded-lg text-text-muted hover:text-success flex items-center justify-center transition-all" data-util="he" title="High Explosive" type="button">
+<span class="material-symbols-outlined text-[16px]">crisis_alert</span>
+</button>
+</div>
+<!-- Action Icon Buttons -->
+<div class="flex items-center gap-1 ml-auto">
+<button class="w-8 h-8 rounded-xl bg-surface-container border border-border-subtle text-text-secondary hover:text-white hover:border-border-medium flex items-center justify-center transition-all" onclick="notifyAction('Preset sync started')" title="Import from Web">
+<span class="material-symbols-outlined text-[16px]">cloud_download</span>
+</button>
+<button class="w-8 h-8 rounded-xl bg-primary text-surface font-medium hover:bg-primary/90 flex items-center justify-center transition-all shadow-sm" onclick="notifyAction('Ready to record custom pixel')" title="Add Custom Lineup">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+<!-- Search Input Bar -->
+<div class="px-3 py-2 border-b border-border-subtle">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-2.5 text-[16px] text-text-muted pointer-events-none">search</span>
+<input class="w-full pl-8 pr-16 py-1.5 text-xs bg-surface-container rounded-xl border border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-focus font-sans" id="pixel-search" placeholder="Search position, site, callout..." type="text">
+<span class="absolute right-2.5 text-[10px] font-mono text-text-muted" id="search-counter">6 / 84</span>
+</div>
+</div>
+<!-- Lineup Cards List -->
+<div class="flex-1 overflow-y-auto p-3 space-y-2" id="pixel-cards-list">
+<!-- CARD 1 (Active) -->
+<div class="pixel-card group relative p-2.5 rounded-2xl bg-surface-container border border-primary/40 hover:border-primary flex items-center justify-between gap-3 cursor-pointer transition-all shadow-sm" onclick="selectPixel('Window Smoke from T Roof', 'Jumpthrow', 'T-Side', 'T Roof Beam', 'space + -attack', 'Roof antenna tip')">
+<div class="flex items-center gap-3 min-w-0">
+<!-- Thumbnail preview -->
+<div class="relative w-16 h-12 rounded-xl bg-surface-container-high border border-border-subtle overflow-hidden shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[20px] opacity-75">cloud</span>
+<span class="absolute top-1 left-1 w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-white truncate">Window Smoke</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-highest text-secondary font-mono">Jump</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
+<span class="">T Roof</span>
+<span class="">•</span>
+<span class="text-text-secondary">Mid</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all" onclick="event.stopPropagation(); addPixelToPlan('Window Smoke', '1.8s');" title="Add to Active Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+</button>
+</div>
+</div>
+<!-- CARD 2 -->
+<div class="pixel-card group relative p-2.5 rounded-2xl bg-surface-container/60 border border-border-subtle hover:border-border-medium flex items-center justify-between gap-3 cursor-pointer transition-all" onclick="selectPixel('Connector Smoke from Spawn', 'Stand throw', 'T-Side', 'T Spawn Trashcan', 'Left click release', 'Carpet rug stitch')">
+<div class="flex items-center gap-3 min-w-0">
+<div class="relative w-16 h-12 rounded-xl bg-surface-container-high border border-border-subtle overflow-hidden shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[20px] opacity-75">cloud</span>
+<span class="absolute top-1 left-1 w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-white truncate">Connector Smoke</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-highest text-text-secondary font-mono">Stand</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
+<span class="">T Spawn</span>
+<span class="">•</span>
+<span class="text-text-secondary">A Site</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all" onclick="event.stopPropagation(); addPixelToPlan('Connector Smoke', '2.0s');" title="Add to Active Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+</button>
+</div>
+</div>
+<!-- CARD 3 -->
+<div class="pixel-card group relative p-2.5 rounded-2xl bg-surface-container/60 border border-border-subtle hover:border-border-medium flex items-center justify-between gap-3 cursor-pointer transition-all" onclick="selectPixel('A Site Jungle Smoke', 'Run + Jump', 'T-Side', 'Tetris Corner', 'Hold W + Jumpthrow', 'Pillar cornice crack')">
+<div class="flex items-center gap-3 min-w-0">
+<div class="relative w-16 h-12 rounded-xl bg-surface-container-high border border-border-subtle overflow-hidden shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[20px] opacity-75">cloud</span>
+<span class="absolute top-1 left-1 w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-white truncate">Deep Jungle Smoke</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-highest text-tertiary font-mono">Run+Jump</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
+<span class="">Tetris</span>
+<span class="">•</span>
+<span class="text-text-secondary">A Site</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all" onclick="event.stopPropagation(); addPixelToPlan('Deep Jungle Smoke', '2.1s');" title="Add to Active Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+</button>
+</div>
+</div>
+<!-- CARD 4 -->
+<div class="pixel-card group relative p-2.5 rounded-2xl bg-surface-container/60 border border-border-subtle hover:border-border-medium flex items-center justify-between gap-3 cursor-pointer transition-all" onclick="selectPixel('B Short / Catwalk Smoke', 'Walkthrow', 'T-Side', 'Back Alley Barrel', 'Walk 2 steps, jumpthrow', 'Antenna support')">
+<div class="flex items-center gap-3 min-w-0">
+<div class="relative w-16 h-12 rounded-xl bg-surface-container-high border border-border-subtle overflow-hidden shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[20px] opacity-75">cloud</span>
+<span class="absolute top-1 left-1 w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-white truncate">Catwalk Smoke</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-highest text-text-secondary font-mono">Walk</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
+<span class="">Back Alley</span>
+<span class="">•</span>
+<span class="text-text-secondary">Mid</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all" onclick="event.stopPropagation(); addPixelToPlan('Catwalk Smoke', '2.4s');" title="Add to Active Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+</button>
+</div>
+</div>
+<!-- CARD 5 -->
+<div class="pixel-card group relative p-2.5 rounded-2xl bg-surface-container/60 border border-border-subtle hover:border-border-medium flex items-center justify-between gap-3 cursor-pointer transition-all" onclick="selectPixel('A Ramp Popflash', 'Stand throw', 'T-Side', 'Ramp Sandbags', 'Aim above lamp, left click', 'Lamp pole notch')">
+<div class="flex items-center gap-3 min-w-0">
+<div class="relative w-16 h-12 rounded-xl bg-surface-container-high border border-border-subtle overflow-hidden shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary text-[20px] opacity-75">bolt</span>
+<span class="absolute top-1 left-1 w-2 h-2 rounded-full bg-tertiary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-white truncate">Ramp Popflash</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-highest text-tertiary font-mono">Popflash</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
+<span class="">Ramp Sandbags</span>
+<span class="">•</span>
+<span class="text-text-secondary">A Site</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all" onclick="event.stopPropagation(); addPixelToPlan('Ramp Popflash', '0.8s');" title="Add to Active Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+</button>
+</div>
+</div>
+<!-- CARD 6 -->
+<div class="pixel-card group relative p-2.5 rounded-2xl bg-surface-container/60 border border-border-subtle hover:border-border-medium flex items-center justify-between gap-3 cursor-pointer transition-all" onclick="selectPixel('Under Palace Molotov', 'Stand throw', 'T-Side', 'Palace Pillar', 'Align shadow, left click', 'Balcony wood joint')">
+<div class="flex items-center gap-3 min-w-0">
+<div class="relative w-16 h-12 rounded-xl bg-surface-container-high border border-border-subtle overflow-hidden shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-danger text-[20px] opacity-75">local_fire_department</span>
+<span class="absolute top-1 left-1 w-2 h-2 rounded-full bg-danger"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-white truncate">Palace Molotov</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-highest text-danger font-mono">Stand</span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
+<span class="">Palace Pillar</span>
+<span class="">•</span>
+<span class="text-text-secondary">A Site</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-primary hover:text-surface text-text-secondary flex items-center justify-center transition-all" onclick="event.stopPropagation(); addPixelToPlan('Palace Molotov', '1.5s');" title="Add to Active Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- ========================================== -->
+<!-- RIGHT COLUMN: TACTICAL PLANS & INSPECTOR   -->
+<!-- ========================================== -->
+<div class="lg:col-span-7 flex flex-col h-full bg-surface overflow-hidden divide-y divide-border-subtle">
+<!-- TOP SECTION: TACTICAL PLAN MANAGER (Compact 45%) -->
+<div class="p-4 flex flex-col gap-3 h-[45%] overflow-hidden bg-surface-subtle/30">
+<!-- Plan header & toolbar -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-primary text-[20px]">alt_route</span>
+<div class="flex items-baseline gap-2">
+<h2 class="text-sm font-semibold text-white truncate" id="plan-title">A Site Full Execute</h2>
+<span class="text-[11px] text-text-muted font-mono" id="plan-count">4 items</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<!-- Share Code Copy Button -->
+<button class="h-8 px-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high border border-border-subtle text-xs font-mono text-text-secondary hover:text-white flex items-center gap-1.5 transition-all" onclick="copyShareCode()" title="Copy Share Code" type="button">
+<span class="material-symbols-outlined text-[15px]">share</span>
+<span id="share-code-btn" class="">MRG-9402</span>
+</button>
+<!-- Sync In Game Pill Button -->
+
+<button class="w-8 h-8 rounded-xl bg-surface-container hover:bg-surface-container-high border border-border-subtle text-text-secondary hover:text-white flex items-center justify-center transition-all" onclick="createNewPlan()" title="New Tactical Plan" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+<button class="w-8 h-8 rounded-xl bg-surface-container hover:bg-danger-soft hover:text-danger border border-border-subtle text-text-muted flex items-center justify-center transition-all" onclick="deleteActivePlan()" title="Clear Sequence" type="button">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Plan Quick-Switch Pills -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+<button class="plan-pill active px-3 py-1 rounded-xl text-xs font-medium bg-primary text-surface font-semibold flex items-center gap-1.5 shrink-0 transition-all shadow-sm" onclick="switchPlan(this, 'A Site Full Execute', 4, 'MRG-9402')" type="button">
+<span class="">A Site Execute</span>
+<span class="text-[10px] px-1 rounded-full bg-black/20 text-white font-mono">4</span>
+</button>
+<button class="plan-pill px-3 py-1 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container flex items-center gap-1.5 shrink-0 transition-all" onclick="switchPlan(this, 'Mid to B Fast Split', 3, 'MRG-7104')" type="button">
+<span class="">Mid to B Split</span>
+<span class="text-[10px] px-1 rounded-full bg-surface-container text-text-muted font-mono">3</span>
+</button>
+<button class="plan-pill px-3 py-1 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container flex items-center gap-1.5 shrink-0 transition-all" onclick="switchPlan(this, 'CT Retake A Default', 3, 'MRG-5512')" type="button">
+<span class="">CT Retake A</span>
+<span class="text-[10px] px-1 rounded-full bg-surface-container text-text-muted font-mono">3</span>
+</button>
+<button class="plan-pill px-3 py-1 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container flex items-center gap-1.5 shrink-0 transition-all" onclick="switchPlan(this, 'Mirage Apts B Rush', 2, 'MRG-1099')" type="button">
+<span class="">Apts B Rush</span>
+<span class="text-[10px] px-1 rounded-full bg-surface-container text-text-muted font-mono">2</span>
+</button>
+</div>
+<!-- Ordered Plan Steps Sequence List -->
+<div class="flex-1 overflow-y-auto space-y-1.5 pr-1" id="plan-steps-container">
+<div class="step-row flex items-center justify-between p-2 rounded-xl bg-surface-container border border-border-subtle group hover:border-border-medium transition-all">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-5 h-5 rounded-lg bg-surface-container-high text-primary font-mono text-[11px] font-semibold flex items-center justify-center shrink-0">1</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">cloud</span>
+<span class="text-xs font-medium text-white truncate">Window Smoke</span>
+<span class="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-container-high">1.8s</span>
+</div>
+<div class="flex items-center gap-1 text-text-muted">
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, -1)" title="Move Up" type="button"><span class="material-symbols-outlined text-[14px]">expand_less</span></button>
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, 1)" title="Move Down" type="button"><span class="material-symbols-outlined text-[14px]">expand_more</span></button>
+<button class="w-6 h-6 rounded hover:bg-danger-soft hover:text-danger flex items-center justify-center" onclick="removeStep(this)" title="Remove" type="button"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+</div>
+<div class="step-row flex items-center justify-between p-2 rounded-xl bg-surface-container border border-border-subtle group hover:border-border-medium transition-all">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-5 h-5 rounded-lg bg-surface-container-high text-primary font-mono text-[11px] font-semibold flex items-center justify-center shrink-0">2</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">cloud</span>
+<span class="text-xs font-medium text-white truncate">Jungle Deep Smoke</span>
+<span class="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-container-high">2.1s</span>
+</div>
+<div class="flex items-center gap-1 text-text-muted">
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, -1)" title="Move Up" type="button"><span class="material-symbols-outlined text-[14px]">expand_less</span></button>
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, 1)" title="Move Down" type="button"><span class="material-symbols-outlined text-[14px]">expand_more</span></button>
+<button class="w-6 h-6 rounded hover:bg-danger-soft hover:text-danger flex items-center justify-center" onclick="removeStep(this)" title="Remove" type="button"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+</div>
+<div class="step-row flex items-center justify-between p-2 rounded-xl bg-surface-container border border-border-subtle group hover:border-border-medium transition-all">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-5 h-5 rounded-lg bg-surface-container-high text-primary font-mono text-[11px] font-semibold flex items-center justify-center shrink-0">3</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">cloud</span>
+<span class="text-xs font-medium text-white truncate">Connector Smoke</span>
+<span class="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-container-high">2.0s</span>
+</div>
+<div class="flex items-center gap-1 text-text-muted">
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, -1)" title="Move Up" type="button"><span class="material-symbols-outlined text-[14px]">expand_less</span></button>
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, 1)" title="Move Down" type="button"><span class="material-symbols-outlined text-[14px]">expand_more</span></button>
+<button class="w-6 h-6 rounded hover:bg-danger-soft hover:text-danger flex items-center justify-center" onclick="removeStep(this)" title="Remove" type="button"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+</div>
+<div class="step-row flex items-center justify-between p-2 rounded-xl bg-surface-container border border-border-subtle group hover:border-border-medium transition-all">
+<div class="flex items-center gap-2.5 min-w-0">
+<span class="w-5 h-5 rounded-lg bg-surface-container-high text-primary font-mono text-[11px] font-semibold flex items-center justify-center shrink-0">4</span>
+<span class="material-symbols-outlined text-tertiary text-[16px]">bolt</span>
+<span class="text-xs font-medium text-white truncate">A Ramp High Flash</span>
+<span class="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-container-high">0.8s</span>
+</div>
+<div class="flex items-center gap-1 text-text-muted">
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, -1)" title="Move Up" type="button"><span class="material-symbols-outlined text-[14px]">expand_less</span></button>
+<button class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" onclick="moveStep(this, 1)" title="Move Down" type="button"><span class="material-symbols-outlined text-[14px]">expand_more</span></button>
+<button class="w-6 h-6 rounded hover:bg-danger-soft hover:text-danger flex items-center justify-center" onclick="removeStep(this)" title="Remove" type="button"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- BOTTOM SECTION: INSPECTOR VIEWPORT & GUIDE (55%) -->
+<div class="p-4 flex flex-col gap-3 h-[55%] overflow-hidden bg-surface">
+<!-- Inspector Header -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-secondary text-[20px]">center_focus_strong</span>
+<input class="text-sm font-semibold text-white bg-transparent border-none outline-none focus:bg-surface-container rounded-lg px-1 truncate" id="inspect-title" type="text" value="Window Smoke from T Roof">
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="px-2 py-0.5 rounded-lg bg-surface-container text-[11px] font-mono text-secondary" id="inspect-throw">Jumpthrow</span>
+<span class="px-2 py-0.5 rounded-lg bg-surface-container text-[11px] font-mono text-text-muted" id="inspect-meta">T-Side</span>
+<button class="w-7 h-7 rounded-lg bg-surface-container hover:bg-surface-container-high text-text-muted hover:text-white flex items-center justify-center transition-all" onclick="notifyAction('Capture refreshed')" title="Reload Frame" type="button">
+<span class="material-symbols-outlined text-[15px]">refresh</span>
+</button>
+</div>
+</div>
+<!-- Dual Pane: Screenshot + Steps -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-3 flex-1 min-h-0">
+<!-- Left: Game Viewport (Cols 7) -->
+<div class="md:col-span-7 flex flex-col gap-2 min-h-0">
+<div class="relative flex-1 w-full rounded-2xl bg-surface-container border border-border-subtle overflow-hidden group">
+<!-- Counter-Strike Game Mockup Screenshot -->
+<div class="absolute inset-0 bg-cover bg-center" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuCg8HCgA1URmJJRIcdEetFtDnSNqjsn8QgJio3MeGZpp4Q6dDtZ2KF3qnIbDTPYxUkxM0lUzr2o-1U1fFOBcZP-jfnVTK4e_YQhAMcxEsQ-F-rQ1exi4GmEOGmyl2mH7XoVq6H8eFwjsSmFV-eOzd1tGNcTAA4b1m42940RT0HOpbpMJJlLP16wEyUHcfZUfz6-M4RPhi9qzeZWOrW2yYq762OsIxe9NFZsoU32UeAbiijmK_OxTEBV&quot;);"></div>
+<!-- Subtle dark scrim for focus -->
+<div class="absolute inset-0 bg-black/35 backdrop-blur-[0.5px]"></div>
+<!-- Reticle Hairlines -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="w-full h-px bg-secondary/60"></div>
+<div class="h-full w-px bg-secondary/60 absolute"></div>
+<!-- Precision target box -->
+<div class="w-4 h-4 rounded border border-secondary bg-secondary/20 flex items-center justify-center">
+<div class="w-1 h-1 rounded-full bg-white"></div>
+</div>
+</div>
+<!-- Floating bottom bar -->
+<div class="absolute bottom-2.5 inset-x-2.5 px-3 py-1.5 rounded-xl bg-surface-subtle/80 backdrop-blur-md border border-border-subtle flex items-center justify-between text-[11px]">
+<div class="flex items-center gap-1.5 text-secondary font-mono truncate">
+<span class="material-symbols-outlined text-[14px]">adjust</span>
+<span class="truncate" id="inspect-alignment">Roof antenna tip</span>
+</div>
+<span class="w-2 h-2 rounded-full bg-success shrink-0" title="Aligned"></span>
+</div>
+</div>
+<!-- Sleek Icon Tabs for Viewport modes -->
+<div class="flex items-center justify-center p-1 rounded-xl bg-surface-container border border-border-subtle gap-1">
+<button class="view-switch-btn active flex-1 py-1 rounded-lg text-xs font-medium bg-surface-container-high text-white transition-all flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px] text-primary">target</span>
+                Aim Point
+              </button>
+<button class="view-switch-btn flex-1 py-1 rounded-lg text-xs font-medium text-text-muted hover:text-white transition-all flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">pin_drop</span>
+                Stand Spot
+              </button>
+<button class="view-switch-btn flex-1 py-1 rounded-lg text-xs font-medium text-text-muted hover:text-white transition-all flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">grain</span>
+                Bloom
+              </button>
+</div>
+</div>
+<!-- Right: Execution details & checklist (Cols 5) -->
+<div class="md:col-span-5 flex flex-col justify-between p-3 rounded-2xl bg-surface-container border border-border-subtle overflow-y-auto">
+<div class="space-y-3">
+<!-- Position info -->
+<div class="space-y-1">
+<span class="text-[10px] uppercase font-mono tracking-wider text-text-muted">Standing Spot</span>
+<p class="text-xs text-text-primary leading-relaxed" id="inspect-pos">T Roof wooden beam corner, wedge against carpet roll.</p>
+</div>
+<!-- Bind & throw mechanics -->
+<div class="p-2.5 rounded-xl bg-surface-container-high border border-border-subtle space-y-1">
+<span class="text-[10px] uppercase font-mono tracking-wider text-primary">Keybind &amp; Action</span>
+<p class="text-xs font-mono text-white leading-relaxed" id="inspect-bind">space + -attack (CS2 Jumpthrow). Hold Left Click, press jumpthrow bind.</p>
+</div>
+<!-- Simple numbered steps -->
+<div class="space-y-1.5 pt-1">
+<span class="text-[10px] uppercase font-mono tracking-wider text-text-muted">Steps</span>
+<div class="space-y-1 text-xs text-text-secondary leading-snug">
+<div class="flex items-start gap-2">
+<span class="text-primary font-mono text-[11px]">1</span>
+<span class="">Wedge into the carpet and wooden rail corner.</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-primary font-mono text-[11px]">2</span>
+<span class="">Place crosshair at antenna intersection rod.</span>
+</div>
+<div class="flex items-start gap-2">
+<span class="text-primary font-mono text-[11px]">3</span>
+<span class="">Release using Jumpthrow bind. Lands deep Window.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom status -->
+<div class="pt-2 border-t border-border-subtle flex items-center justify-between text-[11px] text-text-muted mt-2">
+<span class="font-mono">Sub-tick Ready</span>
+<span class="text-success flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                Calibrated
+              </span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BOTTOM STATUS BAR -->
+<footer class="h-7 w-full bg-surface-subtle border-t border-border-subtle shrink-0 flex items-center justify-between px-4 text-[11px] text-text-muted">
+<div class="flex items-center gap-3">
+<span class="font-medium text-text-secondary">CS2 Overlay Assistant 1.1</span>
+<span class="">•</span>
+
+</div>
+<div class="flex items-center gap-3 font-mono">
+<span class="">Sub-Tick GSI</span>
+<span class="">•</span>
+<span class="">Latency: 0ms</span>
+</div>
+</footer>
+<!-- SCRIPT LOGIC -->
+<script>
+    // Toast notification dispatcher
+    function notifyAction(text) {
+      const slot = document.getElementById('toast-slot');
+      if (!slot) return;
+      const toast = document.createElement('div');
+      toast.className = 'px-3 py-2 rounded-xl bg-surface-container-high border border-border-medium text-white text-xs shadow-2xl flex items-center gap-2 pointer-events-auto backdrop-blur-md transition-all duration-200';
+      toast.innerHTML = `<span class="material-symbols-outlined text-[16px] text-primary">check_circle</span><span>${text}</span>`;
+      slot.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-4px)';
+        setTimeout(() => toast.remove(), 200);
+      }, 2200);
+    }
+
+    // Map Selector Tabs
+    document.querySelectorAll('.map-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.map-tab').forEach(t => {
+          t.className = 'map-tab px-3 py-1.5 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container transition-all flex items-center gap-1.5';
+          const badge = t.querySelector('span:last-child');
+          if (badge) badge.className = 'text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container text-text-muted font-mono';
+        });
+        this.className = 'map-tab active px-3 py-1.5 rounded-xl text-xs font-medium bg-primary text-surface font-semibold shadow-sm flex items-center gap-1.5 transition-all';
+        const activeBadge = this.querySelector('span:last-child');
+        if (activeBadge) activeBadge.className = 'text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono';
+        
+        const mapName = this.dataset.map.toUpperCase();
+        notifyAction(`Switched to map ${mapName}`);
+      });
+    });
+
+    // Faction Filter Toggles
+    document.querySelectorAll('.faction-filter').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.faction-filter').forEach(b => {
+          b.className = 'faction-filter px-2 py-1 rounded-lg text-text-muted hover:text-white transition-all flex items-center justify-center';
+        });
+        this.className = 'faction-filter active px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-container-high text-white transition-all';
+        filterList();
+      });
+    });
+
+    // Utility Pills Toggles
+    document.querySelectorAll('.util-filter').forEach(pill => {
+      pill.addEventListener('click', function() {
+        document.querySelectorAll('.util-filter').forEach(p => {
+          p.className = 'util-filter w-7 h-7 rounded-lg text-text-muted hover:text-white flex items-center justify-center transition-all';
+        });
+        this.className = 'util-filter active w-7 h-7 rounded-lg bg-surface-container-high text-secondary flex items-center justify-center transition-all';
+        filterList();
+      });
+    });
+
+    // Search and Filter List
+    const searchInput = document.getElementById('pixel-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', filterList);
+    }
+
+    function filterList() {
+      const val = (searchInput?.value || '').toLowerCase();
+      const cards = document.querySelectorAll('.pixel-card');
+      let visibleCount = 0;
+
+      cards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        if (text.includes(val)) {
+          card.style.display = 'flex';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      const counter = document.getElementById('search-counter');
+      if (counter) {
+        counter.innerText = `${visibleCount} / 84`;
+      }
+    }
+
+    // Select Pixel to Inspector
+    function selectPixel(title, throwType, meta, pos, bind, alignment) {
+      const inspectTitle = document.getElementById('inspect-title');
+      const inspectThrow = document.getElementById('inspect-throw');
+      const inspectMeta = document.getElementById('inspect-meta');
+      const inspectPos = document.getElementById('inspect-pos');
+      const inspectBind = document.getElementById('inspect-bind');
+      const inspectAlign = document.getElementById('inspect-alignment');
+
+      if (inspectTitle) inspectTitle.value = title;
+      if (inspectThrow) inspectThrow.innerText = throwType;
+      if (inspectMeta) inspectMeta.innerText = meta;
+      if (inspectPos) inspectPos.innerText = pos;
+      if (inspectBind) inspectBind.innerText = `${throwType}: ${bind}`;
+      if (inspectAlign) inspectAlign.innerText = alignment;
+
+      document.querySelectorAll('.pixel-card').forEach(c => {
+        c.classList.remove('border-primary');
+        c.classList.add('border-border-subtle');
+      });
+      if (window.event && window.event.currentTarget) {
+        window.event.currentTarget.classList.add('border-primary');
+        window.event.currentTarget.classList.remove('border-border-subtle');
+      }
+
+      notifyAction(`Inspecting ${title}`);
+    }
+
+    // Add Pixel To Active Tactical Plan
+    function addPixelToPlan(name, timing) {
+      const container = document.getElementById('plan-steps-container');
+      if (!container) return;
+
+      const count = container.children.length + 1;
+
+      const newRow = document.createElement('div');
+      newRow.className = 'step-row flex items-center justify-between p-2 rounded-xl bg-surface-container border border-border-subtle group hover:border-border-medium transition-all';
+      newRow.innerHTML = `
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-5 h-5 rounded-lg bg-surface-container-high text-primary font-mono text-[11px] font-semibold flex items-center justify-center shrink-0">${count}</span>
+          <span class="material-symbols-outlined text-secondary text-[16px]">cloud</span>
+          <span class="text-xs font-medium text-white truncate">${name}</span>
+          <span class="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-container-high">${timing}</span>
+        </div>
+        <div class="flex items-center gap-1 text-text-muted">
+          <button type="button" onclick="moveStep(this, -1)" class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" title="Move Up"><span class="material-symbols-outlined text-[14px]">expand_less</span></button>
+          <button type="button" onclick="moveStep(this, 1)" class="w-6 h-6 rounded hover:bg-surface-container-high hover:text-white flex items-center justify-center" title="Move Down"><span class="material-symbols-outlined text-[14px]">expand_more</span></button>
+          <button type="button" onclick="removeStep(this)" class="w-6 h-6 rounded hover:bg-danger-soft hover:text-danger flex items-center justify-center" title="Remove"><span class="material-symbols-outlined text-[14px]">close</span></button>
+        </div>
+      `;
+      container.appendChild(newRow);
+      updatePlanCount();
+      notifyAction(`Added ${name} to sequence`);
+    }
+
+    // Remove Step from Tactical Plan
+    function removeStep(btn) {
+      const row = btn.closest('.step-row');
+      if (row) {
+        row.remove();
+        renumberSteps();
+        updatePlanCount();
+        notifyAction('Removed from sequence');
+      }
+    }
+
+    // Reorder Steps
+    function moveStep(btn, direction) {
+      const row = btn.closest('.step-row');
+      if (!row) return;
+      if (direction === -1 && row.previousElementSibling) {
+        row.parentNode.insertBefore(row, row.previousElementSibling);
+      } else if (direction === 1 && row.nextElementSibling) {
+        row.parentNode.insertBefore(row.nextElementSibling, row);
+      }
+      renumberSteps();
+    }
+
+    function renumberSteps() {
+      const rows = document.querySelectorAll('#plan-steps-container .step-row');
+      rows.forEach((r, idx) => {
+        const numSpan = r.querySelector('span');
+        if (numSpan) {
+          numSpan.innerText = `${idx + 1}`;
+        }
+      });
+    }
+
+    function updatePlanCount() {
+      const count = document.querySelectorAll('#plan-steps-container .step-row').length;
+      const planCountEl = document.getElementById('plan-count');
+      if (planCountEl) planCountEl.innerText = `${count} items`;
+    }
+
+    // Tactical Plan Switcher
+    function switchPlan(btn, name, count, code) {
+      document.querySelectorAll('.plan-pill').forEach(p => {
+        p.className = 'plan-pill px-3 py-1 rounded-xl text-xs font-medium text-text-secondary hover:text-white hover:bg-surface-container flex items-center gap-1.5 shrink-0 transition-all';
+        const b = p.querySelector('span:last-child');
+        if (b) b.className = 'text-[10px] px-1 rounded-full bg-surface-container text-text-muted font-mono';
+      });
+      btn.className = 'plan-pill active px-3 py-1 rounded-xl text-xs font-medium bg-primary text-surface font-semibold flex items-center gap-1.5 shrink-0 transition-all shadow-sm';
+      const activeBadge = btn.querySelector('span:last-child');
+      if (activeBadge) activeBadge.className = 'text-[10px] px-1 rounded-full bg-black/20 text-white font-mono';
+
+      const titleEl = document.getElementById('plan-title');
+      const shareBtn = document.getElementById('share-code-btn');
+
+      if (titleEl) titleEl.innerText = name;
+      if (shareBtn) shareBtn.innerText = code;
+      updatePlanCount();
+      notifyAction(`Loaded plan: ${name}`);
+    }
+
+    // Copy Code to Clipboard
+    function copyShareCode() {
+      const codeBtn = document.getElementById('share-code-btn');
+      const text = codeBtn?.innerText || 'MRG-9402';
+      navigator.clipboard?.writeText(text);
+      notifyAction(`Copied share code: ${text}`);
+    }
+
+    // Set Active in Game Overlay
+    function setActiveInGame() {
+      notifyAction('Overlay synced in-game');
+    }
+
+    // Create & Clear Plans
+    function createNewPlan() {
+      const name = prompt('Name your new tactical plan:', 'Default Split');
+      if (name) notifyAction(`Created new plan: ${name}`);
+    }
+
+    function deleteActivePlan() {
+      if (confirm('Clear all lineup items in this plan?')) {
+        document.getElementById('plan-steps-container').innerHTML = '';
+        updatePlanCount();
+        notifyAction('Plan cleared');
+      }
+    }
+
+    // Viewport Switcher Buttons
+    document.querySelectorAll('.view-switch-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.view-switch-btn').forEach(b => {
+          b.className = 'view-switch-btn flex-1 py-1 rounded-lg text-xs font-medium text-text-muted hover:text-white transition-all flex items-center justify-center gap-1';
+        });
+        this.className = 'view-switch-btn active flex-1 py-1 rounded-lg text-xs font-medium bg-surface-container-high text-white transition-all flex items-center justify-center gap-1';
+        notifyAction(`Switched view`);
+      });
+    });
+  </script>
+
+
+</body></html>

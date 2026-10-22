@@ -31,7 +31,6 @@ export default function App(): JSX.Element {
   // 2. Active Match & Settings State
   const [isMatchActive, setIsMatchActive] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [userViewOverride, setUserViewOverride] = useState<'UTILITY' | 'OVERLAY_CENTER' | null>(null);
 
   // 3. Match Lifecycle Listener via Valve GSI
   useEffect(() => {
@@ -43,16 +42,12 @@ export default function App(): JSX.Element {
         setIsMatchActive(true);
       } else {
         setIsMatchActive(false);
-        setUserViewOverride(null);
       }
     }).catch(() => {});
 
     const unsubGsi = api.gsi.onStatusChange((status) => {
       const active = Boolean(status?.activeMatch);
       setIsMatchActive(active);
-      if (!active) {
-        setUserViewOverride(null);
-      }
     });
 
     return unsubGsi;
@@ -65,7 +60,6 @@ export default function App(): JSX.Element {
 
     const unsubPlay = api.play.onNextPixel((data) => {
       if (data && typeof data.stepIndex === 'number') {
-        setActivePlayStepIndex(data.stepIndex);
         return;
       }
       const { lineupId } = advanceActivePlayStep();
@@ -80,24 +74,22 @@ export default function App(): JSX.Element {
     return unsubPlay;
   }, []);
 
-  const showOverlayCenter = isMatchActive && (userViewOverride === 'OVERLAY_CENTER' || userViewOverride === null);
+  const showOverlayCenter = isMatchActive;
 
   return (
     <div
       data-testid="app-shell"
-      className="flex h-screen w-screen flex-col bg-[#09090b] text-[#f4f4f5] select-none overflow-hidden font-mono"
+      className="flex h-screen w-screen flex-col bg-surface text-text-primary select-none overflow-hidden font-sans antialiased"
     >
       <main data-testid="active-view-container" className="flex-1 overflow-hidden relative">
         {showOverlayCenter ? (
           <OverlayCenterView
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onGoToLauncher={() => setUserViewOverride('UTILITY')}
           />
         ) : (
           <UtilityRoomView
             onOpenSettings={() => setIsSettingsOpen(true)}
             isMatchActive={isMatchActive}
-            onGoToOverlayCenter={() => setUserViewOverride('OVERLAY_CENTER')}
           />
         )}
       </main>
