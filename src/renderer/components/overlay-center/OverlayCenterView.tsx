@@ -19,9 +19,10 @@ import { getLineupById } from '../../../core/utility/lineup-database';
 
 interface OverlayCenterViewProps {
   onOpenSettings: () => void;
+  onGoToLauncher?: () => void;
 }
 
-export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSettings }) => {
+export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSettings, onGoToLauncher }) => {
   const [matchStatus, setMatchStatus] = useState<GsiStatus | null>(null);
   const [plays, setPlays] = useState<Play[]>([]);
   const [activePlan, setActivePlan] = useState<Play | null>(null);
@@ -130,6 +131,17 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({ onOpenSett
         </div>
 
         <div className="flex items-center gap-2">
+          {onGoToLauncher && (
+            <button
+              onClick={onGoToLauncher}
+              title="Return to Main Launcher to add plans / browse pixels"
+              className="flex items-center gap-1.5 border border-zinc-700 bg-black/80 px-2.5 py-1 text-xs text-zinc-300 hover:text-cyan-300 hover:border-cyan-500 transition-colors"
+            >
+              <span>←</span>
+              <span className="font-bold text-[10px] tracking-wide uppercase">LAUNCHER / PIXELS</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenSettings}
             title="Settings"

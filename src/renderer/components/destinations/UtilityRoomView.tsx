@@ -30,6 +30,8 @@ import {
 
 interface UtilityRoomViewProps {
   onOpenSettings: () => void;
+  onGoToOverlayCenter?: () => void;
+  isMatchActive?: boolean;
 }
 
 const COMPETITIVE_MAPS: { id: CS2Map; label: string }[] = [
@@ -41,7 +43,11 @@ const COMPETITIVE_MAPS: { id: CS2Map; label: string }[] = [
   { id: 'de_anubis', label: 'Anubis' },
 ];
 
-export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings }) => {
+export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
+  onOpenSettings,
+  onGoToOverlayCenter,
+  isMatchActive,
+}) => {
   // Filter States
   const [selectedMap, setSelectedMap] = useState<CS2Map>('de_mirage');
   const [selectedSide, setSelectedSide] = useState<TeamSide | 'ALL'>('ALL');
@@ -272,6 +278,18 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({ onOpenSettings
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
+
+          {isMatchActive && onGoToOverlayCenter && (
+            <button
+              onClick={onGoToOverlayCenter}
+              title="Return to In-Match Overlay Center"
+              className="flex items-center gap-1.5 border border-cyan-700 bg-cyan-950/80 px-2.5 py-1 text-xs text-cyan-300 hover:bg-cyan-900 transition-colors"
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-bold text-[10px] tracking-wide uppercase">OVERLAY CENTER</span>
+              <span>→</span>
+            </button>
+          )}
         </div>
 
         {actionToast && (
