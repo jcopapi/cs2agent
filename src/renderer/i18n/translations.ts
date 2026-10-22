@@ -13,7 +13,7 @@ import type { Language } from './types';
 export const TRANSLATIONS: Record<Language, Record<string, string>> = {
   en: {
     // Top Bar & Navigation
-    'app.brand': 'jco cs2 assistant',
+    'app.brand': 'CS Overlay Assistant',
     'nav.lineups': 'Lineups',
     'nav.statsHistory': 'Stats & History',
     'nav.overlayCenter': 'Overlay Center',
@@ -138,7 +138,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
   'pt-BR': {
     // Top Bar & Navigation
-    'app.brand': 'jco cs2 assistant',
+    'app.brand': 'CS Overlay Assistant',
     'nav.lineups': 'Pixels',
     'nav.statsHistory': 'Estatísticas & Histórico',
     'nav.overlayCenter': 'Centro de Overlays',
@@ -263,7 +263,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
   es: {
     // Top Bar & Navigation
-    'app.brand': 'jco cs2 assistant',
+    'app.brand': 'CS Overlay Assistant',
     'nav.lineups': 'Lineups',
     'nav.statsHistory': 'Estadísticas e Historial',
     'nav.overlayCenter': 'Centro de Overlays',

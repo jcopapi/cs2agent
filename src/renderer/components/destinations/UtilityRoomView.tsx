@@ -338,7 +338,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
             <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-[16px] text-white">center_focus_strong</span>
             </div>
-            <span className="font-semibold text-sm tracking-tight text-white">jco cs2 assistant</span>
+            <span className="font-semibold text-sm tracking-tight text-white">{t('app.brand')}</span>
           </div>
 
           <div className="h-4 w-px bg-border-subtle" />
@@ -660,19 +660,28 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     </div>
 
                     {/* Metadata */}
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-white truncate">
                           {localize(lineup.titles || lineup.title)}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container-highest text-secondary font-mono">
-                          {lineup.throwType}
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-surface-container text-text-muted font-mono shrink-0">
+                          {lineup.side}-Side
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
-                        <span>{lineup.startPosition?.callout || 'Spot'}</span>
-                        <span>•</span>
-                        <span className="text-text-secondary">{lineup.side}-Side</span>
+                      <div className="flex items-center gap-1.5 mt-1 text-[10px] flex-wrap">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest border border-border-subtle text-text-primary">
+                          <span className="text-text-muted font-medium">From:</span>
+                          <span className="font-semibold text-white truncate max-w-[130px]">
+                            {lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spawn'}
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 border border-primary/20 text-primary">
+                          <span className="text-primary/70 font-medium">To:</span>
+                          <span className="font-semibold text-primary truncate max-w-[130px]">
+                            {lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}
+                          </span>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -945,10 +954,21 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                       <span className={`material-symbols-outlined ${meta.colorText} text-[16px]`}>
                         {meta.icon}
                       </span>
-                      <span className="text-xs font-medium text-white truncate">{lineup.title}</span>
-                      <span className="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-container-high">
-                        {lineup.throwType}
-                      </span>
+                      <span className="text-xs font-medium text-white truncate max-w-[140px]">{lineup.title}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-surface-container-highest border border-border-subtle text-text-muted">
+                          <span>From:</span>
+                          <span className="text-white font-medium truncate max-w-[80px]">
+                            {lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spawn'}
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 border border-primary/20 text-primary font-medium">
+                          <span>To:</span>
+                          <span className="truncate max-w-[80px]">
+                            {lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}
+                          </span>
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-1 text-text-muted shrink-0">
@@ -1061,11 +1081,20 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-surface-container text-[11px] font-mono text-secondary">
-                      {inspectedLineup.throwType}
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-high border border-border-subtle text-[11px]">
+                      <span className="text-text-muted font-medium">From:</span>
+                      <span className="text-white font-semibold">
+                        {inspectedLineup.startPosition?.callout || inspectedLineup.throwPosition?.callout || 'Spawn'}
+                      </span>
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-lg bg-surface-container text-[11px] font-mono text-text-muted">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/15 border border-primary/20 text-[11px]">
+                      <span className="text-primary/70 font-medium">To:</span>
+                      <span className="text-primary font-semibold">
+                        {inspectedLineup.landingArea?.callout || inspectedLineup.targetDestination?.callout || 'Target'}
+                      </span>
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-[11px] font-mono text-text-muted">
                       {inspectedLineup.side}-Side
                     </span>
                     <button

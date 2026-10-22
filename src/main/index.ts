@@ -60,7 +60,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
     minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#09090b',
-    title: 'jco cs2 assistant',
+    title: 'CS Overlay Assistant',
     show: false, // Prevent white flash before content paints
     autoHideMenuBar: true,
     titleBarStyle: 'default',

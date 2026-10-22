@@ -2,12 +2,12 @@
  * CS2 Assistant - Custom Lineup Creator Modal
  * File: src/renderer/components/utility-room/LineupCreatorModal.tsx
  *
- * Implements full client-side lineup authoring with real-time SVG landmark preview,
+ * Implements full client-side lineup authoring with real-time landmark preview,
  * coordinate input, multi-step execution protocol, and schema validation.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, AlertCircle, Plus, Trash2, Camera, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Check, AlertCircle, Plus, Trash2, Camera } from 'lucide-react';
 import type { CS2Map, TeamSide, UtilityType, Lineup } from '../../../core/utility/types';
 import { validateLineup } from '../../../core/utility/json-io';
 import { saveLineup } from '../../../core/utility/lineup-database';
@@ -33,15 +33,15 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
 
   // Start & Target
   const [startCallout, setStartCallout] = useState<string>('');
-  const [startX, setStartX] = useState<number>(0);
-  const [startY, setStartY] = useState<number>(0);
-  const [startZ, setStartZ] = useState<number>(0);
-  const [tolerance, setTolerance] = useState<number>(6);
+  const [startX] = useState<number>(0);
+  const [startY] = useState<number>(0);
+  const [startZ] = useState<number>(0);
+  const [tolerance] = useState<number>(6);
 
   const [targetCallout, setTargetCallout] = useState<string>('');
-  const [targetX, setTargetX] = useState<number>(0);
-  const [targetY, setTargetY] = useState<number>(0);
-  const [targetZ, setTargetZ] = useState<number>(0);
+  const [targetX] = useState<number>(0);
+  const [targetY] = useState<number>(0);
+  const [targetZ] = useState<number>(0);
 
   // Aim Reference & Image
   const [crosshairPlacement, setCrosshairPlacement] = useState<string>('');
@@ -58,7 +58,7 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
 
   // SVG Markup fallback
   const defaultSvg = `<svg width="240" height="140" viewBox="0 0 240 140">\n  <rect width="240" height="140" fill="#121215"/>\n  <circle cx="120" cy="70" r="4" fill="#06b6d4"/>\n  <line x1="120" y1="50" x2="120" y2="90" stroke="#06b6d4" stroke-dasharray="2"/>\n  <line x1="100" y1="70" x2="140" y2="70" stroke="#06b6d4" stroke-dasharray="2"/>\n  <text x="120" y="110" font-family="monospace" font-size="10" fill="#a1a1aa" text-anchor="middle">CUSTOM ALIGNMENT POINT</text>\n</svg>`;
-  const [svgReference, setSvgReference] = useState<string>(defaultSvg);
+  const [svgReference] = useState<string>(defaultSvg);
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -105,48 +105,70 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
     setInstructions([...instructions, '']);
   };
 
-  const handleUpdateInstruction = (index: number, val: string) => {
+  const handleUpdateInstruction = (index: number, text: string) => {
     const updated = [...instructions];
-    updated[index] = val;
+    updated[index] = text;
     setInstructions(updated);
   };
 
   const handleRemoveInstruction = (index: number) => {
     if (instructions.length <= 1) return;
-    setInstructions(instructions.filter((_, i) => i !== index));
+    setInstructions(instructions.filter((_, idx) => idx !== index));
   };
 
   const handleSave = () => {
-    const idSlug =
-      title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30) || 'custom-pixel';
-    const candidate = {
-      id: `custom-${map}-${idSlug}-${Date.now().toString().slice(-4)}`,
+    const candidate: Lineup = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       map,
       side,
       utilityType,
-      title: title || `${targetCallout || 'Utility'} from ${startCallout || 'Spawn'}`,
+      technique: throwType,
+      throwType,
+      title: title.trim() || `${targetCallout || 'Site'} ${utilityType}`,
+      throwPosition: {
+        x: Number(startX) || 0,
+        y: Number(startY) || 0,
+        z: Number(startZ) || 0,
+        callout: startCallout.trim() || 'Custom Position',
+        description: `Wedge into ${startCallout || 'position'}`,
+        toleranceUnits: Number(tolerance) || 6,
+      },
       startPosition: {
-        x: Number(startX),
-        y: Number(startY),
-        z: Number(startZ),
-        callout: startCallout || 'Position',
-        toleranceUnits: Number(tolerance),
+        x: Number(startX) || 0,
+        y: Number(startY) || 0,
+        z: Number(startZ) || 0,
+        callout: startCallout.trim() || 'Custom Position',
+        toleranceUnits: Number(tolerance) || 6,
+      },
+      landingArea: {
+        x: Number(targetX) || 0,
+        y: Number(targetY) || 0,
+        z: Number(targetZ) || 0,
+        callout: targetCallout.trim() || 'Target Area',
+        description: `Lands at ${targetCallout || 'target'}`,
       },
       targetDestination: {
-        x: Number(targetX),
-        y: Number(targetY),
-        z: Number(targetZ),
-        callout: targetCallout || 'Target',
+        x: Number(targetX) || 0,
+        y: Number(targetY) || 0,
+        z: Number(targetZ) || 0,
+        callout: targetCallout.trim() || 'Target Area',
       },
-      throwType,
-      movementRequirements,
+      crosshairTarget: {
+        pitch: -15.0,
+        yaw: 45.0,
+        description: crosshairPlacement.trim() || 'Align crosshair with reticle',
+        visualLandmark: visualLandmark.trim() || 'Custom Landmark',
+      },
       aimReference: {
-        crosshairPlacement: crosshairPlacement || 'Align reticle directly with center pixel landmark',
-        visualLandmark: visualLandmark || targetCallout || 'Center landmark',
+        crosshairPlacement: crosshairPlacement.trim() || 'Align crosshair with reticle',
+        visualLandmark: visualLandmark.trim() || 'Custom Landmark',
       },
-      svgReference,
-      imageUrl: imageUrl || undefined,
-      instructions: instructions.filter((s) => s.trim().length > 0),
+      movementRequirements: movementRequirements.trim() || 'Stationary throw',
+      tickrate: 'SUBTICK_CS2',
+      instructions: instructions.map((i) => i.trim()).filter(Boolean),
+      imageUrl: imageUrl.trim() || undefined,
+      thumbnailUrl: imageUrl.trim() || undefined,
+      svgReference: !imageUrl ? svgReference : undefined,
       tags: ['Custom', utilityType, startCallout || 'Spawn'].filter(Boolean),
       difficulty,
       sourceAttribution: 'User Created',
@@ -171,30 +193,36 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 select-none font-mono">
-      <div className="relative flex h-[90vh] w-[950px] flex-col rounded-lg border border-zinc-800 bg-[#0c0c0e] shadow-2xl overflow-hidden">
-        {/* Corner Handles */}
-        <span className="absolute top-1 left-1 text-zinc-600 font-mono text-[10px] leading-none select-none">┌</span>
-        <span className="absolute top-1 right-1 text-zinc-600 font-mono text-[10px] leading-none select-none">┐</span>
-        <span className="absolute bottom-1 left-1 text-zinc-600 font-mono text-[10px] leading-none select-none">└</span>
-        <span className="absolute bottom-1 right-1 text-zinc-600 font-mono text-[10px] leading-none select-none">┘</span>
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
+      <div className="relative flex h-[85vh] w-[920px] flex-col rounded-2xl border border-border-subtle bg-surface-container shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3 bg-[#111114]">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-zinc-100 uppercase tracking-wider">
-              [Add Custom Pixel]
-            </span>
-            <span className="text-xs text-tactical-cyan">[{map.toUpperCase()}]</span>
+        <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4 bg-surface-container shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white tracking-tight">Create Custom Pixel</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
+                  {map.replace('de_', '').toUpperCase()}
+                </span>
+              </div>
+              <p className="text-[11px] text-text-muted">Define spatial throw coordinates, aim landmarks, and step execution</p>
+            </div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-zinc-400 hover:text-zinc-200 cursor-pointer">
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-7 h-7 rounded-lg hover:bg-surface-container-high text-text-secondary hover:text-white flex items-center justify-center transition-colors"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Validation Error Banner */}
         {validationErrors.length > 0 && (
-          <div className="bg-rose-500/10 border-b border-rose-500/30 px-5 py-2.5 text-xs text-rose-400 space-y-1">
+          <div className="bg-rose-500/10 border-b border-rose-500/30 px-6 py-2.5 text-xs text-rose-400 space-y-1">
             <div className="flex items-center gap-1.5 font-bold">
               <AlertCircle className="h-4 w-4" />
               <span>Please resolve validation errors before saving:</span>
@@ -208,27 +236,27 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
         )}
 
         {/* Scrollable Form Content */}
-        <div className="flex-1 overflow-y-auto p-5 grid grid-cols-2 gap-5 text-xs">
+        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 gap-5 text-xs">
           {/* Left Column: Metadata & Coordinates */}
           <div className="space-y-3.5">
             <div>
-              <label className="block text-[11px] text-zinc-400 mb-1">PIXEL TITLE</label>
+              <label className="block text-[11px] font-medium text-text-secondary mb-1">PIXEL TITLE</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Window Smoke from T Spawn"
-                className="w-full rounded border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-tactical-cyan focus:outline-none"
+                className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-3 py-2 text-xs text-white placeholder:text-text-muted focus:border-primary focus:outline-none transition-colors"
               />
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">MAP</label>
+                <label className="block text-[11px] font-medium text-text-secondary mb-1">MAP</label>
                 <select
                   value={map}
                   onChange={(e) => setMap(e.target.value as CS2Map)}
-                  className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-2.5 py-2 text-xs text-white focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="de_mirage">Mirage</option>
                   <option value="de_inferno">Inferno</option>
@@ -240,11 +268,11 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">SIDE</label>
+                <label className="block text-[11px] font-medium text-text-secondary mb-1">SIDE</label>
                 <select
                   value={side}
                   onChange={(e) => setSide(e.target.value as TeamSide)}
-                  className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-2.5 py-2 text-xs text-white focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="T">T (Attack)</option>
                   <option value="CT">CT (Defense)</option>
@@ -253,11 +281,11 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">TYPE</label>
+                <label className="block text-[11px] font-medium text-text-secondary mb-1">TYPE</label>
                 <select
                   value={utilityType}
                   onChange={(e) => setUtilityType(e.target.value as UtilityType)}
-                  className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-2.5 py-2 text-xs text-white focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="SMOKE">Smoke</option>
                   <option value="FLASHBANG">Flash</option>
@@ -269,11 +297,11 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">THROW TECHNIQUE</label>
+                <label className="block text-[11px] font-medium text-text-secondary mb-1">THROW TECHNIQUE</label>
                 <select
                   value={throwType}
                   onChange={(e) => setThrowType(e.target.value as any)}
-                  className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-2.5 py-2 text-xs text-white focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="STANDING">Standing (Left-Click)</option>
                   <option value="JUMPTHROW">Jumpthrow</option>
@@ -283,11 +311,11 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] text-zinc-400 mb-1">DIFFICULTY</label>
+                <label className="block text-[11px] font-medium text-text-secondary mb-1">DIFFICULTY</label>
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value as any)}
-                  className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-2.5 py-2 text-xs text-white focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="EASY">Easy (Standard)</option>
                   <option value="MEDIUM">Medium</option>
@@ -297,37 +325,37 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
             </div>
 
             {/* Start Position */}
-            <div className="rounded border border-zinc-800 bg-zinc-950/60 p-2.5 space-y-2">
-              <label className="block text-[11px] font-bold text-zinc-300">START POSITION</label>
+            <div className="rounded-xl border border-border-subtle bg-surface-container-high p-3 space-y-1.5">
+              <label className="block text-[11px] font-bold text-primary">FROM (START POSITION)</label>
               <input
                 type="text"
                 value={startCallout}
                 onChange={(e) => setStartCallout(e.target.value)}
-                placeholder="Callout (e.g. T Spawn Trash Can / Fence)"
-                className="w-full rounded border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-100 focus:outline-none"
+                placeholder="Callout (e.g. T Spawn Fence / Trash Can)"
+                className="w-full rounded-lg border border-border-subtle bg-surface-container px-2.5 py-1.5 text-xs text-white placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
 
             {/* Target Destination */}
-            <div className="rounded border border-zinc-800 bg-zinc-950/60 p-2.5 space-y-2">
-              <label className="block text-[11px] font-bold text-zinc-300">TARGET DESTINATION</label>
+            <div className="rounded-xl border border-border-subtle bg-surface-container-high p-3 space-y-1.5">
+              <label className="block text-[11px] font-bold text-primary">TO (TARGET DESTINATION)</label>
               <input
                 type="text"
                 value={targetCallout}
                 onChange={(e) => setTargetCallout(e.target.value)}
-                placeholder="Target (e.g. Window / A Stairs)"
-                className="w-full rounded border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-100 focus:outline-none"
+                placeholder="Target (e.g. Window / A Stairs / Palacio)"
+                className="w-full rounded-lg border border-border-subtle bg-surface-container px-2.5 py-1.5 text-xs text-white placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] text-zinc-400 mb-1">MOVEMENT / THROW NOTES</label>
+              <label className="block text-[11px] font-medium text-text-secondary mb-1">MOVEMENT / THROW NOTES</label>
               <input
                 type="text"
                 value={movementRequirements}
                 onChange={(e) => setMovementRequirements(e.target.value)}
                 placeholder="e.g. Hold D and release at jump peak"
-                className="w-full rounded border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none"
+                className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-3 py-2 text-xs text-white placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -335,12 +363,12 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
           {/* Right Column: Screenshot Upload / Paste, Aim Reference, Preview */}
           <div className="space-y-3.5">
             {/* SCREENSHOT / PRINT UPLOADER */}
-            <div className="rounded border border-zinc-800 bg-zinc-950/60 p-3 space-y-2">
+            <div className="rounded-xl border border-border-subtle bg-surface-container-high p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs text-tactical-cyan uppercase">
-                  [Screenshot / Print]
+                <span className="font-bold text-xs text-primary">
+                  SCREENSHOT / PHOTO
                 </span>
-                <span className="text-[10px] text-zinc-500">PASTE (CTRL+V) OR UPLOAD</span>
+                <span className="text-[10px] text-text-muted">PASTE (CTRL+V) OR UPLOAD</span>
               </div>
 
               <input
@@ -352,25 +380,25 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
               />
 
               {imageUrl ? (
-                <div className="relative w-full h-[180px] bg-black rounded border border-zinc-700 overflow-hidden flex items-center justify-center">
+                <div className="relative w-full h-[180px] bg-black/60 rounded-xl border border-border-subtle overflow-hidden flex items-center justify-center">
                   <img src={imageUrl} alt="Custom pixel" className="w-full h-full object-contain" />
-                  
+
                   {/* Aim Reticle Preview */}
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
-                    <div className="w-8 h-8 rounded-full border-2 border-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)] flex items-center justify-center animate-pulse">
-                      <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                    <div className="w-8 h-8 rounded-full border-2 border-primary shadow-[0_0_8px_rgba(202,254,73,0.7)] flex items-center justify-center animate-pulse">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full" />
                     </div>
-                    <div className="absolute -left-3 w-2 h-0.5 bg-emerald-400" />
-                    <div className="absolute -right-3 w-2 h-0.5 bg-emerald-400" />
-                    <div className="absolute -top-3 h-2 w-0.5 bg-emerald-400" />
-                    <div className="absolute -bottom-3 h-2 w-0.5 bg-emerald-400" />
+                    <div className="absolute -left-3 w-2 h-0.5 bg-primary" />
+                    <div className="absolute -right-3 w-2 h-0.5 bg-primary" />
+                    <div className="absolute -top-3 h-2 w-0.5 bg-primary" />
+                    <div className="absolute -bottom-3 h-2 w-0.5 bg-primary" />
                   </div>
 
                   {/* 4x Loupe Preview */}
-                  <div className="absolute bottom-1.5 left-1.5 rounded border border-cyan-400 bg-black/95 p-0.5 shadow flex flex-col items-center">
-                    <span className="text-[7px] text-cyan-400 uppercase">LOUPE 4X</span>
+                  <div className="absolute bottom-2 left-2 rounded-lg border border-border-subtle bg-surface-container/95 p-1 shadow flex flex-col items-center">
+                    <span className="text-[7px] text-primary font-semibold uppercase">LOUPE 4X</span>
                     <div
-                      className="w-16 h-12 rounded border border-zinc-700 overflow-hidden"
+                      className="w-16 h-12 rounded border border-border-subtle overflow-hidden"
                       style={{
                         backgroundImage: `url(${imageUrl})`,
                         backgroundPosition: 'center center',
@@ -382,7 +410,8 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
 
                   <button
                     onClick={() => setImageUrl('')}
-                    className="absolute top-2 right-2 rounded bg-black/80 border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer"
+                    type="button"
+                    className="absolute top-2 right-2 rounded-lg bg-surface-container/90 border border-border-subtle px-2 py-0.5 text-[10px] text-text-secondary hover:text-white transition-colors cursor-pointer"
                   >
                     Remove
                   </button>
@@ -390,46 +419,47 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
               ) : (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-[140px] rounded border border-dashed border-zinc-700 bg-zinc-950 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-tactical-cyan hover:bg-zinc-900/40 transition-colors"
+                  className="w-full h-[140px] rounded-xl border border-dashed border-border-medium bg-surface-container flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary hover:bg-surface-container-high transition-colors"
                 >
-                  <Camera className="h-6 w-6 text-zinc-500" />
+                  <Camera className="h-6 w-6 text-text-muted" />
                   <div className="text-center">
-                    <div className="text-xs font-semibold text-zinc-300">Click to upload screenshot or press Ctrl+V</div>
-                    <div className="text-[10px] text-zinc-500">Take screenshot in CS2, Alt+Tab and paste directly</div>
+                    <div className="text-xs font-semibold text-white">Click to upload screenshot or press Ctrl+V</div>
+                    <div className="text-[10px] text-text-muted">Take screenshot in CS2, Alt+Tab and paste directly</div>
                   </div>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-[11px] text-zinc-400 mb-1">CROSSHAIR PLACEMENT</label>
+              <label className="block text-[11px] font-medium text-text-secondary mb-1">CROSSHAIR PLACEMENT</label>
               <input
                 type="text"
                 value={crosshairPlacement}
                 onChange={(e) => setCrosshairPlacement(e.target.value)}
                 placeholder="e.g. Aim at the apex of the center wall indentation"
-                className="w-full rounded border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none"
+                className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-3 py-2 text-xs text-white placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] text-zinc-400 mb-1">VISUAL LANDMARK</label>
+              <label className="block text-[11px] font-medium text-text-secondary mb-1">VISUAL LANDMARK</label>
               <input
                 type="text"
                 value={visualLandmark}
                 onChange={(e) => setVisualLandmark(e.target.value)}
                 placeholder="e.g. Left pin of smoke aligned with wooden protrusion"
-                className="w-full rounded border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none"
+                className="w-full rounded-xl border border-border-subtle bg-surface-container-high px-3 py-2 text-xs text-white placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
 
             {/* Protocol Steps */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] text-zinc-400">EXECUTION STEPS</label>
+                <label className="text-[11px] font-medium text-text-secondary">EXECUTION STEPS</label>
                 <button
                   onClick={handleAddInstruction}
-                  className="flex items-center gap-1 text-[11px] text-tactical-cyan hover:underline cursor-pointer"
+                  type="button"
+                  className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
                 >
                   <Plus className="h-3 w-3" />
                   <span>Add Step</span>
@@ -438,18 +468,19 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
               <div className="space-y-1.5">
                 {instructions.map((step, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="text-[10px] text-zinc-500 w-4">{idx + 1}.</span>
+                    <span className="text-[10px] text-text-muted w-4 font-mono">{idx + 1}.</span>
                     <input
                       type="text"
                       value={step}
                       onChange={(e) => handleUpdateInstruction(idx, e.target.value)}
                       placeholder={`Step ${idx + 1}`}
-                      className="flex-1 rounded border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-100 focus:outline-none"
+                      className="flex-1 rounded-lg border border-border-subtle bg-surface-container-high px-2.5 py-1 text-xs text-white focus:border-primary focus:outline-none"
                     />
                     {instructions.length > 1 && (
                       <button
                         onClick={() => handleRemoveInstruction(idx)}
-                        className="text-zinc-500 hover:text-rose-400 cursor-pointer"
+                        type="button"
+                        className="text-text-muted hover:text-rose-400 cursor-pointer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -462,19 +493,21 @@ export const LineupCreatorModal: React.FC<LineupCreatorModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3 bg-[#111114]">
+        <div className="flex items-center justify-end gap-2 border-t border-border-subtle px-6 py-3 bg-surface-container shrink-0">
           <button
             onClick={onClose}
-            className="rounded border border-zinc-700 bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+            type="button"
+            className="rounded-xl border border-border-subtle bg-surface-container-high px-4 py-2 text-xs font-medium text-text-muted hover:text-white transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="rounded bg-tactical-cyan px-5 py-1.5 text-xs font-bold text-zinc-950 hover:bg-tactical-cyan/90 flex items-center gap-1.5 cursor-pointer shadow hatched-bg"
+            type="button"
+            className="rounded-xl bg-primary px-5 py-2 text-xs font-semibold text-surface hover:bg-primary/90 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
           >
             <Check className="h-3.5 w-3.5" />
-            <span>Save Custom Pixel &gt;&gt;&gt;</span>
+            <span>Save Custom Pixel</span>
           </button>
         </div>
       </div>

@@ -406,7 +406,7 @@ export const DEFAULT_CORE_STARTER_PACK_MANIFEST: PixelPackManifest = {
   schemaVersion: '1.0',
   id: 'jco-core-starter-pack-v1',
   name: 'Core Competitive Starter Pack',
-  author: 'jco cs2 assistant',
+  author: 'CS Overlay Assistant',
   version: '1.0.0',
   description: 'Pacote padrão inicial com as principais lineups essenciais (Smokes, Bangs, Molotovs e HE) dos mapas competitivos do CS2.',
   map: 'MULTI',

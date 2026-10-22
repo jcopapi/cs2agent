@@ -25,7 +25,7 @@ const DEFAULT_CONFIG: HotkeyConfig = {
   nextPixelKey: 'F2',
   cornerCardPosition: 'TOP_RIGHT',
   indicatorPosition: 'TOP_RIGHT',
-  bombLatencyOffsetSec: 2.0,
+  bombLatencyOffsetSec: 1.5,
 };
 
 const COMMON_KEYS = ['CapsLock', 'F1', 'F2', 'F3', 'F4', 'ScrollLock', 'Insert', 'Home', 'PageUp', 'PageDown'];
@@ -71,49 +71,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 font-mono select-none">
-      <div className="relative w-full max-w-lg border border-zinc-700 bg-[#09090b] p-6 shadow-2xl">
-        {/* Corner Notches */}
-        <span className="absolute -top-1 -left-1 text-cyan-400 text-xs">┌</span>
-        <span className="absolute -top-1 -right-1 text-cyan-400 text-xs">┐</span>
-        <span className="absolute -bottom-1 -left-1 text-cyan-400 text-xs">└</span>
-        <span className="absolute -bottom-1 -right-1 text-cyan-400 text-xs">┘</span>
-
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
+      <div className="relative w-full max-w-lg rounded-2xl bg-surface-container border border-border-subtle p-6 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-5">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span className="text-xs font-bold tracking-widest text-zinc-100 uppercase">[CONFIGURATION]</span>
+        <div className="flex items-center justify-between pb-4 border-b border-border-subtle mb-4 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[18px]">settings</span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white tracking-tight">Settings & Keybinds</h3>
+              <p className="text-[11px] text-text-muted">Configure hotkeys, crosshair align opacity, and bomb timers</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-rose-400 text-xs px-2 py-1 transition-colors"
+            type="button"
+            className="w-7 h-7 rounded-lg hover:bg-surface-container-high text-text-secondary hover:text-white flex items-center justify-center transition-colors"
           >
-            ✕
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+        {/* Scrollable Content */}
+        <div className="space-y-4 overflow-y-auto pr-1 flex-1">
           {/* Section 1: Hotkeys */}
-          <div className="space-y-3">
-            <div className="text-[10px] font-bold tracking-wider text-cyan-400 uppercase">
-              // HOTKEY BINDINGS
+          <div className="space-y-2.5">
+            <div className="text-xs font-semibold text-primary tracking-wide flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]">keyboard</span>
+              <span>Hotkey Bindings</span>
             </div>
 
             {/* Align with Crosshair */}
-            <div className="flex items-center justify-between border border-zinc-800 bg-zinc-900/50 p-2.5">
+            <div className="flex items-center justify-between rounded-xl bg-surface-container-high border border-border-subtle p-3">
               <div>
-                <div className="text-[11px] font-bold text-zinc-200">ALIGN WITH CROSSHAIR</div>
-                <div className="text-[9px] text-zinc-500">Hold to display centered transparent pixel</div>
+                <div className="text-xs font-medium text-white">Align with Crosshair</div>
+                <div className="text-[11px] text-text-muted">Hold to display centered transparent pixel</div>
               </div>
               <div className="flex items-center gap-2">
                 <select
                   value={config.alignKey}
                   onChange={(e) => setConfig({ ...config, alignKey: e.target.value })}
-                  className="bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 focus:border-cyan-400 outline-none"
+                  className="rounded-lg bg-surface-container border border-border-subtle text-white text-xs px-2.5 py-1.5 focus:border-primary outline-none transition-colors cursor-pointer"
                 >
                   {COMMON_KEYS.map((k) => (
                     <option key={k} value={k}>{k}</option>
@@ -122,24 +121,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={() => setConfig({ ...config, alignMode: config.alignMode === 'HOLD' ? 'TOGGLE' : 'HOLD' })}
-                  className="text-[9px] font-bold border border-zinc-700 bg-black px-2 py-1 text-zinc-300 hover:border-cyan-400"
+                  className="rounded-lg border border-border-subtle bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-text-secondary hover:text-white hover:border-primary transition-colors cursor-pointer"
                 >
-                  [{config.alignMode}]
+                  {config.alignMode}
                 </button>
               </div>
             </div>
 
             {/* Overlay Reference Card */}
-            <div className="flex items-center justify-between border border-zinc-800 bg-zinc-900/50 p-2.5">
+            <div className="flex items-center justify-between rounded-xl bg-surface-container-high border border-border-subtle p-3">
               <div>
-                <div className="text-[11px] font-bold text-zinc-200">CORNER OVERLAY</div>
-                <div className="text-[9px] text-zinc-500">Show reference photo and callouts</div>
+                <div className="text-xs font-medium text-white">Corner Overlay</div>
+                <div className="text-[11px] text-text-muted">Show reference photo and callouts</div>
               </div>
               <div className="flex items-center gap-2">
                 <select
                   value={config.overlayKey}
                   onChange={(e) => setConfig({ ...config, overlayKey: e.target.value })}
-                  className="bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 focus:border-cyan-400 outline-none"
+                  className="rounded-lg bg-surface-container border border-border-subtle text-white text-xs px-2.5 py-1.5 focus:border-primary outline-none transition-colors cursor-pointer"
                 >
                   {COMMON_KEYS.map((k) => (
                     <option key={k} value={k}>{k}</option>
@@ -148,23 +147,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={() => setConfig({ ...config, overlayMode: config.overlayMode === 'HOLD' ? 'TOGGLE' : 'HOLD' })}
-                  className="text-[9px] font-bold border border-zinc-700 bg-black px-2 py-1 text-zinc-300 hover:border-cyan-400"
+                  className="rounded-lg border border-border-subtle bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-text-secondary hover:text-white hover:border-primary transition-colors cursor-pointer"
                 >
-                  [{config.overlayMode}]
+                  {config.overlayMode}
                 </button>
               </div>
             </div>
 
             {/* Next Pixel Step */}
-            <div className="flex items-center justify-between border border-zinc-800 bg-zinc-900/50 p-2.5">
+            <div className="flex items-center justify-between rounded-xl bg-surface-container-high border border-border-subtle p-3">
               <div>
-                <div className="text-[11px] font-bold text-zinc-200">NEXT PIXEL STEP</div>
-                <div className="text-[9px] text-zinc-500">Advance to next step in active tactical plan</div>
+                <div className="text-xs font-medium text-white">Next Pixel Step</div>
+                <div className="text-[11px] text-text-muted">Advance to next step in active tactical plan</div>
               </div>
               <select
                 value={config.nextPixelKey}
                 onChange={(e) => setConfig({ ...config, nextPixelKey: e.target.value })}
-                className="bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 focus:border-cyan-400 outline-none"
+                className="rounded-lg bg-surface-container border border-border-subtle text-white text-xs px-2.5 py-1.5 focus:border-primary outline-none transition-colors cursor-pointer"
               >
                 {COMMON_KEYS.map((k) => (
                   <option key={k} value={k}>{k}</option>
@@ -174,10 +173,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
 
           {/* Section 2: Align with Crosshair Opacity */}
-          <div className="space-y-2 border-t border-zinc-800 pt-3">
+          <div className="space-y-2 border-t border-border-subtle pt-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold tracking-wider text-cyan-400 uppercase">// ALIGN OPACITY</span>
-              <span className="text-[11px] font-bold text-zinc-300">{Math.round((config.alignOpacity ?? 0.5) * 100)}%</span>
+              <span className="text-xs font-semibold text-primary tracking-wide flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">opacity</span>
+                <span>Align Opacity</span>
+              </span>
+              <span className="text-xs font-semibold text-white">{Math.round((config.alignOpacity ?? 0.5) * 100)}%</span>
             </div>
             <input
               type="range"
@@ -186,96 +188,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               step="0.05"
               value={config.alignOpacity ?? 0.5}
               onChange={(e) => setConfig({ ...config, alignOpacity: parseFloat(e.target.value) })}
-              className="w-full accent-cyan-400 cursor-pointer"
+              className="w-full accent-primary cursor-pointer"
             />
           </div>
 
           {/* Section 3: Overlay Positions */}
-          <div className="space-y-3 border-t border-zinc-800 pt-3">
-            <div className="text-[10px] font-bold tracking-wider text-cyan-400 uppercase">
-              // OVERLAY SCREEN POSITIONS
+          <div className="space-y-2.5 border-t border-border-subtle pt-3">
+            <div className="text-xs font-semibold text-primary tracking-wide flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]">dock_to_right</span>
+              <span>Overlay Screen Positions</span>
             </div>
 
             {/* Corner Card Position */}
-            <div className="flex items-center justify-between border border-zinc-800 bg-zinc-900/50 p-2.5">
-              <div className="text-[11px] font-bold text-zinc-200">CORNER CARD DOCK</div>
+            <div className="flex items-center justify-between rounded-xl bg-surface-container-high border border-border-subtle p-3">
+              <div>
+                <div className="text-xs font-medium text-white">Corner Card Dock</div>
+                <div className="text-[11px] text-text-muted">Screen quadrant for visual reference card</div>
+              </div>
               <select
                 value={config.cornerCardPosition}
                 onChange={(e) => setConfig({ ...config, cornerCardPosition: e.target.value as ScreenCorner })}
-                className="bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 focus:border-cyan-400 outline-none"
+                className="rounded-lg bg-surface-container border border-border-subtle text-white text-xs px-2.5 py-1.5 focus:border-primary outline-none transition-colors cursor-pointer"
               >
-                <option value="TOP_RIGHT">TOP-RIGHT</option>
-                <option value="TOP_LEFT">TOP-LEFT</option>
-                <option value="BOTTOM_RIGHT">BOTTOM-RIGHT</option>
-                <option value="BOTTOM_LEFT">BOTTOM-LEFT</option>
+                <option value="TOP_RIGHT">Top-Right</option>
+                <option value="TOP_LEFT">Top-Left</option>
+                <option value="BOTTOM_RIGHT">Bottom-Right</option>
+                <option value="BOTTOM_LEFT">Bottom-Left</option>
               </select>
             </div>
 
             {/* Indicator Badge Position */}
-            <div className="flex items-center justify-between border border-zinc-800 bg-zinc-900/50 p-2.5">
-              <div className="text-[11px] font-bold text-zinc-200">IN-GAME KEY HINT</div>
+            <div className="flex items-center justify-between rounded-xl bg-surface-container-high border border-border-subtle p-3">
+              <div>
+                <div className="text-xs font-medium text-white">In-Game Key Hint</div>
+                <div className="text-[11px] text-text-muted">Screen corner for activation indicator</div>
+              </div>
               <select
                 value={config.indicatorPosition}
                 onChange={(e) => setConfig({ ...config, indicatorPosition: e.target.value as ScreenCorner })}
-                className="bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 focus:border-cyan-400 outline-none"
+                className="rounded-lg bg-surface-container border border-border-subtle text-white text-xs px-2.5 py-1.5 focus:border-primary outline-none transition-colors cursor-pointer"
               >
-                <option value="TOP_RIGHT">TOP-RIGHT</option>
-                <option value="TOP_LEFT">TOP-LEFT</option>
-                <option value="BOTTOM_RIGHT">BOTTOM-RIGHT</option>
-                <option value="BOTTOM_LEFT">BOTTOM-LEFT</option>
+                <option value="TOP_RIGHT">Top-Right</option>
+                <option value="TOP_LEFT">Top-Left</option>
+                <option value="BOTTOM_RIGHT">Bottom-Right</option>
+                <option value="BOTTOM_LEFT">Bottom-Left</option>
               </select>
             </div>
           </div>
 
           {/* Section 4: C4 Bomb Latency Offset */}
-          <div className="space-y-2 border-t border-zinc-800 pt-3">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2 border-t border-border-subtle pt-3">
+            <div className="flex items-center justify-between rounded-xl bg-surface-container-high border border-border-subtle p-3">
               <div>
-                <div className="text-[11px] font-bold text-zinc-200">C4 DETECTION OFFSET</div>
-                <div className="text-[9px] text-zinc-500">Compensates GSI plant notification delay (default: 2.0s)</div>
+                <div className="text-xs font-medium text-white">C4 Detection Offset</div>
+                <div className="text-[11px] text-text-muted">Compensates GSI plant notification delay (default: 1.5s)</div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="number"
                   min="0"
                   max="4.0"
                   step="0.5"
-                  value={config.bombLatencyOffsetSec ?? 2.0}
-                  onChange={(e) => setConfig({ ...config, bombLatencyOffsetSec: parseFloat(e.target.value) || 2.0 })}
-                  className="w-16 bg-black border border-zinc-700 text-cyan-300 text-[11px] px-2 py-1 text-center outline-none"
+                  value={config.bombLatencyOffsetSec ?? 1.5}
+                  onChange={(e) => setConfig({ ...config, bombLatencyOffsetSec: parseFloat(e.target.value) || 1.5 })}
+                  className="w-16 rounded-lg bg-surface-container border border-border-subtle text-white text-xs px-2.5 py-1.5 text-center focus:border-primary outline-none transition-colors"
                 />
-                <span className="text-[10px] text-zinc-500">sec</span>
+                <span className="text-xs text-text-muted font-medium">sec</span>
               </div>
-            </div>
-          </div>
-
-          {/* Section 5: Valve Anti-Cheat (VAC) Integrity & Security Audit */}
-          <div className="border border-emerald-900/60 bg-emerald-950/20 p-2.5 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
-              <span className="text-[10px] font-black tracking-wider text-emerald-300 uppercase">
-                100% VAC SAFE // ZERO MEMORY HOOKS
-              </span>
-            </div>
-            <div className="text-[9px] text-zinc-400 leading-relaxed">
-              Functions 100% externally like Steam/Discord/Crosshair X overlays. Zero DLL injection, zero ReadProcessMemory, zero game binary modifications. Telemetry is parsed strictly via Valve's official GSI HTTP protocol.
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-800 pt-4 mt-4">
+        <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-4 mt-4 shrink-0">
           <button
             onClick={onClose}
-            className="border border-zinc-800 px-4 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            type="button"
+            className="rounded-xl border border-border-subtle bg-surface-container-high text-text-muted hover:text-white px-4 py-2 text-xs font-medium transition-colors cursor-pointer"
           >
-            CANCEL
+            Cancel
           </button>
           <button
             onClick={handleSave}
-            className="border border-cyan-500 bg-cyan-950/80 px-5 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-900 transition-colors flex items-center gap-1.5"
+            type="button"
+            className="rounded-xl bg-primary text-surface font-semibold text-xs px-5 py-2 hover:bg-primary/90 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
-            {savedToast ? 'SAVED ✓' : 'SAVE CONFIG'}
+            <span className="material-symbols-outlined text-[16px]">{savedToast ? 'check' : 'save'}</span>
+            <span>{savedToast ? 'Saved!' : 'Save Config'}</span>
           </button>
         </div>
       </div>

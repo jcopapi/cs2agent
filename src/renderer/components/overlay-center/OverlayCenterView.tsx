@@ -621,8 +621,10 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                         </div>
                         <div className="truncate">
                           <div className="text-xs font-medium text-white truncate">{lineup.title}</div>
-                          <div className="text-[10px] text-text-muted font-mono truncate">
-                            {lineup.startPosition?.callout || 'Spot'} • {lineup.throwType}
+                          <div className="flex items-center gap-1.5 mt-0.5 truncate text-[10px]">
+                            <span className="text-text-muted">From: <strong className="text-white font-medium">{lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spawn'}</strong></span>
+                            <span>•</span>
+                            <span className="text-primary font-medium">To: {lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}</span>
                           </div>
                         </div>
                       </div>
@@ -749,12 +751,14 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                         </span>
                         <span className="text-xs font-semibold text-white truncate">{lineup.title}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-0.5 truncate">
-                        <span className="px-1.5 py-0.2 rounded bg-surface-container-high text-text-muted font-mono text-[9px] truncate">
-                          {lineup.startPosition?.callout || 'Spot'}
+                      <div className="flex items-center gap-1.5 mt-0.5 truncate text-[9px]">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-surface-container-high text-text-muted truncate">
+                          <span>From:</span>
+                          <strong className="text-white font-medium">{lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spot'}</strong>
                         </span>
-                        <span className="px-1.5 py-0.2 rounded bg-primary-soft text-primary font-mono text-[9px] font-semibold truncate">
-                          {lineup.throwType}
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-primary-soft text-primary font-semibold truncate">
+                          <span>To:</span>
+                          <span>{lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}</span>
                         </span>
                       </div>
                     </div>

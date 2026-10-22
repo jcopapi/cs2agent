@@ -424,9 +424,14 @@ export const LiveMatchView: React.FC = () => {
             <div className="flex-1 flex flex-col border border-zinc-800 bg-black/60 p-2.5 gap-2 min-h-0 overflow-hidden">
               <div className="flex items-center justify-between text-xs font-bold shrink-0">
                 <span className="text-zinc-100 truncate">{currentStepLineup.title}</span>
-                <span className="text-[10px] border border-cyan-800 bg-cyan-950 text-cyan-400 px-1.5 py-0.2">
-                  {currentStepLineup.throwType}
-                </span>
+                <div className="flex items-center gap-1 shrink-0 text-[10px]">
+                  <span className="bg-surface-container-high text-zinc-300 px-1.5 py-0.5 rounded">
+                    From: {currentStepLineup.startPosition?.callout || 'Spawn'}
+                  </span>
+                  <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded font-semibold">
+                    To: {currentStepLineup.landingArea?.callout || 'Target'}
+                  </span>
+                </div>
               </div>
 
               {/* Landmark Screenshot Preview */}

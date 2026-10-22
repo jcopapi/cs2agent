@@ -299,7 +299,8 @@ export const HudOverlayView: React.FC = () => {
             <div className="flex items-center gap-2 border border-white/10 bg-black/70 px-4 py-1 text-xs font-bold text-cyan-300 tracking-wider shadow-lg">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
               <span className="text-white font-black">[{currentLineup.utilityType === 'FLASHBANG' ? 'FLASH' : currentLineup.utilityType}]</span>
-              <span>[{currentLineup.throwType}]</span>
+              <span className="text-zinc-300">From: {currentLineup.startPosition?.callout || 'Spawn'}</span>
+              <span className="text-primary font-bold">To: {currentLineup.landingArea?.callout || 'Target'}</span>
               {currentLineup.movementRequirements && (
                 <span className="text-zinc-400 font-normal">
                   • {currentLineup.movementRequirements}
@@ -414,7 +415,7 @@ export const HudOverlayView: React.FC = () => {
                 {currentLineup.startPosition?.callout || 'Position'}
               </span>
               <span className="text-[8px] text-cyan-400/90 truncate">
-                {currentLineup.movementRequirements || currentLineup.throwType}
+                To: {currentLineup.landingArea?.callout || currentLineup.targetDestination?.callout || 'Target'}
               </span>
             </div>
           </div>
