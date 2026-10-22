@@ -88,7 +88,7 @@ export interface Lineup {
   throwType: 'STANDING' | 'JUMPTHROW' | 'RUN_JUMPTHROW' | 'CROUCH_JUMPTHROW' | 'WALK_THROW';
   movementRequirements: string;
   aimReference: { crosshairPlacement: string; visualLandmark: string };
-  svgReference: string;
+  svgReference?: string;
   imageUrl?: string;
   thumbnailUrl?: string;
   standImageUrl?: string;

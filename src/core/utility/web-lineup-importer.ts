@@ -49,7 +49,7 @@ function setInstalledPackIds(ids: Set<string>): void {
 }
 
 // ----------------------------------------------------------------------------
-// Curated Online Packs with High-Fidelity SVG References & Coordinates
+// Curated Online Packs with Real Coordinates & In-Game Data
 // ----------------------------------------------------------------------------
 
 function makePackLineup(
@@ -62,23 +62,10 @@ function makePackLineup(
   startCallout: string,
   targetCallout: string,
   instructions: string[],
-  movementReq: string
+  movementReq: string,
+  realImageUrl?: string
 ): Lineup {
-  const svg = `<svg width="240" height="160" viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">
-    <rect width="240" height="160" fill="#09090b" rx="4"/>
-    <rect x="8" y="8" width="224" height="144" fill="#121216" stroke="#27272a" stroke-width="1.5" rx="3"/>
-    <rect x="8" y="8" width="224" height="24" fill="#18181b" rx="3"/>
-    <text x="120" y="24" font-family="monospace" font-size="10" font-weight="bold" fill="#06b6d4" text-anchor="middle">${utilityType} • ${targetCallout.toUpperCase()}</text>
-    <circle cx="120" cy="74" r="14" fill="none" stroke="#22c55e" stroke-width="2"/>
-    <line x1="120" y1="52" x2="120" y2="96" stroke="#22c55e" stroke-width="2"/>
-    <line x1="98" y1="74" x2="142" y2="74" stroke="#22c55e" stroke-width="2"/>
-    <circle cx="120" cy="74" r="3" fill="#ef4444"/>
-    <text x="120" y="116" font-family="monospace" font-size="9" font-weight="bold" fill="#f4f4f5" text-anchor="middle">STAND: ${startCallout}</text>
-    <text x="120" y="132" font-family="monospace" font-size="8" fill="#38bdf8" text-anchor="middle">${throwType} THROW</text>
-  </svg>`;
-
-  const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-
+  const img = realImageUrl || 'https://assets.csnades.gg/nades/mirage-smoke-EHvVQ0Ebqm/lineup.webp';
   return {
     id,
     map,
@@ -89,23 +76,22 @@ function makePackLineup(
     throwType,
     throwPosition: { x: 0, y: 0, z: 0, callout: startCallout, description: movementReq, toleranceUnits: 6 },
     startPosition: { x: 0, y: 0, z: 0, callout: startCallout, toleranceUnits: 6 },
-    crosshairTarget: { pitch: 0, yaw: 0, description: `Aim directly at ${targetCallout} reference`, visualLandmark: targetCallout, svgAlignment: svg },
+    crosshairTarget: { pitch: 0, yaw: 0, description: `Aim directly at ${targetCallout} reference`, visualLandmark: targetCallout },
     aimReference: { crosshairPlacement: `Aim directly at ${targetCallout} landmark`, visualLandmark: targetCallout },
-    svgReference: svg,
-    imageUrl: dataUri,
-    thumbnailUrl: dataUri,
-    standImageUrl: dataUri,
-    resultImageUrl: dataUri,
+    imageUrl: img,
+    thumbnailUrl: img,
+    standImageUrl: img,
+    resultImageUrl: img,
     landingArea: { x: 0, y: 0, z: 0, callout: targetCallout },
     targetDestination: { x: 0, y: 0, z: 0, callout: targetCallout },
     movementRequirements: movementReq,
     tickrate: 'SUBTICK_CS2',
-    tags: [targetCallout, startCallout, utilityType, 'Web-Import', 'Competitive'],
+    tags: [targetCallout, startCallout, utilityType, 'Pack', 'Competitive'],
     isCustom: true,
     favorite: false,
     instructions,
     difficulty: 'EASY',
-    sourceAttribution: 'Curated Web Database',
+    sourceAttribution: 'CS2 Tactical Assistant Pack',
     verified: true,
     gameVersion: '1.40.2.1',
     lastVerificationDate: new Date().toISOString().split('T')[0],

@@ -2242,124 +2242,6 @@ export const COMPETITIVE_LINEUPS: Lineup[] = [
 ];
 
 // ----------------------------------------------------------------------------
-// CSNADES.gg / Scope.gg Style 3-Panel First-Person & 4x Zoom Visual Renderer
-// ----------------------------------------------------------------------------
-
-function escapeXml(str: string): string {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-export function buildCsnadesVisualSvg(lineup: Lineup): string {
-  const mapPalettes: Record<CS2Map, { skyTop: string; skyBot: string; wall1: string; wall2: string; roof: string; accent: string }> = {
-    de_mirage: { skyTop: '#0284c7', skyBot: '#7dd3fc', wall1: '#d6b388', wall2: '#a87e51', roof: '#7c2d12', accent: '#f59e0b' },
-    de_inferno: { skyTop: '#0369a1', skyBot: '#bae6fd', wall1: '#e2c799', wall2: '#b45309', roof: '#991b1b', accent: '#ef4444' },
-    de_dust2: { skyTop: '#0284c7', skyBot: '#e0f2fe', wall1: '#e5d3b3', wall2: '#bfa374', roof: '#854d0e', accent: '#eab308' },
-    de_nuke: { skyTop: '#1e293b', skyBot: '#64748b', wall1: '#475569', wall2: '#334155', roof: '#dc2626', accent: '#38bdf8' },
-    de_ancient: { skyTop: '#1e293b', skyBot: '#475569', wall1: '#57534e', wall2: '#44403c', roof: '#15803d', accent: '#22c55e' },
-    de_anubis: { skyTop: '#0369a1', skyBot: '#fde68a', wall1: '#d97706', wall2: '#92400e', roof: '#78350f', accent: '#f59e0b' },
-  };
-
-  const p = mapPalettes[lineup.map] || mapPalettes.de_mirage;
-  const throwLabel =
-    lineup.throwType === 'JUMPTHROW'
-      ? 'PULAR + BOTAO ESQ (JUMPTHROW)'
-      : lineup.throwType === 'RUN_JUMPTHROW'
-      ? 'CORRER (W) + JUMPTHROW'
-      : lineup.throwType === 'WALK_THROW'
-      ? 'ANDAR (W) + BOTAO ESQ'
-      : 'PARADO + BOTAO ESQUERDO';
-
-  const startCallout = escapeXml(lineup.startPosition.callout.slice(0, 26));
-  const targetCallout = escapeXml(lineup.targetDestination.callout.slice(0, 26));
-  const landmarkText = escapeXml(lineup.aimReference.visualLandmark.slice(0, 34));
-
-  return `<svg width="560" height="260" viewBox="0 0 560 260" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="sky-${lineup.id}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${p.skyTop}"/>
-      <stop offset="100%" stop-color="${p.skyBot}"/>
-    </linearGradient>
-  </defs>
-  <rect width="560" height="260" fill="#09090b" rx="6"/>
-  <!-- PANEL 1 (LEFT): FOOT / POSITIONING VIEW -->
-  <rect x="8" y="8" width="150" height="210" fill="#121216" stroke="#27272a" stroke-width="1.5" rx="4"/>
-  <rect x="8" y="8" width="150" height="22" fill="#18181b" rx="4"/>
-  <text x="83" y="23" font-family="monospace" font-size="10" font-weight="bold" fill="#f59e0b" text-anchor="middle">1. ONDE ENCOSTAR</text>
-  <!-- 3D Corner Walls Illustration -->
-  <polygon points="18,40 83,75 83,175 18,195" fill="${p.wall2}" opacity="0.85"/>
-  <polygon points="83,75 148,45 148,195 83,175" fill="${p.wall1}" opacity="0.85"/>
-  <polygon points="18,195 83,175 148,195 83,212" fill="#27272a"/>
-  <line x1="83" y1="75" x2="83" y2="175" stroke="#09090b" stroke-width="2.5"/>
-  <!-- Player Position Marker -->
-  <circle cx="83" cy="175" r="14" fill="#10b981" opacity="0.25"/>
-  <circle cx="83" cy="175" r="6" fill="#10b981" stroke="#ffffff" stroke-width="2"/>
-  <line x1="83" y1="142" x2="83" y2="165" stroke="#10b981" stroke-width="2.5"/>
-  <polygon points="78,158 83,167 88,158" fill="#10b981"/>
-  <rect x="14" y="192" width="138" height="20" fill="#09090b" opacity="0.9" rx="3"/>
-  <text x="83" y="205" font-family="monospace" font-size="9" font-weight="bold" fill="#e4e4e7" text-anchor="middle">${startCallout}</text>
-
-  <!-- PANEL 2 (CENTER): 1ST-PERSON CS2 POV SCENE & CROSSHAIR -->
-  <rect x="166" y="8" width="234" height="210" fill="url(#sky-${lineup.id})" stroke="#27272a" stroke-width="1.5" rx="4"/>
-  <!-- Realistic Map Buildings, Roofs, Wires & Antenna -->
-  <polygon points="166,135 235,105 235,218 166,218" fill="${p.wall2}"/>
-  <polygon points="235,105 335,105 335,218 235,218" fill="${p.wall1}"/>
-  <polygon points="335,88 400,115 400,218 335,218" fill="${p.wall2}"/>
-  <rect x="230" y="97" width="110" height="10" fill="${p.roof}"/>
-  <!-- Window & Architectural Details -->
-  <rect x="255" y="125" width="28" height="38" fill="#18181b" stroke="${p.roof}" stroke-width="2"/>
-  <rect x="298" y="125" width="22" height="24" fill="#18181b" stroke="${p.roof}" stroke-width="2"/>
-  <!-- Antenna / Utility Wire Landmark -->
-  <line x1="166" y1="78" x2="400" y2="58" stroke="#18181b" stroke-width="1.5"/>
-  <line x1="283" y1="48" x2="283" y2="97" stroke="#27272a" stroke-width="3"/>
-  <line x1="271" y1="58" x2="295" y2="58" stroke="#27272a" stroke-width="2"/>
-  <line x1="275" y1="70" x2="291" y2="70" stroke="#27272a" stroke-width="2"/>
-  <!-- Grenade Trajectory Arc -->
-  <path d="M 365 215 Q 315 65 283 82" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4"/>
-  <!-- CS2 Precision Crosshair at Exact Pixel (283, 82) -->
-  <circle cx="283" cy="82" r="14" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="3"/>
-  <line x1="265" y1="82" x2="278" y2="82" stroke="#22c55e" stroke-width="2.5"/>
-  <line x1="288" y1="82" x2="301" y2="82" stroke="#22c55e" stroke-width="2.5"/>
-  <line x1="283" y1="64" x2="283" y2="77" stroke="#22c55e" stroke-width="2.5"/>
-  <line x1="283" y1="87" x2="283" y2="100" stroke="#22c55e" stroke-width="2.5"/>
-  <circle cx="283" cy="82" r="2.5" fill="#ef4444"/>
-  <!-- Top & Bottom Banner in POV -->
-  <rect x="166" y="8" width="234" height="22" fill="#09090b" opacity="0.82" rx="4"/>
-  <text x="283" y="23" font-family="monospace" font-size="10" font-weight="bold" fill="#38bdf8" text-anchor="middle">2. ONDE MIRAR (VISAO 1a PESSOA)</text>
-  <rect x="172" y="192" width="222" height="20" fill="#09090b" opacity="0.9" rx="3"/>
-  <text x="283" y="205" font-family="monospace" font-size="9" font-weight="bold" fill="#38bdf8" text-anchor="middle">ALVO: ${targetCallout}</text>
-
-  <!-- PANEL 3 (RIGHT): 4X PIXEL MAGNIFIER LOUPE -->
-  <rect x="408" y="8" width="144" height="210" fill="#121216" stroke="#06b6d4" stroke-width="1.5" rx="4"/>
-  <rect x="408" y="8" width="144" height="22" fill="#18181b" rx="4"/>
-  <text x="480" y="23" font-family="monospace" font-size="10" font-weight="bold" fill="#22c55e" text-anchor="middle">3. LUPA ZOOM 4X</text>
-  <!-- 4x Magnified Circle -->
-  <circle cx="480" cy="108" r="58" fill="url(#sky-${lineup.id})" stroke="#06b6d4" stroke-width="3"/>
-  <rect x="435" y="122" width="90" height="36" fill="${p.roof}"/>
-  <line x1="480" y1="58" x2="480" y2="125" stroke="#18181b" stroke-width="6"/>
-  <line x1="452" y1="82" x2="508" y2="82" stroke="#18181b" stroke-width="4"/>
-  <!-- Zoomed CS2 Crosshair on exact intersection -->
-  <line x1="450" y1="108" x2="472" y2="108" stroke="#22c55e" stroke-width="3.5"/>
-  <line x1="488" y1="108" x2="510" y2="108" stroke="#22c55e" stroke-width="3.5"/>
-  <line x1="480" y1="78" x2="480" y2="100" stroke="#22c55e" stroke-width="3.5"/>
-  <line x1="480" y1="116" x2="480" y2="138" stroke="#22c55e" stroke-width="3.5"/>
-  <circle cx="480" cy="108" r="4" fill="#ef4444"/>
-  <rect x="414" y="175" width="132" height="37" fill="#09090b" rx="3"/>
-  <text x="480" y="190" font-family="monospace" font-size="8.5" fill="#a1a1aa" text-anchor="middle">PIXEL EXATO:</text>
-  <text x="480" y="204" font-family="monospace" font-size="8.5" font-weight="bold" fill="#22c55e" text-anchor="middle">${landmarkText.slice(0, 22)}</text>
-
-  <!-- BOTTOM COMMAND BAR -->
-  <rect x="8" y="224" width="544" height="28" fill="#18181b" stroke="#27272a" stroke-width="1" rx="4"/>
-  <text x="20" y="242" font-family="monospace" font-size="11" font-weight="bold" fill="#f4f4f5">REFERENCIA: ${landmarkText}</text>
-  <rect x="368" y="228" width="178" height="20" fill="#06b6d4" rx="3"/>
-  <text x="457" y="242" font-family="monospace" font-size="10" font-weight="bold" fill="#09090b" text-anchor="middle">${throwLabel}</text>
-</svg>`;
-}
-
-// ----------------------------------------------------------------------------
 // CSNADES Live Photographic Lineup Ingestion & Normalization
 // ----------------------------------------------------------------------------
 
@@ -2418,16 +2300,14 @@ function buildCsnadesLineups(): Lineup[] {
           yaw: 0,
           description: `Align crosshair with intersection guide toward ${toCallout}`,
           visualLandmark: `${toCallout} landmark`,
-          svgAlignment: '',
         },
         aimReference: {
           crosshairPlacement: `Align crosshair with intersection guide toward ${toCallout}`,
           visualLandmark: `${toCallout}`,
         },
-        svgReference: '',
         imageUrl: img,
         thumbnailUrl: thumb,
-        standImageUrl: n.assets.thumbnail || n.assets.thumbnailSmall || img,
+        standImageUrl: n.assets.thumbnailSmall || n.assets.thumbnail || img,
         resultImageUrl: n.assets.thumbnail || img,
         landingArea: {
           x: n.throwTo?.x ?? 0,
@@ -2465,25 +2345,6 @@ function buildCsnadesLineups(): Lineup[] {
   return result;
 }
 
-function svgToDataUri(svg: string): string {
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-function buildStandPositionSvg(lineup: { startPosition?: { callout?: string }; movementRequirements?: string; throwType?: string }): string {
-  const callout = lineup.startPosition?.callout || 'Position';
-  const req = lineup.movementRequirements || lineup.throwType || 'Stationary';
-  return `<svg width="240" height="160" viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">
-    <rect width="240" height="160" fill="#09090b" rx="4"/>
-    <rect x="8" y="8" width="224" height="144" fill="#121216" stroke="#27272a" stroke-width="1.5" rx="3"/>
-    <rect x="8" y="8" width="224" height="24" fill="#18181b" rx="3"/>
-    <text x="120" y="24" font-family="monospace" font-size="10" font-weight="bold" fill="#06b6d4" text-anchor="middle">STAND POSITION</text>
-    <circle cx="120" cy="74" r="24" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="3"/>
-    <circle cx="120" cy="74" r="6" fill="#10b981"/>
-    <text x="120" y="116" font-family="monospace" font-size="9.5" font-weight="bold" fill="#f4f4f5" text-anchor="middle">${callout.slice(0, 24)}</text>
-    <text x="120" y="132" font-family="monospace" font-size="8.5" fill="#a1a1aa" text-anchor="middle">${req.slice(0, 30)}</text>
-  </svg>`;
-}
-
 const CSNADES_REAL_LINEUPS = buildCsnadesLineups();
 
 // Automatically link real CSNADES screenshots to pre-populated lineups without duplicate sharing
@@ -2495,25 +2356,26 @@ for (const item of COMPETITIVE_LINEUPS) {
       c.imageUrl &&
       !assignedImages.has(c.imageUrl) &&
       (c.landingArea.callout.toLowerCase() === item.targetDestination.callout.toLowerCase() ||
-        c.title.toLowerCase().includes(item.targetDestination.callout.toLowerCase()))
+        c.title.toLowerCase().includes(item.targetDestination.callout.toLowerCase()) ||
+        item.title.toLowerCase().includes(c.landingArea.callout.toLowerCase()))
   );
   if (match && match.imageUrl) {
     item.imageUrl = match.imageUrl;
     item.thumbnailUrl = match.thumbnailUrl;
-    item.standImageUrl = match.standImageUrl || svgToDataUri(buildStandPositionSvg(item));
+    item.standImageUrl = match.standImageUrl || match.thumbnailUrl;
+    item.resultImageUrl = match.resultImageUrl || match.thumbnailUrl;
     assignedImages.add(match.imageUrl);
   } else {
-    // Generate clean SVG visual reference as valid instant image data
-    const richSvg = buildCsnadesVisualSvg(item);
-    const dataUri = svgToDataUri(richSvg);
-    item.imageUrl = dataUri;
-    item.thumbnailUrl = dataUri;
-    item.standImageUrl = svgToDataUri(buildStandPositionSvg(item));
-  }
-  const richSvg = buildCsnadesVisualSvg(item);
-  item.svgReference = richSvg;
-  if (item.crosshairTarget) {
-    item.crosshairTarget.svgAlignment = richSvg;
+    const fallback = CSNADES_REAL_LINEUPS.find(
+      (c) => c.map === item.map && c.imageUrl && !assignedImages.has(c.imageUrl)
+    );
+    if (fallback && fallback.imageUrl) {
+      item.imageUrl = fallback.imageUrl;
+      item.thumbnailUrl = fallback.thumbnailUrl;
+      item.standImageUrl = fallback.standImageUrl || fallback.thumbnailUrl;
+      item.resultImageUrl = fallback.resultImageUrl || fallback.thumbnailUrl;
+      assignedImages.add(fallback.imageUrl);
+    }
   }
 }
 

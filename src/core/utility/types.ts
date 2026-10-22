@@ -38,6 +38,15 @@ export type LineupTechnique =
   | 'STANDING'
   | 'WALK_THROW';
 
+export type ThrowTechnique = LineupTechnique;
+
+export type ThrowType =
+  | 'STANDING'
+  | 'JUMPTHROW'
+  | 'RUN_JUMPTHROW'
+  | 'CROUCH_JUMPTHROW'
+  | 'WALK_THROW';
+
 export type LineupTickrate = 'SUBTICK_CS2' | '64' | '128';
 
 export interface ThrowPosition extends Vector3D {
@@ -50,7 +59,7 @@ export interface CrosshairTarget {
   pitch: number; // Vertical angle in degrees (-89° straight up to 89° straight down)
   yaw: number; // Horizontal angle in degrees (-180° to 180°)
   description: string; // Explicit visual instruction
-  svgAlignment: string; // SVG diagram showing reticle placement relative to geometry
+  svgAlignment?: string; // Optional legacy SVG string (in-game screenshots preferred)
   visualLandmark?: string; // Descriptive landmark name (e.g. "Antenna wire tip")
 }
 
@@ -66,7 +75,7 @@ export interface Lineup {
   side: TeamSide;
   utilityType: UtilityType;
   technique: LineupTechnique;
-  throwType: 'STANDING' | 'JUMPTHROW' | 'RUN_JUMPTHROW' | 'CROUCH_JUMPTHROW' | 'WALK_THROW';
+  throwType: ThrowType;
 
   // Spatial Positioning
   throwPosition: ThrowPosition;
@@ -78,7 +87,7 @@ export interface Lineup {
     crosshairPlacement: string;
     visualLandmark: string;
   };
-  svgReference: string; // Standalone SVG string
+  svgReference?: string; // Legacy SVG string (in-game screenshots preferred)
   imageUrl?: string; // Real CSNADES first-person screenshot
   thumbnailUrl?: string; // Real CSNADES result/landing screenshot
   standImageUrl?: string; // Real or schematic stand positioning screenshot

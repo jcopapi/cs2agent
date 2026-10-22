@@ -28,7 +28,7 @@ import {
   importPlayFromCode,
 } from '../../../core/utility/play-database';
 import { LineupCreatorModal } from '../utility-room/LineupCreatorModal';
-import { WebUtilityImporterModal } from '../utility-room/WebUtilityImporterModal';
+import { PixelPackModal } from '../utility-room/PixelPackModal';
 
 interface UtilityRoomViewProps {
   onOpenSettings: () => void;
@@ -85,9 +85,9 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [editingTitleValue, setEditingTitleValue] = useState<string>('');
 
-  // Custom Pixel & Web Importer Modals
+  // Custom Pixel & Offline Zip Packs Modals
   const [isCreatingPixel, setIsCreatingPixel] = useState<boolean>(false);
-  const [isImportingWeb, setIsImportingWeb] = useState<boolean>(false);
+  const [isPackModalOpen, setIsPackModalOpen] = useState<boolean>(false);
 
   // Inspector Preview Mode: 'AIM' or 'RESULT'
   const [inspectorViewMode, setInspectorViewMode] = useState<'AIM' | 'RESULT'>('AIM');
@@ -501,15 +501,15 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
               </button>
             </div>
 
-            {/* Action Buttons: Import from Web & Add Custom Pixel */}
+            {/* Action Buttons: Offline Zip Pixel Packs & Add Custom Pixel */}
             <div className="flex items-center gap-1.5 ml-auto">
               <button
-                onClick={() => setIsImportingWeb(true)}
-                title="Import Lineup Packs from Web (Scope.gg, TotalCSGO, HLTV)"
+                onClick={() => setIsPackModalOpen(true)}
+                title="Pacotes de Pixels (.ZIP) Offline - Importar / Exportar / Modelo Padrão"
                 type="button"
                 className="w-8 h-8 rounded-xl bg-surface-container border border-border-subtle text-text-secondary hover:text-white hover:border-border-medium flex items-center justify-center transition-all"
               >
-                <span className="material-symbols-outlined text-[16px]">cloud_download</span>
+                <span className="material-symbols-outlined text-[16px]">folder_zip</span>
               </button>
               <button
                 onClick={() => setIsCreatingPixel(true)}
@@ -657,16 +657,15 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Share Code Button */}
+                {/* Share Code Button (Icon only) */}
                 {currentPlan && (
                   <button
                     onClick={() => handleExportPlan(currentPlan)}
-                    title="Copy Share Code"
+                    title={`Compartilhar Plano (${exportPlayToCode(currentPlan)})`}
                     type="button"
-                    className="h-8 px-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high border border-border-subtle text-xs font-mono text-text-secondary hover:text-white flex items-center gap-1.5 transition-all"
+                    className="w-8 h-8 rounded-xl bg-surface-container hover:bg-surface-container-high border border-border-subtle text-text-secondary hover:text-white flex items-center justify-center transition-all"
                   >
-                    <span className="material-symbols-outlined text-[15px]">share</span>
-                    <span>{exportPlayToCode(currentPlan)}</span>
+                    <span className="material-symbols-outlined text-[16px]">share</span>
                   </button>
                 )}
 
@@ -1165,12 +1164,17 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
         />
       )}
 
-      {/* Web Utility Packs Importer Modal */}
-      {isImportingWeb && (
-        <WebUtilityImporterModal
-          isOpen={isImportingWeb}
-          onClose={() => setIsImportingWeb(false)}
-          onPacksUpdated={handleWebPacksUpdated}
+      {/* Offline .ZIP Pixel Packs Modal */}
+      {isPackModalOpen && (
+        <PixelPackModal
+          isOpen={isPackModalOpen}
+          currentMap={selectedMap}
+          onClose={() => setIsPackModalOpen(false)}
+          onPacksUpdated={() => {
+            const all = getAllLineups();
+            setLineups(all);
+            showToast('BANCO DE PIXELS ATUALIZADO');
+          }}
         />
       )}
     </div>
