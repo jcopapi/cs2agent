@@ -9,10 +9,13 @@ import {
   DEFAULT_PLAYS,
   exportPlayToCode,
   importPlayFromCode,
+  addPixelToQueue,
+  movePixelInQueue,
+  clearQueue,
 } from '../src/core/utility/play-database';
 import { BombTimerEngine } from '../src/core/bomb-timer/bomb-timer-engine';
 import { detectBombSite } from '../src/core/match/gsi-parser';
-import { getAllLineups } from '../src/core/utility/lineup-database';
+import { getAllLineups, renameLineup } from '../src/core/utility/lineup-database';
 import type { HotkeyConfig } from '../src/shared/ipc-types';
 
 describe('Tactical Plans & Overlay Enhancements', () => {
@@ -169,10 +172,66 @@ describe('Tactical Plans & Overlay Enhancements', () => {
     }
   });
 
-  it('guarantees 100% of returned lineups have real screenshot images', () => {
+  it('guarantees 100% of returned lineups have real screenshot images and stand images', () => {
     const all = getAllLineups();
     expect(all.length).toBeGreaterThan(0);
     const missing = all.filter((l) => !l.imageUrl && !l.thumbnailUrl);
     expect(missing.length).toBe(0);
+
+    const withStand = all.filter((l) => Boolean(l.standImageUrl));
+    expect(withStand.length).toBe(all.length);
+  });
+
+  it('verifies that all default plays have 100% valid, existing lineups', () => {
+    const allLineups = getAllLineups();
+    const lineupMap = new Map(allLineups.map((l) => [l.id, l]));
+
+    for (const play of DEFAULT_PLAYS) {
+      expect(play.lineupIds.length).toBeGreaterThan(0);
+      for (const id of play.lineupIds) {
+        expect(lineupMap.has(id)).toBe(true);
+      }
+    }
+  });
+
+  it('permanently deletes plays without resurrection from default list', () => {
+    const testId = `test-delete-${Date.now()}`;
+    const play = savePlay({
+      id: testId,
+      name: 'To Be Deleted',
+      map: 'de_mirage',
+      side: 'T',
+      lineupIds: [],
+      createdAt: new Date().toISOString(),
+    });
+
+    expect(getAllPlays().some((p) => p.id === testId)).toBe(true);
+    const deleted = deletePlay(testId);
+    expect(deleted).toBe(true);
+    expect(getAllPlays().some((p) => p.id === testId)).toBe(false);
+  });
+
+  it('manages tactical queues correctly', () => {
+    clearQueue();
+    const q1 = addPixelToQueue('test-pixel-1');
+    expect(q1.lineupIds).toContain('test-pixel-1');
+
+    const q2 = addPixelToQueue('test-pixel-2');
+    const moved = movePixelInQueue(q2.lineupIds.length - 1, 'UP');
+    expect(moved.lineupIds[0]).toBe('test-pixel-2');
+    expect(moved.lineupIds[1]).toBe('test-pixel-1');
+
+    const cleared = clearQueue();
+    expect(cleared.lineupIds.length).toBe(0);
+  });
+
+  it('persists pixel renaming across queries', () => {
+    const all = getAllLineups();
+    const target = all[0];
+    const newTitle = `Renamed Test Pixel ${Date.now()}`;
+
+    renameLineup(target.id, newTitle);
+    const updated = getAllLineups().find((l) => l.id === target.id);
+    expect(updated?.title).toBe(newTitle);
   });
 });

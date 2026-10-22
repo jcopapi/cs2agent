@@ -2427,6 +2427,8 @@ function buildCsnadesLineups(): Lineup[] {
         svgReference: '',
         imageUrl: img,
         thumbnailUrl: thumb,
+        standImageUrl: n.assets.thumbnail || n.assets.thumbnailSmall || img,
+        resultImageUrl: n.assets.thumbnail || img,
         landingArea: {
           x: n.throwTo?.x ?? 0,
           y: n.throwTo?.y ?? 0,
@@ -2463,6 +2465,25 @@ function buildCsnadesLineups(): Lineup[] {
   return result;
 }
 
+function svgToDataUri(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function buildStandPositionSvg(lineup: { startPosition?: { callout?: string }; movementRequirements?: string; throwType?: string }): string {
+  const callout = lineup.startPosition?.callout || 'Position';
+  const req = lineup.movementRequirements || lineup.throwType || 'Stationary';
+  return `<svg width="240" height="160" viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">
+    <rect width="240" height="160" fill="#09090b" rx="4"/>
+    <rect x="8" y="8" width="224" height="144" fill="#121216" stroke="#27272a" stroke-width="1.5" rx="3"/>
+    <rect x="8" y="8" width="224" height="24" fill="#18181b" rx="3"/>
+    <text x="120" y="24" font-family="monospace" font-size="10" font-weight="bold" fill="#06b6d4" text-anchor="middle">STAND POSITION</text>
+    <circle cx="120" cy="74" r="24" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="3"/>
+    <circle cx="120" cy="74" r="6" fill="#10b981"/>
+    <text x="120" y="116" font-family="monospace" font-size="9.5" font-weight="bold" fill="#f4f4f5" text-anchor="middle">${callout.slice(0, 24)}</text>
+    <text x="120" y="132" font-family="monospace" font-size="8.5" fill="#a1a1aa" text-anchor="middle">${req.slice(0, 30)}</text>
+  </svg>`;
+}
+
 const CSNADES_REAL_LINEUPS = buildCsnadesLineups();
 
 // Automatically link real CSNADES screenshots to pre-populated lineups without duplicate sharing
@@ -2479,7 +2500,15 @@ for (const item of COMPETITIVE_LINEUPS) {
   if (match && match.imageUrl) {
     item.imageUrl = match.imageUrl;
     item.thumbnailUrl = match.thumbnailUrl;
+    item.standImageUrl = match.standImageUrl || svgToDataUri(buildStandPositionSvg(item));
     assignedImages.add(match.imageUrl);
+  } else {
+    // Generate clean SVG visual reference as valid instant image data
+    const richSvg = buildCsnadesVisualSvg(item);
+    const dataUri = svgToDataUri(richSvg);
+    item.imageUrl = dataUri;
+    item.thumbnailUrl = dataUri;
+    item.standImageUrl = svgToDataUri(buildStandPositionSvg(item));
   }
   const richSvg = buildCsnadesVisualSvg(item);
   item.svgReference = richSvg;
@@ -2488,15 +2517,15 @@ for (const item of COMPETITIVE_LINEUPS) {
   }
 }
 
-// In ALL_COMBINED_LINEUPS, filter out CSNADES items that were already assigned to COMPETITIVE_LINEUPS
+// In ALL_COMBINED_LINEUPS, include unassigned CSNADES items
 const unassignedCsnades = CSNADES_REAL_LINEUPS.filter(
   (c) => !c.imageUrl || !assignedImages.has(c.imageUrl)
 );
 
-// Only include lineups that have a valid verified screenshot image
+// Include all verified competitive lineups and verified CSNADES lineups
 export const ALL_COMBINED_LINEUPS: Lineup[] = [
-  ...COMPETITIVE_LINEUPS.filter((item) => Boolean(item.imageUrl || item.thumbnailUrl)),
-  ...unassignedCsnades.filter((item) => Boolean(item.imageUrl || item.thumbnailUrl)),
+  ...COMPETITIVE_LINEUPS,
+  ...unassignedCsnades,
 ];
 
 // ----------------------------------------------------------------------------
@@ -2505,6 +2534,7 @@ export const ALL_COMBINED_LINEUPS: Lineup[] = [
 
 const CUSTOM_LINEUPS_STORAGE_KEY = 'cs2_assistant_custom_lineups_v1';
 const FAVORITES_STORAGE_KEY = 'cs2_assistant_favorite_lineups_v1';
+const LINEUP_OVERRIDES_KEY = 'cs2_assistant_lineup_overrides_v1';
 
 function getLocalStorage(): { getItem(k: string): string | null; setItem(k: string, v: string): void } | null {
   if (typeof globalThis !== 'undefined' && 'localStorage' in (globalThis as Record<string, unknown>)) {
@@ -2539,6 +2569,27 @@ function loadStoredFavorites(): Set<string> {
   }
 }
 
+function loadStoredLineupOverrides(): Record<string, { title?: string }> {
+  const storage = getLocalStorage();
+  if (!storage) return {};
+  try {
+    const raw = storage.getItem(LINEUP_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistLineupOverride(id: string, override: { title?: string }): void {
+  const storage = getLocalStorage();
+  if (!storage) return;
+  try {
+    const overrides = loadStoredLineupOverrides();
+    overrides[id] = { ...overrides[id], ...override };
+    storage.setItem(LINEUP_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch {}
+}
+
 // ----------------------------------------------------------------------------
 // Query and Helper Functions
 // ----------------------------------------------------------------------------
@@ -2546,14 +2597,19 @@ function loadStoredFavorites(): Set<string> {
 export function getAllLineups(): Lineup[] {
   const customs = loadStoredCustomLineups();
   const favs = loadStoredFavorites();
+  const overrides = loadStoredLineupOverrides();
 
   const customIds = new Set(customs.map((c) => c.id));
   const baseLineups = ALL_COMBINED_LINEUPS.filter((l) => !customIds.has(l.id));
 
-  return [...customs, ...baseLineups].map((l) => ({
-    ...l,
-    favorite: favs.has(l.id) || Boolean(l.favorite),
-  }));
+  return [...customs, ...baseLineups].map((l) => {
+    const ovr = overrides[l.id];
+    return {
+      ...l,
+      title: ovr?.title || l.title,
+      favorite: favs.has(l.id) || Boolean(l.favorite),
+    };
+  });
 }
 
 export function saveLineup(lineup: Lineup): Lineup {
@@ -2573,6 +2629,9 @@ export function saveLineup(lineup: Lineup): Lineup {
       if (cIdx >= 0) customs[cIdx] = updated;
       else customs.unshift(updated);
       storage.setItem(CUSTOM_LINEUPS_STORAGE_KEY, JSON.stringify(customs));
+    } else {
+      // Persist title override for pre-populated / verified lineups
+      persistLineupOverride(lineup.id, { title: lineup.title });
     }
 
     const favs = loadStoredFavorites();
@@ -2582,6 +2641,13 @@ export function saveLineup(lineup: Lineup): Lineup {
   }
 
   return updated;
+}
+
+export function renameLineup(id: string, newTitle: string): Lineup | null {
+  const lineup = getLineupById(id);
+  if (!lineup) return null;
+  lineup.title = newTitle;
+  return saveLineup(lineup);
 }
 
 export function deleteLineup(id: string): boolean {

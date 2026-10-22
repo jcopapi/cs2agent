@@ -144,9 +144,12 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
     }
   }, [filteredLineups, inspectedLineup]);
 
-  // Filtered Plans (with TR / CT filter & search)
+  // Filtered Plans (strictly scoped to selectedMap, with TR / CT filter & search)
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
+      if (p.map && p.map !== selectedMap) {
+        return false;
+      }
       if (planSideFilter !== 'ALL' && p.side && p.side !== planSideFilter) {
         return false;
       }
@@ -156,12 +159,21 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
       }
       return true;
     });
-  }, [plans, planSideFilter, planSearch]);
+  }, [plans, selectedMap, planSideFilter, planSearch]);
 
-  // Current selected plan object
+  // Current selected plan object (scoped to the filtered plans of current map)
   const currentPlan = useMemo(() => {
-    return plans.find((p) => p.id === selectedPlanId) || plans[0] || null;
-  }, [plans, selectedPlanId]);
+    const match = filteredPlans.find((p) => p.id === selectedPlanId);
+    return match || filteredPlans[0] || null;
+  }, [filteredPlans, selectedPlanId]);
+
+  // When selected map changes, switch selectedPlanId to first plan of new map if needed
+  useEffect(() => {
+    const mapPlans = plans.filter((p) => !p.map || p.map === selectedMap);
+    if (mapPlans.length > 0 && !mapPlans.some((p) => p.id === selectedPlanId)) {
+      setSelectedPlanId(mapPlans[0].id);
+    }
+  }, [selectedMap, plans]);
 
   // Add pixel to current plan
   const handleAddPixelToPlan = (lineup: Lineup) => {
@@ -755,7 +767,11 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     onClick={() => {
                       if (confirm(`Delete plan "${currentPlan.name}"?`)) {
                         dbDeletePlay(currentPlan.id);
-                        setPlans(getAllPlays());
+                        const updated = getAllPlays();
+                        setPlans(updated);
+                        const remaining = updated.filter((p) => !p.map || p.map === selectedMap);
+                        setSelectedPlanId(remaining[0]?.id || '');
+                        showToast(`PLAN DELETED`);
                       }
                     }}
                     title="Delete Plan"

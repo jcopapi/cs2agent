@@ -81,6 +81,8 @@ export interface Lineup {
   svgReference: string; // Standalone SVG string
   imageUrl?: string; // Real CSNADES first-person screenshot
   thumbnailUrl?: string; // Real CSNADES result/landing screenshot
+  standImageUrl?: string; // Real or schematic stand positioning screenshot
+  resultImageUrl?: string; // Real CSNADES result/bloom screenshot
 
   // Landing Target
   landingArea: LandingArea;

@@ -299,6 +299,8 @@ const LINEUP_ALLOWED_KEYS = new Set([
   'tickrate',
   'imageUrl',
   'thumbnailUrl',
+  'standImageUrl',
+  'resultImageUrl',
 ]);
 
 export function validateLineup(candidate: unknown, path: string = 'lineup'): ValidationResult<Lineup> {

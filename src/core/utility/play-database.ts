@@ -62,9 +62,50 @@ export const DEFAULT_PLAYS: Play[] = [
     ],
     createdAt: '2026-10-20T00:00:00Z',
   },
+  {
+    id: 'play-nuke-outside-take',
+    name: 'Outside Wall of Smokes',
+    map: 'de_nuke',
+    side: 'T',
+    description: 'Cross smokes sealing Garage and Secret sightlines for fast lower bombsite take',
+    lineupIds: [
+      'lineup-nuke-outside-cross-close',
+      'lineup-nuke-outside-cross-far',
+      'lineup-nuke-garage-smoke',
+    ],
+    createdAt: '2026-10-20T00:00:00Z',
+  },
+  {
+    id: 'play-ancient-a-split',
+    name: 'A Site Split & Donut',
+    map: 'de_ancient',
+    side: 'T',
+    description: 'Smokes Donut and Main cross while isolating temple and CT crossfires',
+    lineupIds: [
+      'lineup-ancient-donut-smoke',
+      'lineup-ancient-a-temple-smoke',
+      'lineup-ancient-b-cave-smoke',
+    ],
+    createdAt: '2026-10-20T00:00:00Z',
+  },
+  {
+    id: 'play-anubis-b-execute',
+    name: 'B Site Execute & Connector',
+    map: 'de_anubis',
+    side: 'T',
+    description: 'Connector and Heaven smokes with Mid house control for effortless B site plant',
+    lineupIds: [
+      'lineup-anubis-b-connector-smoke',
+      'lineup-anubis-a-heaven-smoke',
+      'lineup-anubis-mid-house-smoke',
+    ],
+    createdAt: '2026-10-20T00:00:00Z',
+  },
 ];
 
 const STORAGE_KEY = 'cs2_assistant_custom_plays_v1';
+const DELETED_PLAYS_KEY = 'cs2_assistant_deleted_plays_v1';
+const ACTIVE_QUEUE_KEY = 'cs2_assistant_active_queue_v1';
 
 function getLocalStorage(): { getItem(k: string): string | null; setItem(k: string, v: string): void } | null {
   if (typeof globalThis !== 'undefined' && 'localStorage' in (globalThis as Record<string, unknown>)) {
@@ -73,25 +114,49 @@ function getLocalStorage(): { getItem(k: string): string | null; setItem(k: stri
   return null;
 }
 
+function getDeletedPlayIds(): Set<string> {
+  const storage = getLocalStorage();
+  if (!storage) return new Set();
+  try {
+    const raw = storage.getItem(DELETED_PLAYS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markPlayDeleted(id: string): void {
+  const storage = getLocalStorage();
+  if (!storage) return;
+  try {
+    const deleted = getDeletedPlayIds();
+    deleted.add(id);
+    storage.setItem(DELETED_PLAYS_KEY, JSON.stringify(Array.from(deleted)));
+  } catch {}
+}
+
 function getStoredPlays(): Play[] {
   const storage = getLocalStorage();
   if (!storage) {
     return [...DEFAULT_PLAYS];
   }
+  const deletedIds = getDeletedPlayIds();
   try {
     const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return [...DEFAULT_PLAYS];
+    if (!raw) {
+      return DEFAULT_PLAYS.filter((d) => !deletedIds.has(d.id));
+    }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      // Merge with default plays so user always has standard plays
+    if (Array.isArray(parsed)) {
+      // Merge with default plays that haven't been deleted
       const customIds = new Set(parsed.map((p: Play) => p.id));
-      const missingDefaults = DEFAULT_PLAYS.filter((d) => !customIds.has(d.id));
+      const missingDefaults = DEFAULT_PLAYS.filter((d) => !customIds.has(d.id) && !deletedIds.has(d.id));
       return [...parsed, ...missingDefaults];
     }
   } catch (err) {
     console.warn('[PlayDatabase] Failed to read plays from localStorage:', err);
   }
-  return [...DEFAULT_PLAYS];
+  return DEFAULT_PLAYS.filter((d) => !deletedIds.has(d.id));
 }
 
 function persistPlays(plays: Play[]): void {
@@ -140,6 +205,7 @@ export function savePlay(play: Play): Play {
 }
 
 export function deletePlay(id: string): boolean {
+  markPlayDeleted(id);
   const existing = getAllPlays();
   const filtered = existing.filter((p) => p.id !== id);
   if (filtered.length === existing.length) return false;
@@ -280,4 +346,87 @@ export function importPlayFromCode(rawCode: string): Play | null {
   } catch {
     return null;
   }
+}
+
+// ----------------------------------------------------------------------------
+// In-Match Tactical Queues (Mid-Game Flexible Lineup Ordering)
+// ----------------------------------------------------------------------------
+
+export interface TacticalQueue {
+  lineupIds: string[];
+  activeStepIndex: number;
+}
+
+export function getActiveQueue(): TacticalQueue {
+  const storage = getLocalStorage();
+  if (storage) {
+    try {
+      const raw = storage.getItem(ACTIVE_QUEUE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.lineupIds)) return parsed;
+      }
+    } catch {}
+  }
+  const activePlay = getActivePlay();
+  return {
+    lineupIds: [...(activePlay?.lineupIds || [])],
+    activeStepIndex: getActivePlayStepIndex(),
+  };
+}
+
+export function saveActiveQueue(queue: TacticalQueue): TacticalQueue {
+  const storage = getLocalStorage();
+  if (storage) {
+    try {
+      storage.setItem(ACTIVE_QUEUE_KEY, JSON.stringify(queue));
+    } catch {}
+  }
+  return queue;
+}
+
+export function addPixelToQueue(lineupId: string): TacticalQueue {
+  const q = getActiveQueue();
+  q.lineupIds.push(lineupId);
+  return saveActiveQueue(q);
+}
+
+export function removePixelFromQueue(index: number): TacticalQueue {
+  const q = getActiveQueue();
+  if (index >= 0 && index < q.lineupIds.length) {
+    q.lineupIds.splice(index, 1);
+    if (q.activeStepIndex >= q.lineupIds.length) {
+      q.activeStepIndex = Math.max(0, q.lineupIds.length - 1);
+    }
+    saveActiveQueue(q);
+  }
+  return q;
+}
+
+export function movePixelInQueue(index: number, direction: 'UP' | 'DOWN'): TacticalQueue {
+  const q = getActiveQueue();
+  const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= q.lineupIds.length) return q;
+  const item = q.lineupIds[index];
+  q.lineupIds.splice(index, 1);
+  q.lineupIds.splice(targetIndex, 0, item);
+  return saveActiveQueue(q);
+}
+
+export function loadPlanIntoQueue(planId: string, mode: 'REPLACE' | 'APPEND' = 'REPLACE'): TacticalQueue {
+  const plan = getPlayById(planId);
+  const q = getActiveQueue();
+  const newIds = plan?.lineupIds || [];
+  if (mode === 'REPLACE') {
+    q.lineupIds = [...newIds];
+    q.activeStepIndex = 0;
+  } else {
+    q.lineupIds = [...q.lineupIds, ...newIds];
+  }
+  return saveActiveQueue(q);
+}
+
+export function clearQueue(): TacticalQueue {
+  const q: TacticalQueue = { lineupIds: [], activeStepIndex: 0 };
+  return saveActiveQueue(q);
 }
