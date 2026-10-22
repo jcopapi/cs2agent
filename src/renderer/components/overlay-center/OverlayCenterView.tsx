@@ -228,6 +228,14 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
     setPinnedLineup(null);
   };
 
+  const activeLineup = useMemo(() => {
+    if (pinnedLineup) return pinnedLineup;
+    if (activeQueue.lineupIds.length > 0 && activeQueue.activeStepIndex < activeQueue.lineupIds.length) {
+      return getLineupById(activeQueue.lineupIds[activeQueue.activeStepIndex]);
+    }
+    return null;
+  }, [pinnedLineup, activeQueue, loadedLineups]);
+
   // Helper for utility icons and color accents
   const getUtilityMeta = (type: UtilityType) => {
     switch (type) {
@@ -614,10 +622,16 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                       className="flex items-center justify-between p-2 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-border-medium transition-all"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
-                          <span className={`material-symbols-outlined ${meta.textClass} text-[18px]`}>
-                            {meta.icon}
-                          </span>
+                        {/* Landing Result Photo */}
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-surface-container shrink-0 border border-border-subtle flex items-center justify-center">
+                          {lineup.thumbnailUrl || lineup.resultImageUrl ? (
+                            <img src={lineup.thumbnailUrl || lineup.resultImageUrl} alt="Onde Cai" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className={`material-symbols-outlined ${meta.textClass} text-[18px]`}>
+                              {meta.icon}
+                            </span>
+                          )}
+                          <span className={`absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full ${meta.bgClass}`} />
                         </div>
                         <div className="truncate">
                           <div className="text-xs font-medium text-white truncate">{lineup.title}</div>
@@ -731,16 +745,34 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                       )}
                     </div>
 
-                    {/* Thumbnail */}
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-container-highest shrink-0 relative border border-border-subtle flex items-center justify-center">
-                      {imgUrl ? (
-                        <img src={imgUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className={`material-symbols-outlined ${meta.textClass} text-[18px]`}>
-                          {meta.icon}
+                    {/* Dual Thumbnails: Mira (Aim) + Onde Cai (Landing Result) */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Aim Thumbnail */}
+                      <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-container-highest shrink-0 relative border border-border-subtle flex items-center justify-center" title="Ponto de Mira">
+                        {lineup.imageUrl ? (
+                          <img src={lineup.imageUrl} alt="Mira" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className={`material-symbols-outlined ${meta.textClass} text-[16px]`}>
+                            {meta.icon}
+                          </span>
+                        )}
+                        <span className="absolute bottom-0 left-0 right-0 bg-black/85 text-[7px] text-text-muted font-bold text-center leading-none py-0.5">
+                          MIRA
                         </span>
-                      )}
-                      <span className={`absolute top-1 left-1 w-1.5 h-1.5 rounded-full ${meta.bgClass}`} />
+                        <span className={`absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full ${meta.bgClass}`} />
+                      </div>
+
+                      {/* Landing Result Thumbnail */}
+                      <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-container-highest shrink-0 relative border border-primary/40 ring-1 ring-primary/20 flex items-center justify-center" title={`Onde Cai: ${lineup.landingArea?.callout || 'Destino'}`}>
+                        {lineup.thumbnailUrl || lineup.resultImageUrl ? (
+                          <img src={lineup.thumbnailUrl || lineup.resultImageUrl} alt="Onde Cai" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-primary text-[16px]">location_on</span>
+                        )}
+                        <span className="absolute bottom-0 left-0 right-0 bg-primary/95 text-[7px] text-surface font-black text-center leading-none py-0.5">
+                          ONDE CAI
+                        </span>
+                      </div>
                     </div>
 
                     {/* Metadata */}
@@ -836,17 +868,76 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
             )}
           </div>
 
-          {/* Quick HUD Telemetry Status */}
-          <div className="p-2.5 rounded-xl bg-surface-container border border-border-subtle flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary text-[18px]">adjust</span>
-              <div>
-                <div className="text-xs font-medium text-white">Manual Selection Mode</div>
-                <div className="text-[10px] text-text-muted">Overlay maintains your selected pixel steadily</div>
+          {/* Active Lineup Inspection Cockpit with Large Landing Result Photo */}
+          {activeLineup ? (
+            <div className="p-3 rounded-2xl bg-surface-container border border-border-subtle flex flex-col gap-2 shrink-0 shadow-sm">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`material-symbols-outlined ${getUtilityMeta(activeLineup.utilityType).textClass} text-[16px]`}>
+                    {getUtilityMeta(activeLineup.utilityType).icon}
+                  </span>
+                  <span className="text-white truncate">{activeLineup.title}</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 text-[10px]">
+                  <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-text-muted">
+                    From: <strong className="text-white">{activeLineup.startPosition?.callout || activeLineup.throwPosition?.callout || 'Spawn'}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
+                    To: {activeLineup.landingArea?.callout || activeLineup.targetDestination?.callout || 'Target'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Side-by-Side Dual Photos: Aim View (Left) + Landing Result View (Right) */}
+              <div className="grid grid-cols-2 gap-2 h-28">
+                {/* Aim Point */}
+                <div className="relative rounded-xl overflow-hidden bg-black border border-border-subtle flex items-center justify-center group" title="Ponto de Mira / Alinhamento">
+                  {activeLineup.imageUrl ? (
+                    <img
+                      src={activeLineup.imageUrl}
+                      alt="Posicionamento e Mira"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[11px] text-text-muted">Sem foto de mira</span>
+                  )}
+                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/80 text-[8px] font-bold text-white tracking-wider">
+                    1. PONTO DE MIRA
+                  </div>
+                </div>
+
+                {/* Where it Lands (Landing Bloom) */}
+                <div className="relative rounded-xl overflow-hidden bg-black border border-primary/40 ring-1 ring-primary/20 flex items-center justify-center group" title={`Onde a granada cai: ${activeLineup.landingArea?.callout || 'Destino'}`}>
+                  {activeLineup.thumbnailUrl || activeLineup.resultImageUrl ? (
+                    <img
+                      src={activeLineup.thumbnailUrl || activeLineup.resultImageUrl}
+                      alt="Onde Cai (Impacto)"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[11px] text-primary">Sem foto de impacto</span>
+                  )}
+                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary text-[8px] font-extrabold text-surface tracking-wider">
+                    2. ONDE CAI (IMPACTO)
+                  </div>
+                  <div className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-black/85 text-[8px] font-semibold text-primary truncate max-w-[120px]">
+                    {activeLineup.landingArea?.callout || 'Landing'}
+                  </div>
+                </div>
               </div>
             </div>
-            <span className="text-[10px] font-mono text-secondary">STEADY</span>
-          </div>
+          ) : (
+            <div className="p-2.5 rounded-xl bg-surface-container border border-border-subtle flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[18px]">adjust</span>
+                <div>
+                  <div className="text-xs font-medium text-white">Manual Selection Mode</div>
+                  <div className="text-[10px] text-text-muted">Overlay maintains your selected pixel steadily</div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-secondary">STEADY</span>
+            </div>
+          )}
         </div>
       </main>
     </div>

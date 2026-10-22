@@ -32,11 +32,16 @@ export class NativeFocusMonitor {
   }
 
   public start(): void {
+    const extraResourcePath = (process as any).resourcesPath
+      ? path.join((process as any).resourcesPath, 'native/focus-monitor.exe')
+      : '';
     const exePath = path.join(__dirname, 'native/focus-monitor.exe');
-    // Also support running from root or dist paths
-    const resolvedPath = fs.existsSync(exePath)
-      ? exePath
-      : path.join(process.cwd(), 'src/main/native/focus-monitor.exe');
+    // Also support running from root or dist paths or packaged extraResources
+    const resolvedPath = (extraResourcePath && fs.existsSync(extraResourcePath))
+      ? extraResourcePath
+      : (fs.existsSync(exePath)
+        ? exePath
+        : path.join(process.cwd(), 'src/main/native/focus-monitor.exe'));
 
     if (!fs.existsSync(resolvedPath)) {
       console.warn('[NativeFocusMonitor] Executable not found at:', resolvedPath);

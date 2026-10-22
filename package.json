@@ -9,7 +9,7 @@
     "dev": "vite",
     "build:main": "tsc -p tsconfig.node.json",
     "build:renderer": "vite build",
-    "build": "tsc -p tsconfig.node.json && vite build",
+    "build": "tsc -p tsconfig.node.json && vite build && node -e \"const fs = require('fs'); fs.mkdirSync('dist/main/native', { recursive: true }); fs.copyFileSync('src/main/native/focus-monitor.exe', 'dist/main/native/focus-monitor.exe');\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -17,6 +17,30 @@
     "typecheck": "tsc --noEmit",
     "start": "electron .",
     "package": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.jcopapi.csoverlayassistant",
+    "productName": "CS Overlay Assistant",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src/main/native/focus-monitor.exe",
+        "to": "native/focus-monitor.exe"
+      }
+    ],
+    "asar": true
   },
   "dependencies": {
     "@google/genai": "^2.30.0",

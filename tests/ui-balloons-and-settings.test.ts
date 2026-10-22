@@ -49,4 +49,31 @@ describe('UI Consistency, Branding & Balloon Metadata Tests', () => {
       }
     }
   });
+
+  it('CS-MAP-01: No cross-contamination of map assets (no Mirage images in Nuke, etc.)', () => {
+    for (const map of MAPS) {
+      const mapKey = map.replace('de_', '');
+      const lineups = getCuratedMapPackLineups(map);
+      for (const lineup of lineups) {
+        if (lineup.imageUrl && lineup.imageUrl.includes('assets.csnades.gg')) {
+          const pathSlug = lineup.imageUrl.split('/')[4] || '';
+          expect(
+            pathSlug.startsWith(mapKey),
+            `Lineup ${lineup.id} in map ${map} must not use asset from another map: ${lineup.imageUrl}`
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('CS-LAND-01: Every lineup has a landing result photo showing where it falls/blooms', () => {
+    for (const map of MAPS) {
+      const lineups = getCuratedMapPackLineups(map);
+      for (const lineup of lineups) {
+        const landingPhoto = lineup.thumbnailUrl || lineup.resultImageUrl;
+        expect(landingPhoto, `Lineup ${lineup.id} in ${map} must have landing result photo`).toBeDefined();
+        expect(landingPhoto?.length).toBeGreaterThan(0);
+      }
+    }
+  });
 });
