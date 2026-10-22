@@ -1,4 +1,4 @@
-# CS2 Assistant
+# CS Overlay Assistant
 
 > **A production-grade, Valve-compliant Windows desktop tactical companion for Counter-Strike 2.**
 
@@ -8,12 +8,24 @@
 [![TypeScript](https://img.shields.io/badge/typescript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/vite-5.4-purple.svg)](https://vitejs.dev/)
 [![Vitest](https://img.shields.io/badge/vitest-2.1-yellow.svg)](https://vitest.dev/)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)]()
+[![Release](https://img.shields.io/github/v/release/jcopapi/csoverlayassistant?color=orange&label=release)](https://github.com/jcopapi/csoverlayassistant/releases/tag/v1.0.0)
+
+---
+
+## 📦 Downloads (v1.0.0)
+
+| Tipo | Arquivo | Tamanho | Link de Download |
+| :--- | :--- | :--- | :--- |
+| 🚀 **Instalador Oficial (Windows)** | `CS.Overlay.Assistant.Setup.1.0.0.exe` | ~74 MB | [**Baixar Instalador**](https://github.com/jcopapi/csoverlayassistant/releases/download/v1.0.0/CS.Overlay.Assistant.Setup.1.0.0.exe) |
+| ⚡ **Portátil (Executar sem instalar)** | `CS.Overlay.Assistant.1.0.0.exe` | ~73 MB | [**Baixar Portátil**](https://github.com/jcopapi/csoverlayassistant/releases/download/v1.0.0/CS.Overlay.Assistant.1.0.0.exe) |
+
+> 📌 **Página de Release Oficial**: Acesse todas as notas e arquivos em [GitHub Releases v1.0.0](https://github.com/jcopapi/csoverlayassistant/releases/tag/v1.0.0).
 
 ---
 
 ## Table of Contents
 - [1. Overview](#1-overview)
+- [Downloads (Instalador & Portátil)](#-downloads-v100)
 - [2. Regulatory Compliance & Fair Play](#2-regulatory-compliance--fair-play)
   - [2.1 Compliance Posture (Anti-Claim Invariant)](#21-compliance-posture-anti-claim-invariant)
   - [2.2 The Six Zero Invariants](#22-the-six-zero-invariants)
