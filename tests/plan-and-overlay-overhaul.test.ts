@@ -16,6 +16,14 @@ import {
 import { BombTimerEngine } from '../src/core/bomb-timer/bomb-timer-engine';
 import { detectBombSite } from '../src/core/match/gsi-parser';
 import { getAllLineups, renameLineup } from '../src/core/utility/lineup-database';
+import { C4AudioPitchDetector } from '../src/core/bomb-timer/c4-audio-pitch-detector';
+import {
+  getAvailablePacks,
+  isPackInstalled,
+  importPack,
+  uninstallPack,
+  importLineupsFromJson,
+} from '../src/core/utility/web-lineup-importer';
 import type { HotkeyConfig } from '../src/shared/ipc-types';
 
 describe('Tactical Plans & Overlay Enhancements', () => {
@@ -233,5 +241,76 @@ describe('Tactical Plans & Overlay Enhancements', () => {
     renameLineup(target.id, newTitle);
     const updated = getAllLineups().find((l) => l.id === target.id);
     expect(updated?.title).toBe(newTitle);
+  });
+
+  it('correctly detects Bombsite A vs B based on CS2 C4 beep audio pitch frequency', () => {
+    // Site A: 1000 Hz dominant beep tone
+    const resA = C4AudioPitchDetector.detectFromFrequencies(
+      [600, 780, 850, 1000, 1200],
+      [0.05, 0.1, 0.15, 0.95, 0.05]
+    );
+    expect(resA).not.toBeNull();
+    expect(resA?.site).toBe('A');
+    expect(resA?.peakFrequencyHz).toBe(1000);
+
+    // Site B: 780 Hz dominant beep tone
+    const resB = C4AudioPitchDetector.detectFromFrequencies(
+      [600, 780, 850, 1000, 1200],
+      [0.05, 0.92, 0.2, 0.08, 0.02]
+    );
+    expect(resB).not.toBeNull();
+    expect(resB?.site).toBe('B');
+    expect(resB?.peakFrequencyHz).toBe(780);
+  });
+
+  it('detects C4 site from synthetic PCM audio sine wave', () => {
+    const sampleRate = 44100;
+    const duration = 0.05; // 50ms buffer
+    const numSamples = Math.floor(sampleRate * duration);
+
+    // Generate 1000 Hz sine wave (Site A)
+    const pcmA = new Float32Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      pcmA[i] = Math.sin((2 * Math.PI * 1000 * i) / sampleRate);
+    }
+    const detectedA = C4AudioPitchDetector.detectFromPcmData(pcmA, sampleRate);
+    expect(detectedA).not.toBeNull();
+    expect(detectedA?.site).toBe('A');
+
+    // Generate 780 Hz sine wave (Site B)
+    const pcmB = new Float32Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      pcmB[i] = Math.sin((2 * Math.PI * 780 * i) / sampleRate);
+    }
+    const detectedB = C4AudioPitchDetector.detectFromPcmData(pcmB, sampleRate);
+    expect(detectedB).not.toBeNull();
+    expect(detectedB?.site).toBe('B');
+  });
+
+  it('provides web utility packs for Scope.gg Flashes, TotalCSGO Molotovs, and HLTV HEs', () => {
+    const packs = getAvailablePacks();
+    expect(packs.length).toBeGreaterThanOrEqual(3);
+
+    const scopePack = packs.find((p) => p.id === 'pack-scopegg-flashes');
+    expect(scopePack).toBeDefined();
+    expect(scopePack?.category).toBe('FLASHBANG');
+    expect(scopePack?.lineups.length).toBeGreaterThan(0);
+
+    const totalCsPack = packs.find((p) => p.id === 'pack-totalcsgo-molotovs');
+    expect(totalCsPack).toBeDefined();
+    expect(totalCsPack?.category).toBe('MOLOTOV');
+
+    const hltvPack = packs.find((p) => p.id === 'pack-hltv-he-grenades');
+    expect(hltvPack).toBeDefined();
+    expect(hltvPack?.category).toBe('HE_GRENADE');
+
+    // Import and Uninstall test
+    const importRes = importPack('pack-scopegg-flashes');
+    expect(importRes.importedCount).toBeGreaterThan(0);
+    expect(isPackInstalled('pack-scopegg-flashes')).toBe(true);
+
+    const uninstalled = uninstallPack('pack-scopegg-flashes');
+    expect(uninstalled).toBe(true);
+    expect(isPackInstalled('pack-scopegg-flashes')).toBe(false);
   });
 });

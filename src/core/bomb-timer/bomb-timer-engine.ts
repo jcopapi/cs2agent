@@ -54,6 +54,16 @@ export class BombTimerEngine {
   }
 
   /**
+   * Updates the resolved bombsite (e.g. from C4 audio pitch detector or closer coordinates).
+   */
+  public updateSite(site: 'A' | 'B'): BombTimerSnapshot {
+    if (this.planted) {
+      this.site = site;
+    }
+    return this.getSnapshot();
+  }
+
+  /**
    * Synchronizes with authoritative CS2 phase_countdowns telemetry without resetting.
    */
   public syncRemainingSeconds(exactSeconds: number): void {

@@ -21,6 +21,7 @@ import type {
 } from '../../../shared/ipc-types';
 import { getActivePlay } from '../../../core/utility/play-database';
 import { getLineupById } from '../../../core/utility/lineup-database';
+import { C4AudioPitchDetector } from '../../../core/bomb-timer/c4-audio-pitch-detector';
 
 function getCornerClass(corner?: ScreenCorner, defaultCorner: ScreenCorner = 'TOP_RIGHT'): string {
   const c = corner || defaultCorner;
@@ -69,6 +70,19 @@ export const HudOverlayView: React.FC = () => {
   const [isAlignActive, setIsAlignActive] = useState<boolean>(false);
   const [isMatchActive, setIsMatchActive] = useState<boolean>(false);
   const [planStep, setPlanStep] = useState<{ stepIndex: number; totalSteps: number; planName?: string } | null>(null);
+  const [audioResolvedSite, setAudioResolvedSite] = useState<'A' | 'B' | null>(null);
+
+  // Audio Beep Acoustic Pitch Listener (Detects A vs B from first C4 beep)
+  useEffect(() => {
+    if (bombState?.planted && !bombState.site && !audioResolvedSite) {
+      const cancelAudio = C4AudioPitchDetector.listenAndIdentifySite((res) => {
+        setAudioResolvedSite(res.site);
+      }, 2500);
+      return cancelAudio;
+    } else if (!bombState?.planted && audioResolvedSite) {
+      setAudioResolvedSite(null);
+    }
+  }, [bombState?.planted, bombState?.site, audioResolvedSite]);
 
   // Transparent root canvas
   useEffect(() => {
@@ -253,9 +267,9 @@ export const HudOverlayView: React.FC = () => {
             >
               {remainingSeconds.toFixed(1)}s
             </span>
-            {bombState?.site ? (
+            {bombState?.site || audioResolvedSite ? (
               <span className="text-xs font-bold text-zinc-300 uppercase pl-1.5 border-l border-white/15">
-                [{bombState.site}]
+                [{bombState?.site || audioResolvedSite}]
               </span>
             ) : (
               <span className="text-xs font-bold text-zinc-500 uppercase pl-1.5 border-l border-white/15">

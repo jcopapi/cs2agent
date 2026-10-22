@@ -27,6 +27,8 @@ import {
   exportPlayToCode,
   importPlayFromCode,
 } from '../../../core/utility/play-database';
+import { LineupCreatorModal } from '../utility-room/LineupCreatorModal';
+import { WebUtilityImporterModal } from '../utility-room/WebUtilityImporterModal';
 
 interface UtilityRoomViewProps {
   onOpenSettings: () => void;
@@ -82,6 +84,25 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   // Pixel Renaming State
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [editingTitleValue, setEditingTitleValue] = useState<string>('');
+
+  // Custom Pixel & Web Importer Modals
+  const [isCreatingPixel, setIsCreatingPixel] = useState<boolean>(false);
+  const [isImportingWeb, setIsImportingWeb] = useState<boolean>(false);
+
+  const handleSaveCustomLineup = (newPixel: Lineup) => {
+    saveLineup(newPixel);
+    const all = getAllLineups();
+    setLineups(all);
+    setInspectedLineup(newPixel);
+    setIsCreatingPixel(false);
+    showToast(`CUSTOM PIXEL CREATED: ${newPixel.title}`);
+  };
+
+  const handleWebPacksUpdated = () => {
+    const all = getAllLineups();
+    setLineups(all);
+    showToast(`UTILITIES UPDATED FROM WEB`);
+  };
 
   // Inspector Preview Mode: 'AIM' (aim point with crosshair) or 'RESULT' (smoke bloom result)
   const [inspectorViewMode, setInspectorViewMode] = useState<'AIM' | 'RESULT'>('AIM');
@@ -440,6 +461,26 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                   <circle cx="12" cy="14" r="7" />
                   <path d="M12 7V3M9 5h6" />
                 </svg>
+              </button>
+            </div>
+
+            {/* Action Buttons: Add Custom Pixel & Import from Web */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button
+                onClick={() => setIsCreatingPixel(true)}
+                title="Add Custom Pixel"
+                className="px-2 py-1 border border-cyan-700 bg-cyan-950/70 text-cyan-300 hover:bg-cyan-900 hover:border-cyan-400 font-bold text-[10px] flex items-center gap-1 transition-colors"
+              >
+                <span>+</span>
+                <span>PIXEL</span>
+              </button>
+              <button
+                onClick={() => setIsImportingWeb(true)}
+                title="Import Utilities from Web (Scope.gg, TotalCSGO, HLTV)"
+                className="px-2 py-1 border border-zinc-700 bg-black text-cyan-400 hover:border-cyan-400 hover:bg-zinc-900 font-bold text-[10px] flex items-center gap-1 transition-colors"
+              >
+                <span>↓</span>
+                <span>WEB</span>
               </button>
             </div>
           </div>
@@ -1095,6 +1136,24 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Custom Pixel Creator Modal */}
+      {isCreatingPixel && (
+        <LineupCreatorModal
+          currentMap={selectedMap}
+          onClose={() => setIsCreatingPixel(false)}
+          onSaveLineup={handleSaveCustomLineup}
+        />
+      )}
+
+      {/* Web Utility Packs Importer Modal */}
+      {isImportingWeb && (
+        <WebUtilityImporterModal
+          isOpen={isImportingWeb}
+          onClose={() => setIsImportingWeb(false)}
+          onPacksUpdated={handleWebPacksUpdated}
+        />
+      )}
     </div>
   );
 };
