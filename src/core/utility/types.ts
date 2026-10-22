@@ -107,6 +107,8 @@ export interface Lineup {
   isCustom: boolean;
   favorite: boolean;
   instructions: string[];
+  titles?: Record<string, string>;
+  instructionsI18n?: Record<string, string[]>;
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   sourceAttribution: string;
   verified: boolean;

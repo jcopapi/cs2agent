@@ -53,27 +53,6 @@ export default function App(): JSX.Element {
     return unsubGsi;
   }, []);
 
-  // 4. Global Hotkey F2: Step through pixels in active Tactical Plan
-  useEffect(() => {
-    const api = window.cs2Assistant;
-    if (!api?.play?.onNextPixel) return;
-
-    const unsubPlay = api.play.onNextPixel((data) => {
-      if (data && typeof data.stepIndex === 'number') {
-        return;
-      }
-      const { lineupId } = advanceActivePlayStep();
-      if (lineupId) {
-        const lineup = getLineupById(lineupId);
-        if (lineup) {
-          api.hud.setActiveLineupPhoto(lineup);
-        }
-      }
-    });
-
-    return unsubPlay;
-  }, []);
-
   const showOverlayCenter = isMatchActive;
 
   return (

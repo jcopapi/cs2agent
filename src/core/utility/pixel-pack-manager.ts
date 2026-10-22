@@ -11,15 +11,22 @@
 
 import JSZip from 'jszip';
 import type { Lineup, CS2Map, UtilityType, TeamSide, ThrowType, ThrowTechnique } from './types';
-import { saveLineup, getAllLineups } from './lineup-database';
+import { saveLineup, getAllLineups, importLineupsBatch, clearAllLineups } from './lineup-database';
+import {
+  getCuratedMapPackLineups,
+  getAvailableMapPacksMeta,
+  type MapPackMeta,
+} from './map-packs-data';
+
+export { getAvailableMapPacksMeta, getCuratedMapPackLineups, type MapPackMeta, clearAllLineups };
 
 export interface PixelPackManifest {
   schemaVersion: '1.0';
   id: string;
-  name: string;
+  name: string | Record<string, string>;
   author: string;
   version: string;
-  description: string;
+  description: string | Record<string, string>;
   map?: CS2Map | 'MULTI';
   createdAt: string;
   lineups: PixelPackLineupEntry[];
@@ -28,7 +35,7 @@ export interface PixelPackManifest {
 export interface PixelPackLineupEntry {
   id: string;
   map: CS2Map;
-  title: string;
+  title: string | Record<string, string>;
   side: TeamSide;
   utilityType: UtilityType;
   technique: ThrowTechnique;
@@ -52,7 +59,9 @@ export interface PixelPackLineupEntry {
     callout: string;
     description?: string;
   };
-  instructions?: string[];
+  instructions?: string[] | Record<string, string[]>;
+  titles?: Record<string, string>;
+  instructionsI18n?: Record<string, string[]>;
   movementRequirements?: string;
   difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
   tags?: string[];
@@ -102,11 +111,15 @@ export async function importPixelPackFromZip(
 
     const manifestText = await manifestFile.async('text');
     const manifest: PixelPackManifest = JSON.parse(manifestText);
+    const resolvedPackName =
+      typeof manifest.name === 'string'
+        ? manifest.name
+        : manifest.name?.en || Object.values(manifest.name || {})[0] || 'Pacote Inválido';
 
     if (!manifest.lineups || !Array.isArray(manifest.lineups)) {
       return {
         success: false,
-        packName: manifest.name || 'Pacote Inválido',
+        packName: resolvedPackName,
         author: manifest.author || 'Desconhecido',
         totalImported: 0,
         lineupTitles: [],
@@ -152,10 +165,33 @@ export async function importPixelPackFromZip(
         finalThumbUrl = finalImageUrl;
       }
 
+      const titlesObj =
+        typeof entry.title === 'object' && entry.title !== null
+          ? (entry.title as Record<string, string>)
+          : entry.titles || {};
+      const resolvedTitle =
+        typeof entry.title === 'string'
+          ? entry.title
+          : titlesObj.en || Object.values(titlesObj)[0] || 'Lineup';
+
+      const instrObj =
+        typeof entry.instructions === 'object' && !Array.isArray(entry.instructions) && entry.instructions !== null
+          ? (entry.instructions as Record<string, string[]>)
+          : entry.instructionsI18n || {};
+      const resolvedInstructions = Array.isArray(entry.instructions)
+        ? entry.instructions
+        : instrObj.en || Object.values(instrObj)[0] || [
+            `Position at: ${entry.startPosition?.callout || 'Position'}`,
+            'Align crosshair with reference marker',
+            entry.technique === 'JUMPTHROW' ? 'Jumpthrow' : 'Standard throw',
+          ];
+
       const newLineup: Lineup = {
         id: entry.id || `custom-pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         map: entry.map,
-        title: entry.title,
+        title: resolvedTitle,
+        titles: Object.keys(titlesObj).length > 0 ? titlesObj : undefined,
+        instructionsI18n: Object.keys(instrObj).length > 0 ? instrObj : undefined,
         side: entry.side || 'T',
         utilityType: entry.utilityType || 'SMOKE',
         technique: entry.technique || 'STAND',
@@ -204,11 +240,7 @@ export async function importPixelPackFromZip(
         tags: entry.tags || [entry.utilityType, entry.map, 'Pack'],
         isCustom: true,
         favorite: false,
-        instructions: entry.instructions || [
-          `Fique na posição: ${entry.startPosition?.callout || 'Marcada'}`,
-          `Alinhe a mira conforme a captura real`,
-          entry.technique === 'JUMPTHROW' ? 'Execute o jumpthrow' : 'Lance com clique esquerdo',
-        ],
+        instructions: resolvedInstructions,
         difficulty: entry.difficulty || 'EASY',
         sourceAttribution: `${manifest.name} (${manifest.author})`,
         verified: true,
@@ -226,7 +258,7 @@ export async function importPixelPackFromZip(
 
     return {
       success: true,
-      packName: manifest.name,
+      packName: resolvedPackName,
       author: manifest.author,
       totalImported: importedTitles.length,
       lineupTitles: importedTitles,
@@ -335,6 +367,35 @@ export async function exportLineupsToZip(
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
   });
+}
+
+/**
+ * Installs the complete authentic curated offline pack for a specific CS2 map.
+ */
+export function installMapPack(map: CS2Map): { count: number; map: CS2Map } {
+  const lineups = getCuratedMapPackLineups(map);
+  const result = importLineupsBatch(lineups);
+  return { count: result.added, map };
+}
+
+/**
+ * Installs all official curated map packs across all 6 active duty maps.
+ */
+export function installAllOfficialMapPacks(): { totalCount: number } {
+  const maps: CS2Map[] = [
+    'de_mirage',
+    'de_inferno',
+    'de_dust2',
+    'de_nuke',
+    'de_ancient',
+    'de_anubis',
+  ];
+  let total = 0;
+  for (const m of maps) {
+    const res = installMapPack(m);
+    total += res.count;
+  }
+  return { totalCount: total };
 }
 
 // ----------------------------------------------------------------------------
@@ -672,10 +733,18 @@ export const DEFAULT_CORE_STARTER_PACK_MANIFEST: PixelPackManifest = {
 export function installDefaultCoreStarterPack(): { count: number; titles: string[] } {
   const titles: string[] = [];
   for (const entry of DEFAULT_CORE_STARTER_PACK_MANIFEST.lineups) {
+    const resolvedTitle =
+      typeof entry.title === 'string'
+        ? entry.title
+        : entry.title?.en || Object.values(entry.title || {})[0] || 'Lineup';
+    const resolvedInstructions = Array.isArray(entry.instructions)
+      ? entry.instructions
+      : entry.instructions?.en || Object.values(entry.instructions || {})[0] || [];
+
     const lineup: Lineup = {
       id: entry.id,
       map: entry.map,
-      title: entry.title,
+      title: resolvedTitle,
       side: entry.side,
       utilityType: entry.utilityType,
       technique: entry.technique,
@@ -723,7 +792,7 @@ export function installDefaultCoreStarterPack(): { count: number; titles: string
       tags: entry.tags || [entry.utilityType, entry.map],
       isCustom: false,
       favorite: false,
-      instructions: entry.instructions || [],
+      instructions: resolvedInstructions,
       difficulty: 'EASY',
       sourceAttribution: 'CS2 Tactical Assistant Core Pack',
       verified: true,

@@ -150,8 +150,6 @@ export class IpcHandlerManager {
     if (rawBomb === 'planted') {
       this.deps.overlayManager.setBombActive(true);
       const currentSnap = this.bombTimer.getSnapshot();
-      const cfg = this.deps.getHotkeyConfig?.() || {};
-      const latencyOffset = typeof cfg.bombLatencyOffsetSec === 'number' ? cfg.bombLatencyOffsetSec : 2.0;
 
       // Continuously detect or update site if not yet set
       const detectedSite =
@@ -162,7 +160,8 @@ export class IpcHandlerManager {
       }
 
       if (!currentSnap.planted) {
-        const initialSec = Math.max(0, (result.bombState?.countdownSeconds ?? 40.0) - latencyOffset);
+        // Authoritative CS2 phase_countdowns.phase_ends_in ground truth (40.0s standard duration)
+        const initialSec = Math.max(0, result.bombState?.countdownSeconds ?? 40.0);
         this.bombTimer.onBombPlanted({
           plantTimestampMs: now,
           site: detectedSite ?? null,
@@ -170,9 +169,9 @@ export class IpcHandlerManager {
           initialSecondsRemaining: initialSec,
         });
         this.lastBombTickMs = now;
-      } else if (result.bombState?.countdownSeconds) {
-        const syncedSec = Math.max(0, result.bombState.countdownSeconds - latencyOffset);
-        this.bombTimer.syncRemainingSeconds(syncedSec);
+      } else if (typeof result.bombState?.countdownSeconds === 'number') {
+        // Directly synchronized to authoritative CS2 countdown seconds
+        this.bombTimer.syncRemainingSeconds(result.bombState.countdownSeconds);
         this.lastBombTickMs = now;
       } else {
         const delta = Math.max(0, (now - (this.lastBombTickMs || now)) / 1000);

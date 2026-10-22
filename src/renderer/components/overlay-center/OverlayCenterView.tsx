@@ -146,29 +146,9 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
       setPinnedLineup(lineup);
     });
 
-    const unsubPlay = api.play?.onNextPixel?.((data) => {
-      const current = getActiveQueue();
-      if (data && typeof data.stepIndex === 'number') {
-        current.activeStepIndex = data.stepIndex;
-        saveActiveQueue(current);
-        setActiveQueueState({ ...current });
-      }
-    });
-
-    const unsubStep = api.hud?.onPlanStepChange?.((step) => {
-      const current = getActiveQueue();
-      if (step && typeof step.stepIndex === 'number') {
-        current.activeStepIndex = step.stepIndex;
-        saveActiveQueue(current);
-        setActiveQueueState({ ...current });
-      }
-    });
-
     return () => {
       unsubGsi?.();
       unsubPhoto?.();
-      unsubPlay?.();
-      unsubStep?.();
     };
   }, []);
 
@@ -318,6 +298,18 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
               UNPIN HUD
             </button>
           )}
+
+          <button
+            onClick={() => window.open('https://github.com/jcopapi/csoverlayassistant', '_blank')}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high hover:text-white text-text-secondary text-xs font-mono transition-all border border-border-subtle"
+            title="View GitHub Repository"
+            type="button"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            <span>github/jcopapi</span>
+          </button>
 
           <button
             onClick={onOpenSettings}
@@ -843,13 +835,13 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
           {/* Quick HUD Telemetry Status */}
           <div className="p-2.5 rounded-xl bg-surface-container border border-border-subtle flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary text-[18px]">my_location</span>
+              <span className="material-symbols-outlined text-secondary text-[18px]">adjust</span>
               <div>
-                <div className="text-xs font-medium text-white">Auto-Cycle Reticle</div>
-                <div className="text-[10px] text-text-muted">Advances to next lineup on throw or F2</div>
+                <div className="text-xs font-medium text-white">Manual Selection Mode</div>
+                <div className="text-[10px] text-text-muted">Overlay maintains your selected pixel steadily</div>
               </div>
             </div>
-            <span className="text-[10px] font-mono text-success">ACTIVE</span>
+            <span className="text-[10px] font-mono text-secondary">STEADY</span>
           </div>
         </div>
       </main>

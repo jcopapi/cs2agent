@@ -29,6 +29,8 @@ import {
 } from '../../../core/utility/play-database';
 import { LineupCreatorModal } from '../utility-room/LineupCreatorModal';
 import { PixelPackModal } from '../utility-room/PixelPackModal';
+import { useI18n } from '../../i18n/I18nContext';
+import { PlayerStatsPanel } from './PlayerStatsPanel';
 
 interface UtilityRoomViewProps {
   onOpenSettings: () => void;
@@ -50,6 +52,9 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   onGoToOverlayCenter,
   isMatchActive,
 }) => {
+  const { t, localize, language, setLanguage } = useI18n();
+  const [activeNavTab, setActiveNavTab] = useState<'LINEUPS' | 'STATS'>('LINEUPS');
+
   // Filter States
   const [selectedMap, setSelectedMap] = useState<CS2Map>('de_mirage');
   const [selectedSide, setSelectedSide] = useState<TeamSide | 'ALL'>('ALL');
@@ -340,10 +345,30 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
 
           {/* Navigation Tabs */}
           <nav className="flex items-center gap-1.5">
-            <span className="px-3 py-1 rounded-lg text-xs font-medium bg-surface-container text-white border border-border-subtle transition-colors flex items-center gap-1.5">
+            <button
+              onClick={() => setActiveNavTab('LINEUPS')}
+              type="button"
+              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                activeNavTab === 'LINEUPS'
+                  ? 'bg-surface-container text-white border-border-subtle font-semibold shadow-sm'
+                  : 'text-text-secondary hover:text-white border-transparent'
+              }`}
+            >
               <span className="material-symbols-outlined text-[15px] text-primary">layers</span>
-              Lineups
-            </span>
+              {t('nav.lineups')}
+            </button>
+            <button
+              onClick={() => setActiveNavTab('STATS')}
+              type="button"
+              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                activeNavTab === 'STATS'
+                  ? 'bg-surface-container text-white border-border-subtle font-semibold shadow-sm'
+                  : 'text-text-secondary hover:text-white border-transparent'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[15px] text-secondary">monitoring</span>
+              {t('nav.statsHistory')}
+            </button>
           </nav>
         </div>
 
@@ -355,24 +380,65 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
         )}
 
         {/* Right Controls */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-text-secondary">
+        <div className="flex items-center gap-2">
+          {/* Language Selector */}
+          <div className="flex items-center p-0.5 rounded-lg bg-surface-container border border-border-subtle text-[11px] font-mono">
             <button
-              onClick={onOpenSettings}
-              className="w-7 h-7 rounded-lg hover:bg-surface-container hover:text-white flex items-center justify-center transition-colors"
-              title="Settings"
-              type="button"
+              onClick={() => setLanguage('en')}
+              className={`px-2 py-0.5 rounded ${language === 'en' ? 'bg-primary text-surface font-bold shadow-xs' : 'text-text-muted hover:text-white'}`}
             >
-              <span className="material-symbols-outlined text-[16px]">tune</span>
+              EN
+            </button>
+            <button
+              onClick={() => setLanguage('pt-BR')}
+              className={`px-2 py-0.5 rounded ${language === 'pt-BR' ? 'bg-primary text-surface font-bold shadow-xs' : 'text-text-muted hover:text-white'}`}
+            >
+              PT
+            </button>
+            <button
+              onClick={() => setLanguage('es')}
+              className={`px-2 py-0.5 rounded ${language === 'es' ? 'bg-primary text-surface font-bold shadow-xs' : 'text-text-muted hover:text-white'}`}
+            >
+              ES
             </button>
           </div>
+
+          {/* GitHub Repository Link Button */}
+          <button
+            onClick={() => window.open('https://github.com/jcopapi/csoverlayassistant', '_blank')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high hover:text-white text-text-secondary text-xs font-mono transition-all border border-border-subtle"
+            title="View GitHub Repository"
+            type="button"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            <span>github/jcopapi</span>
+          </button>
+
+          <button
+            onClick={onOpenSettings}
+            className="w-7 h-7 rounded-lg hover:bg-surface-container hover:text-white flex items-center justify-center transition-colors text-text-secondary"
+            title={t('nav.settings')}
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[16px]">tune</span>
+          </button>
         </div>
       </header>
 
       {/* ==================================================================== */}
-      {/* MAIN DUAL-COLUMN WORKSPACE (5 Cols Left / 7 Cols Right)             */}
+      {/* MAIN VIEWPORT: LINEUPS OR STATS                                      */}
       {/* ==================================================================== */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-surface">
+      {activeNavTab === 'STATS' ? (
+        <PlayerStatsPanel
+          onSelectMapAndPractice={(map) => {
+            setSelectedMap(map);
+            setActiveNavTab('LINEUPS');
+          }}
+        />
+      ) : (
+        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-surface">
         {/* ==================================================================== */}
         {/* LEFT COLUMN: LINEUP EXPLORER (Cols 5)                                */}
         {/* ==================================================================== */}
@@ -596,7 +662,9 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     {/* Metadata */}
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-white truncate">{lineup.title}</span>
+                        <span className="text-xs font-medium text-white truncate">
+                          {localize(lineup.titles || lineup.title)}
+                        </span>
                         <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-container-highest text-secondary font-mono">
                           {lineup.throwType}
                         </span>
@@ -627,12 +695,41 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
               );
             })}
 
-            {filteredLineups.length === 0 && (
+            {lineups.length === 0 ? (
+              <div className="h-64 flex flex-col items-center justify-center text-center p-6 gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-surface-container flex items-center justify-center text-text-muted">
+                  <span className="material-symbols-outlined text-[30px] text-primary">folder_zip</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">{t('explorer.emptyStateTitle')}</h3>
+                  <p className="text-xs text-text-muted max-w-[260px] mt-1">
+                    {t('explorer.emptyStateSubtitle')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => setIsPackModalOpen(true)}
+                    type="button"
+                    className="px-3 py-1.5 rounded-xl bg-primary text-surface font-bold text-xs hover:bg-primary-hover transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">download</span>
+                    {t('explorer.importPacksBtn')}
+                  </button>
+                  <button
+                    onClick={() => setIsCreatingPixel(true)}
+                    type="button"
+                    className="px-3 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-white text-xs font-semibold border border-border-subtle transition-all"
+                  >
+                    {t('explorer.addCustomBtn')}
+                  </button>
+                </div>
+              </div>
+            ) : filteredLineups.length === 0 ? (
               <div className="h-48 flex flex-col items-center justify-center text-text-muted text-xs gap-1">
                 <span className="material-symbols-outlined text-[24px]">search_off</span>
                 <span>No lineups match the selected filters</span>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -950,7 +1047,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                           title="Click to rename pixel"
                           className="text-sm font-semibold text-white truncate cursor-pointer hover:text-primary transition-colors"
                         >
-                          {inspectedLineup.title}
+                          {localize(inspectedLineup.titles || inspectedLineup.title)}
                         </span>
                         <button
                           onClick={() => handleStartRename(inspectedLineup.title)}
@@ -1128,18 +1225,24 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                         TACTICAL EXECUTION GUIDE
                       </div>
                       <div className="space-y-1.5 text-xs text-text-secondary overflow-y-auto">
-                        {inspectedLineup.instructions && inspectedLineup.instructions.length > 0 ? (
-                          inspectedLineup.instructions.map((step, sIdx) => (
-                            <div key={sIdx} className="flex items-start gap-2">
-                              <span className="w-4 h-4 rounded-full bg-surface-container-high text-primary font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                                {sIdx + 1}
-                              </span>
-                              <span className="leading-relaxed">{step}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-text-muted">Stand at designated spot and align crosshair with reference image.</div>
-                        )}
+                        {(() => {
+                          const steps =
+                            inspectedLineup.instructionsI18n?.[language] ||
+                            inspectedLineup.instructionsI18n?.['pt-BR'] ||
+                            inspectedLineup.instructions;
+                          return steps && steps.length > 0 ? (
+                            steps.map((step, sIdx) => (
+                              <div key={sIdx} className="flex items-start gap-2">
+                                <span className="w-4 h-4 rounded-full bg-surface-container-high text-primary font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                  {sIdx + 1}
+                                </span>
+                                <span className="leading-relaxed">{step}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-text-muted">Stand at designated spot and align crosshair with reference image.</div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1154,6 +1257,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
           </div>
         </div>
       </main>
+      )}
 
       {/* Custom Pixel Creator Modal */}
       {isCreatingPixel && (

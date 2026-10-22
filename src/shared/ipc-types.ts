@@ -94,6 +94,8 @@ export interface Lineup {
   standImageUrl?: string;
   resultImageUrl?: string;
   instructions: string[];
+  titles?: Record<string, string>;
+  instructionsI18n?: Record<string, string[]>;
   tags: string[];
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   sourceAttribution: string;

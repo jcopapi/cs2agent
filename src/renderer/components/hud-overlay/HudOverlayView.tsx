@@ -42,7 +42,7 @@ export const HudOverlayView: React.FC = () => {
   const [hudConfig, setHudConfig] = useState<HudConfig>({
     enabled: true,
     scale: 1.0,
-    opacity: 1.0,
+    opacity: 0.65,
     crosshairSafeZonePx: 450,
     showRadarOverlay: false,
     showBombTimer: true,
@@ -242,13 +242,13 @@ export const HudOverlayView: React.FC = () => {
       }}
     >
       {/* ==================================================================== */}
-      {/* 1. C4 BOMB COUNTDOWN (Lower down, strictly timer & site [A]/[B])     */}
+      {/* 1. C4 BOMB COUNTDOWN (Lower down, strictly countdown timer)          */}
       {/* ==================================================================== */}
       {isBombActive && !isAlignActive && (
         <div className="absolute top-9 left-1/2 -translate-x-1/2 pointer-events-none z-50">
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3.5 py-1 shadow-lg">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-4 py-1.5 shadow-lg backdrop-blur-sm">
             <span
-              className={`h-2 w-2 rounded-full ${
+              className={`h-2.5 w-2.5 rounded-full ${
                 remainingSeconds > 10
                   ? 'bg-emerald-400'
                   : remainingSeconds > 5
@@ -267,15 +267,6 @@ export const HudOverlayView: React.FC = () => {
             >
               {remainingSeconds.toFixed(1)}s
             </span>
-            {bombState?.site || audioResolvedSite ? (
-              <span className="text-xs font-bold text-zinc-300 uppercase pl-1.5 border-l border-white/15">
-                [{bombState?.site || audioResolvedSite}]
-              </span>
-            ) : (
-              <span className="text-xs font-bold text-zinc-500 uppercase pl-1.5 border-l border-white/15">
-                [?]
-              </span>
-            )}
           </div>
         </div>
       )}
