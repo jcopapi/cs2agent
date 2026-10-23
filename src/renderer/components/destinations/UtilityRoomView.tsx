@@ -29,8 +29,10 @@ import {
 } from '../../../core/utility/play-database';
 import { LineupCreatorModal } from '../utility-room/LineupCreatorModal';
 import { PixelPackModal } from '../utility-room/PixelPackModal';
+import { PlanDetailModal } from '../utility-room/PlanDetailModal';
+import { UpdateModal } from '../update/UpdateModal';
 import { useI18n } from '../../i18n/I18nContext';
-import { PlayerStatsPanel } from './PlayerStatsPanel';
+import type { AppUpdateInfo } from '../../../shared/ipc-types';
 
 interface UtilityRoomViewProps {
   onOpenSettings: () => void;
@@ -53,7 +55,6 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   isMatchActive,
 }) => {
   const { t, localize, localizeCallout, language, setLanguage } = useI18n();
-  const [activeNavTab, setActiveNavTab] = useState<'LINEUPS' | 'STATS'>('LINEUPS');
 
   // Filter States
   const [selectedMap, setSelectedMap] = useState<CS2Map>('de_mirage');
@@ -94,8 +95,16 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const [isCreatingPixel, setIsCreatingPixel] = useState<boolean>(false);
   const [isPackModalOpen, setIsPackModalOpen] = useState<boolean>(false);
 
-  // Inspector Preview Mode: 'AIM' or 'RESULT'
-  const [inspectorViewMode, setInspectorViewMode] = useState<'AIM' | 'RESULT'>('AIM');
+  // Inspector Preview Mode: 'RESULT' (Landing Bloom is primary) or 'AIM'
+  const [inspectorViewMode, setInspectorViewMode] = useState<'AIM' | 'RESULT'>('RESULT');
+
+  // Plan Detail / Editor Modal State
+  const [isPlanDetailModalOpen, setIsPlanDetailModalOpen] = useState<boolean>(false);
+
+  // Auto-Update State
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
 
   // Toast feedback
   const [actionToast, setActionToast] = useState<string | null>(null);
@@ -104,6 +113,56 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
     setActionToast(msg);
     setTimeout(() => setActionToast(null), 2000);
   }, []);
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setIsUpdateModalOpen(true);
+    try {
+      if (window.cs2Assistant?.system?.checkForUpdates) {
+        const info = await window.cs2Assistant.system.checkForUpdates();
+        setUpdateInfo(info);
+      } else {
+        const res = await fetch('https://api.github.com/repos/jcopapi/csoverlayassistant/releases/latest');
+        const release = await res.json();
+        const latestTag = (release.tag_name || 'v1.0.0').replace(/^v/, '');
+        const currentVer = '1.0.0';
+        let installerUrl: string | null = null;
+        let portableUrl: string | null = null;
+        if (Array.isArray(release.assets)) {
+          for (const a of release.assets) {
+            const name = (a.name || '').toLowerCase();
+            if (name.includes('setup') && name.endsWith('.exe')) installerUrl = a.browser_download_url;
+            else if (name.endsWith('.exe')) portableUrl = a.browser_download_url;
+          }
+        }
+        setUpdateInfo({
+          currentVersion: currentVer,
+          latestVersion: latestTag,
+          hasUpdate: latestTag !== currentVer && latestTag > currentVer,
+          releaseName: release.name || `Release v${latestTag}`,
+          releaseNotes: release.body || '',
+          publishedAt: release.published_at || '',
+          installerUrl,
+          portableUrl,
+          releasePageUrl: release.html_url || 'https://github.com/jcopapi/csoverlayassistant/releases',
+        });
+      }
+    } catch (err: any) {
+      setUpdateInfo({
+        currentVersion: '1.0.0',
+        latestVersion: '1.0.0',
+        hasUpdate: false,
+        releaseName: 'Up to Date / Offline',
+        releaseNotes: err?.message || 'Could not reach GitHub Releases',
+        publishedAt: '',
+        installerUrl: null,
+        portableUrl: null,
+        releasePageUrl: 'https://github.com/jcopapi/csoverlayassistant/releases',
+      });
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   const handleSaveCustomLineup = (newPixel: Lineup) => {
     saveLineup(newPixel);
@@ -123,7 +182,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   const handleSelectInspectedLineup = (l: Lineup) => {
     setInspectedLineup(l);
     setIsEditingTitle(false);
-    setInspectorViewMode('AIM');
+    setInspectorViewMode('RESULT');
   };
 
   const handleStartRename = (currentTitle: string) => {
@@ -333,44 +392,11 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
       {/* TOP APP BAR (Stitch Design)                                         */}
       {/* ==================================================================== */}
       <header className="h-12 w-full bg-surface-subtle/80 backdrop-blur-md border-b border-border-subtle shrink-0 flex items-center justify-between px-4 z-40">
-        <div className="flex items-center gap-4">
-          {/* Brand Badge */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined text-[16px] text-white">center_focus_strong</span>
-            </div>
-            <span className="font-semibold text-sm tracking-tight text-white">{t('app.brand')}</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-container border border-border-subtle text-white font-semibold text-xs shadow-sm">
+            <span className="material-symbols-outlined text-[16px] text-primary">layers</span>
+            <span>{t('nav.lineups', 'Pixels')}</span>
           </div>
-
-          <div className="h-4 w-px bg-border-subtle" />
-
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1.5">
-            <button
-              onClick={() => setActiveNavTab('LINEUPS')}
-              type="button"
-              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
-                activeNavTab === 'LINEUPS'
-                  ? 'bg-surface-container text-white border-border-subtle font-semibold shadow-sm'
-                  : 'text-text-secondary hover:text-white border-transparent'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[15px] text-primary">layers</span>
-              {t('nav.lineups')}
-            </button>
-            <button
-              onClick={() => setActiveNavTab('STATS')}
-              type="button"
-              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
-                activeNavTab === 'STATS'
-                  ? 'bg-surface-container text-white border-border-subtle font-semibold shadow-sm'
-                  : 'text-text-secondary hover:text-white border-transparent'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[15px] text-secondary">monitoring</span>
-              {t('nav.statsHistory')}
-            </button>
-          </nav>
         </div>
 
         {/* Center Toast Feedback */}
@@ -417,6 +443,20 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
             <span>github/jcopapi</span>
           </button>
 
+          {/* Check for Updates Button */}
+          <button
+            onClick={handleCheckForUpdates}
+            disabled={isCheckingUpdate}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-text-secondary hover:text-white text-xs font-medium transition-all border border-border-subtle"
+            title={language === 'pt-BR' ? 'Verificar atualizações no GitHub' : 'Check for updates on GitHub'}
+            type="button"
+          >
+            <span className={`material-symbols-outlined text-[15px] text-primary ${isCheckingUpdate ? 'animate-spin' : ''}`}>
+              {isCheckingUpdate ? 'sync' : 'update'}
+            </span>
+            <span>{language === 'pt-BR' ? 'Atualizações' : 'Updates'}</span>
+          </button>
+
           <button
             onClick={onOpenSettings}
             className="w-7 h-7 rounded-lg hover:bg-surface-container hover:text-white flex items-center justify-center transition-colors text-text-secondary"
@@ -429,17 +469,9 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
       </header>
 
       {/* ==================================================================== */}
-      {/* MAIN VIEWPORT: LINEUPS OR STATS                                      */}
+      {/* MAIN VIEWPORT: LINEUPS EXPLORER & TACTICAL PLAN MANAGER              */}
       {/* ==================================================================== */}
-      {activeNavTab === 'STATS' ? (
-        <PlayerStatsPanel
-          onSelectMapAndPractice={(map) => {
-            setSelectedMap(map);
-            setActiveNavTab('LINEUPS');
-          }}
-        />
-      ) : (
-        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-surface">
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-surface">
         {/* ==================================================================== */}
         {/* LEFT COLUMN: LINEUP EXPLORER (Cols 5)                                */}
         {/* ==================================================================== */}
@@ -613,7 +645,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
             {filteredLineups.map((lineup) => {
               const hasFailed = failedImages[lineup.id];
               const reloadKey = imageReloadKeys[lineup.id] || 0;
-              const imgUrl = lineup.imageUrl || lineup.thumbnailUrl;
+              const imgUrl = lineup.thumbnailUrl || lineup.resultImageUrl || lineup.imageUrl;
               const isSelected = inspectedLineup?.id === lineup.id;
               const meta = getUtilityMeta(lineup.utilityType);
 
@@ -776,24 +808,17 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                   </button>
                 )}
 
-                {/* Active in-game indicator or trigger */}
+                {/* Open & Edit Plan Lineups Button */}
                 {currentPlan && (
-                  currentPlan.id === activePlanId ? (
-                    <span className="h-8 px-2.5 rounded-xl bg-primary/20 border border-primary/40 text-[11px] font-mono text-primary flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      LIVE
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleSetActivePlan(currentPlan.id)}
-                      title="Set as In-Game Overlay Active Plan"
-                      type="button"
-                      className="h-8 px-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high border border-border-subtle text-[11px] font-mono text-text-secondary hover:text-white flex items-center gap-1 transition-all"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">play_circle</span>
-                      ACTIVATE
-                    </button>
-                  )
+                  <button
+                    onClick={() => setIsPlanDetailModalOpen(true)}
+                    title={language === 'pt-BR' ? 'Abrir e editar lineups do plano' : 'View and edit plan lineups'}
+                    type="button"
+                    className="h-8 px-3 rounded-xl bg-primary text-surface font-semibold text-xs hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                    <span>{language === 'pt-BR' ? 'Editar Lineups' : 'Edit Lineups'}</span>
+                  </button>
                 )}
 
                 {/* New Plan Button */}
@@ -914,8 +939,12 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                 return (
                   <button
                     key={p.id}
-                    onClick={() => setSelectedPlanId(p.id)}
+                    onClick={() => {
+                      setSelectedPlanId(p.id);
+                      setIsPlanDetailModalOpen(true);
+                    }}
                     type="button"
+                    title={language === 'pt-BR' ? `Abrir e editar ${p.name}` : `Open and edit ${p.name}`}
                     className={`px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all ${
                       isSelected
                         ? 'bg-primary text-surface font-semibold shadow-sm'
@@ -1287,7 +1316,35 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
           </div>
         </div>
       </main>
+
+      {/* Tactical Plan Detail & Lineup Editor Modal */}
+      {isPlanDetailModalOpen && currentPlan && (
+        <PlanDetailModal
+          isOpen={isPlanDetailModalOpen}
+          plan={currentPlan}
+          onClose={() => setIsPlanDetailModalOpen(false)}
+          onPlanUpdated={() => {
+            const allP = getAllPlays();
+            setPlans(allP);
+            const updatedCurrent = allP.find((p) => p.id === currentPlan.id) || null;
+            setCurrentPlan(updatedCurrent);
+            showToast('PLANO ATUALIZADO');
+          }}
+          onSelectLineupToInspect={(lineup) => {
+            setInspectedLineup(lineup);
+            setIsPlanDetailModalOpen(false);
+          }}
+        />
       )}
+
+      {/* Auto-Update Modal */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        updateInfo={updateInfo}
+        isChecking={isCheckingUpdate}
+        onCheckAgain={handleCheckForUpdates}
+      />
 
       {/* Custom Pixel Creator Modal */}
       {isCreatingPixel && (

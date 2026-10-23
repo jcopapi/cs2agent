@@ -289,6 +289,26 @@ export interface ComplianceSource {
  * Authoritative Typed Electron IPC Contract.
  * Unifies ARCHITECTURE.md §6 namespaced methods and PROJECT.md §6 convenience methods.
  */
+export interface AppUpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  hasUpdate: boolean;
+  releaseName: string;
+  releaseNotes: string;
+  publishedAt: string;
+  installerUrl: string | null;
+  portableUrl: string | null;
+  releasePageUrl: string;
+}
+
+export interface AppUpdateProgress {
+  percent: number;
+  transferredMb: number;
+  totalMb: number;
+  status: 'DOWNLOADING' | 'READY_TO_INSTALL' | 'ERROR';
+  error?: string;
+}
+
 export interface ICS2AssistantAPI {
   // --- Game State Integration & Simulation ---
   gsi: {
@@ -381,6 +401,13 @@ export interface ICS2AssistantAPI {
     getState(): Promise<ComplianceState>;
     setEnvironment(mode: EnvironmentMode): Promise<ComplianceState>;
     getPrimarySources(): Promise<ComplianceSource[]>;
+  };
+
+  // --- System & Auto-Update ---
+  system?: {
+    checkForUpdates(): Promise<AppUpdateInfo>;
+    downloadAndInstallUpdate(installerUrl: string): Promise<boolean>;
+    onUpdateProgress?(callback: (prog: AppUpdateProgress) => void): () => void;
   };
 
   // --- Top-Level Convenience Methods (PROJECT.md §6 Parity) ---

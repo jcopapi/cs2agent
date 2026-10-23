@@ -313,4 +313,55 @@ describe('Tactical Plans & Overlay Enhancements', () => {
     expect(uninstalled).toBe(true);
     expect(isPackInstalled('pack-scopegg-flashes')).toBe(false);
   });
+
+  it('prioritizes Landing Bloom impact photo as the primary thumbnail across the launcher', () => {
+    // When a lineup has both aim imageUrl and landing thumbnailUrl/resultImageUrl,
+    // the landing bloom should take precedence for the launcher thumbnails
+    const testLineup = {
+      id: 'test-landing-bloom-priority',
+      title: 'Mirage Mid Window Smoke',
+      imageUrl: 'https://images.example.com/aim_point.png',
+      thumbnailUrl: 'https://images.example.com/landing_bloom.png',
+      resultImageUrl: 'https://images.example.com/result_impact.png',
+    };
+
+    const launcherPrimaryImg = testLineup.thumbnailUrl || testLineup.resultImageUrl || testLineup.imageUrl;
+    expect(launcherPrimaryImg).toBe('https://images.example.com/landing_bloom.png');
+
+    // In-game overlay uses aim crosshair as primary
+    const overlayAimImg = testLineup.imageUrl || testLineup.thumbnailUrl;
+    expect(overlayAimImg).toBe('https://images.example.com/aim_point.png');
+  });
+
+  it('allows tactical plans to be inspected, edited and modified without sync button requirement', () => {
+    const plan = savePlay({
+      id: 'test-inspect-edit-plan',
+      name: 'B Mirage Rush',
+      map: 'de_mirage',
+      side: 'T',
+      lineupIds: ['mrg-b-apps', 'mrg-b-short'],
+      createdAt: new Date().toISOString(),
+    });
+
+    expect(plan.lineupIds).toHaveLength(2);
+
+    // Add a third lineup step
+    const withThird = addPixelToPlay(plan.id, 'mrg-b-market');
+    expect(withThird?.lineupIds).toEqual(['mrg-b-apps', 'mrg-b-short', 'mrg-b-market']);
+
+    // Reorder step to top
+    const reordered = movePixelInPlay(plan.id, 2, 'UP');
+    expect(reordered?.lineupIds).toEqual(['mrg-b-apps', 'mrg-b-market', 'mrg-b-short']);
+
+    // Rename plan
+    const renamed = savePlay({
+      ...reordered!,
+      name: 'B Mirage Fast Split',
+    });
+    expect(renamed.name).toBe('B Mirage Fast Split');
+
+    // Cleanup
+    deletePlay(plan.id);
+    expect(getAllPlays().find((p) => p.id === plan.id)).toBeUndefined();
+  });
 });

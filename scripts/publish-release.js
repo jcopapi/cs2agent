@@ -124,7 +124,7 @@ async function main() {
     body: `## CS Overlay Assistant v1.0.0
 
 A lightweight, tournament-compliant Windows desktop tactical companion for Counter-Strike 2.
-Features real in-game utility lineups (Mirage, Inferno, Dust II, Nuke, Ancient, Anubis) with dual crosshair & landing impact previews, custom community \`.zip\` package support, calibrated bomb defusal timer, and zero memory hooks.
+Features real in-game utility lineups (Mirage, Inferno, Dust II, Nuke, Ancient, Anubis) with landing impact bloom priority, interactive tactical plan editor, automatic in-app updates from GitHub, calibrated bomb defusal timer, and zero memory hooks.
 
 ### 📦 Downloads
 
@@ -136,9 +136,11 @@ Features real in-game utility lineups (Mirage, Inferno, Dust II, Nuke, Ancient, 
 ---
 
 ### 🌟 Key Highlights & Features
+- **Automatic In-App Updates**: One-click update check against GitHub Releases directly inside the app bar, with background download and self-installing upgrade workflow.
+- **Landing Bloom Visual Priority**: Lineup cards and inspector view show authentic landing bloom and impact zone screenshots by default; crosshair aim reticle seamlessly activates in the in-game HUD overlay.
+- **Interactive Tactical Plan Editor**: Inspect which lineups belong to any tactical plan, reorder steps on the fly, add/remove utilities, inline rename, and export share codes.
 - **100% Offline & Valve Regulatory Compliant**: Operates strictly out-of-process via official Game State Integration (GSI) and Win32 Focus Monitor. Zero DLL injection, zero memory reading, zero VAC hooks.
-- **Curated High-Quality Lineup Packs**: Pre-loaded lineups for all active competitive maps with authentic in-game screenshots for both aiming positions and landing impact zones.
-- **Expanded Flashbangs & Molotovs**: Comprehensive competitive utility lineup coverage with intuitive "From" and "To" navigation callouts.
+- **Curated Competitive Lineup Packs**: Pre-loaded lineups for all active competitive maps with authentic in-game screenshots for both aiming positions and landing impact zones.
 - **Custom Lineup \`.zip\` Importer**: Create, export, or drag-and-drop custom community utility packages into the \`Custom Lineups/\` folder.
 - **Calibrated Bomb Defuse Timer**: Synchronized with a precise 1.5s detection offset for competitive 10-second and 5-second defusal windows.
 - **Multi-language Support**: Full support for English, Portuguese (Brazil), and Spanish.

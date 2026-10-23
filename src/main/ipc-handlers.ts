@@ -12,7 +12,12 @@
  * - Utility Room Databases (Lineups, Strategies, Profiles)
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
+import * as https from 'https';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { spawn } from 'child_process';
 import type {
   GsiStatus,
   TacticalObservation,
@@ -713,6 +718,178 @@ export class IpcHandlerManager {
       this.currentGsiStatus.environment = 'COMPETITIVE_PROTECTED';
       this.currentGsiStatus.activeMatch = false;
       this.broadcast('gsi:update', this.currentGsiStatus);
+    });
+
+    // -------------------------------------------------------------------------
+    // System & GitHub Auto-Update Handlers
+    // -------------------------------------------------------------------------
+    this.handle('system:check-for-updates', async () => {
+      const currentVer = app?.getVersion ? app.getVersion() : '1.0.0';
+      try {
+        const release: any = await new Promise((resolve, reject) => {
+          const fetchHelper = (targetUrl: string) => {
+            const parsed = new URL(targetUrl);
+            const req = https.get(
+              {
+                hostname: parsed.hostname,
+                path: parsed.pathname + parsed.search,
+                headers: {
+                  'User-Agent': 'CS-Overlay-Assistant-Updater',
+                  Accept: 'application/vnd.github.v3+json',
+                },
+              },
+              (res) => {
+                if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                  return fetchHelper(res.headers.location);
+                }
+                let data = '';
+                res.on('data', (c) => (data += c));
+                res.on('end', () => {
+                  if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                    try {
+                      resolve(JSON.parse(data));
+                    } catch (e) {
+                      reject(e);
+                    }
+                  } else {
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                  }
+                });
+              }
+            );
+            req.on('error', reject);
+          };
+          fetchHelper('https://api.github.com/repos/jcopapi/csoverlayassistant/releases/latest');
+        });
+
+        const latestTag = (release.tag_name || 'v1.0.0').replace(/^v/, '');
+        let installerUrl: string | null = null;
+        let portableUrl: string | null = null;
+
+        if (Array.isArray(release.assets)) {
+          for (const asset of release.assets) {
+            const name = (asset.name || '').toLowerCase();
+            if (name.includes('setup') && name.endsWith('.exe')) {
+              installerUrl = asset.browser_download_url;
+            } else if (name.endsWith('.exe')) {
+              portableUrl = asset.browser_download_url;
+            }
+          }
+        }
+
+        const hasUpdate = latestTag !== currentVer && latestTag > currentVer;
+
+        return {
+          currentVersion: currentVer,
+          latestVersion: latestTag,
+          hasUpdate,
+          releaseName: release.name || `Release v${latestTag}`,
+          releaseNotes: release.body || '',
+          publishedAt: release.published_at || '',
+          installerUrl,
+          portableUrl,
+          releasePageUrl: release.html_url || 'https://github.com/jcopapi/csoverlayassistant/releases/latest',
+        };
+      } catch (err: any) {
+        return {
+          currentVersion: currentVer,
+          latestVersion: currentVer,
+          hasUpdate: false,
+          releaseName: 'Up to Date / Offline',
+          releaseNotes: err?.message || 'Could not connect to GitHub',
+          publishedAt: '',
+          installerUrl: null,
+          portableUrl: null,
+          releasePageUrl: 'https://github.com/jcopapi/csoverlayassistant/releases',
+        };
+      }
+    });
+
+    this.handle('system:download-and-install-update', async (_evt, installerUrl: string) => {
+      if (!installerUrl) throw new Error('Installer URL is required');
+      const tempPath = path.join(os.tmpdir(), 'CS_Overlay_Assistant_Setup.exe');
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const downloadHelper = (targetUrl: string) => {
+            const parsed = new URL(targetUrl);
+            const req = https.get(
+              {
+                hostname: parsed.hostname,
+                path: parsed.pathname + parsed.search,
+                headers: {
+                  'User-Agent': 'CS-Overlay-Assistant-Updater',
+                },
+              },
+              (res) => {
+                if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                  return downloadHelper(res.headers.location);
+                }
+                if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+                  return reject(new Error(`HTTP download failed: ${res.statusCode}`));
+                }
+
+                const total = parseInt(res.headers['content-length'] || '0', 10);
+                let transferred = 0;
+                const fileStream = fs.createWriteStream(tempPath);
+
+                res.on('data', (chunk) => {
+                  transferred += chunk.length;
+                  const pct = total > 0 ? (transferred / total) * 100 : 0;
+                  this.broadcast('system:update-progress', {
+                    percent: Math.min(100, Math.round(pct)),
+                    transferredMb: parseFloat((transferred / (1024 * 1024)).toFixed(2)),
+                    totalMb: parseFloat((total / (1024 * 1024)).toFixed(2)),
+                    status: 'DOWNLOADING',
+                  });
+                });
+
+                res.pipe(fileStream);
+
+                fileStream.on('finish', () => {
+                  fileStream.close(() => resolve());
+                });
+
+                fileStream.on('error', (err) => {
+                  fs.unlink(tempPath, () => {});
+                  reject(err);
+                });
+              }
+            );
+            req.on('error', reject);
+          };
+          downloadHelper(installerUrl);
+        });
+
+        this.broadcast('system:update-progress', {
+          percent: 100,
+          transferredMb: 0,
+          totalMb: 0,
+          status: 'READY_TO_INSTALL',
+        });
+
+        // Launch downloaded installer in background
+        const child = spawn(tempPath, [], {
+          detached: true,
+          stdio: 'ignore',
+        });
+        child.unref();
+
+        setTimeout(() => {
+          app.quit();
+        }, 1000);
+
+        return true;
+      } catch (err: any) {
+        this.broadcast('system:update-progress', {
+          percent: 0,
+          transferredMb: 0,
+          totalMb: 0,
+          status: 'ERROR',
+          error: err.message,
+        });
+        return false;
+      }
     });
   }
 

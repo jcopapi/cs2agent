@@ -34,6 +34,7 @@ import {
   saveActiveQueue,
 } from '../../../core/utility/play-database';
 import { getAllLineups, getLineupById } from '../../../core/utility/lineup-database';
+import { PlanDetailModal } from '../utility-room/PlanDetailModal';
 import { useI18n } from '../../i18n/I18nContext';
 
 interface OverlayCenterViewProps {
@@ -56,6 +57,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
   const { t, language, localize, localizeCallout } = useI18n();
   const [matchStatus, setMatchStatus] = useState<GsiStatus | null>(null);
   const [plans, setPlans] = useState<Play[]>([]);
+  const [selectedPlanForModal, setSelectedPlanForModal] = useState<Play | null>(null);
   const [activeQueue, setActiveQueueState] = useState<TacticalQueue>(() => getActiveQueue());
   const [pinnedLineup, setPinnedLineup] = useState<Lineup | null>(null);
 
@@ -527,13 +529,13 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                       key={p.id}
                       className="bg-surface-container-low hover:bg-surface-container p-3 rounded-2xl border border-border-subtle hover:border-border-medium transition-all flex flex-col justify-between gap-3 group"
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between cursor-pointer" onClick={() => setSelectedPlanForModal(p)}>
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-surface transition-all shrink-0">
                             <span className="material-symbols-outlined text-[20px]">flag</span>
                           </div>
                           <div className="truncate">
-                            <h3 className="text-xs font-semibold text-white truncate">{p.name}</h3>
+                            <h3 className="text-xs font-semibold text-white group-hover:text-primary transition-colors truncate">{p.name}</h3>
                             <p className="text-[11px] text-text-muted truncate">
                               {p.side ? `${p.side}-Side` : 'Execute'} • {p.lineupIds?.length || 0} Lineups
                             </p>
@@ -564,6 +566,15 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedPlanForModal(p)}
+                            title={language === 'pt-BR' ? 'Ver e editar lineups deste plano' : 'View and edit plan lineups'}
+                            type="button"
+                            className="px-2 py-1 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs text-text-secondary hover:text-white transition-all flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">edit_note</span>
+                            <span>Lineups</span>
+                          </button>
                           <button
                             onClick={() => handleLoadPlanToQueue(p.id, 'REPLACE')}
                             title="Replace active queue"
@@ -943,6 +954,33 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
           )}
         </div>
       </main>
+
+      {/* Plan Detail & Editor Modal */}
+      {selectedPlanForModal && (
+        <PlanDetailModal
+          isOpen={Boolean(selectedPlanForModal)}
+          plan={selectedPlanForModal}
+          onClose={() => setSelectedPlanForModal(null)}
+          onPlanUpdated={() => {
+            const allP = getAllPlays();
+            setPlans(allP);
+            const updated = allP.find((p) => p.id === selectedPlanForModal.id) || null;
+            setSelectedPlanForModal(updated);
+            showActionFeedback('PLANO ATUALIZADO');
+          }}
+          onSelectLineupToInspect={(lineup) => {
+            const currentQueue = getActiveQueue();
+            const idx = currentQueue.lineupIds.indexOf(lineup.id);
+            if (idx >= 0) {
+              handlePinQueueStep(idx);
+            } else {
+              const updatedQ = addPixelToQueue(lineup.id);
+              syncQueueToOverlay(updatedQ, updatedQ.lineupIds.length - 1);
+            }
+            setSelectedPlanForModal(null);
+          }}
+        />
+      )}
     </div>
   );
 };

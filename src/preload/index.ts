@@ -297,6 +297,22 @@ const api: ICS2AssistantAPI = {
       ipcRenderer.removeListener('lineup:state-change', handler);
     };
   },
+
+  // ----------------------------------------------------
+  // System & Auto-Update
+  // ----------------------------------------------------
+  system: {
+    checkForUpdates: () => ipcRenderer.invoke('system:check-for-updates'),
+    downloadAndInstallUpdate: (installerUrl: string) =>
+      ipcRenderer.invoke('system:download-and-install-update', installerUrl),
+    onUpdateProgress: (callback: (prog: any) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('system:update-progress', handler);
+      return () => {
+        ipcRenderer.removeListener('system:update-progress', handler);
+      };
+    },
+  },
 };
 
 // Expose the strongly typed API surface into window
