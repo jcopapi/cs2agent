@@ -22,6 +22,8 @@ import type {
 import { getActivePlay } from '../../../core/utility/play-database';
 import { getLineupById } from '../../../core/utility/lineup-database';
 import { C4AudioPitchDetector } from '../../../core/bomb-timer/c4-audio-pitch-detector';
+import { localizeCallout } from '../../i18n/callouts';
+import type { Language } from '../../i18n/types';
 
 function getCornerClass(corner?: ScreenCorner, defaultCorner: ScreenCorner = 'TOP_RIGHT'): string {
   const c = corner || defaultCorner;
@@ -71,6 +73,13 @@ export const HudOverlayView: React.FC = () => {
   const [isMatchActive, setIsMatchActive] = useState<boolean>(false);
   const [planStep, setPlanStep] = useState<{ stepIndex: number; totalSteps: number; planName?: string } | null>(null);
   const [audioResolvedSite, setAudioResolvedSite] = useState<'A' | 'B' | null>(null);
+  const [lang, setLang] = useState<Language>(() => {
+    try {
+      return (localStorage.getItem('cs2agent_language') as Language) || 'pt-BR';
+    } catch {
+      return 'pt-BR';
+    }
+  });
 
   // Audio Beep Acoustic Pitch Listener (Detects A vs B from first C4 beep)
   useEffect(() => {
@@ -299,8 +308,14 @@ export const HudOverlayView: React.FC = () => {
             <div className="flex items-center gap-2 border border-white/10 bg-black/70 px-4 py-1 text-xs font-bold text-cyan-300 tracking-wider shadow-lg">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
               <span className="text-white font-black">[{currentLineup.utilityType === 'FLASHBANG' ? 'FLASH' : currentLineup.utilityType}]</span>
-              <span className="text-zinc-300">From: {currentLineup.startPosition?.callout || 'Spawn'}</span>
-              <span className="text-primary font-bold">To: {currentLineup.landingArea?.callout || 'Target'}</span>
+              <span className="text-zinc-300">
+                {lang === 'pt-BR' ? 'De: ' : 'From: '}
+                {localizeCallout(currentLineup.startPosition?.callout, lang) || (lang === 'pt-BR' ? 'Base' : 'Spawn')}
+              </span>
+              <span className="text-primary font-bold">
+                {lang === 'pt-BR' ? 'Para: ' : 'To: '}
+                {localizeCallout(currentLineup.landingArea?.callout, lang) || (lang === 'pt-BR' ? 'Destino' : 'Target')}
+              </span>
               {currentLineup.movementRequirements && (
                 <span className="text-zinc-400 font-normal">
                   • {currentLineup.movementRequirements}
@@ -320,8 +335,12 @@ export const HudOverlayView: React.FC = () => {
                 />
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wide">ONDE FICAR:</span>
-                <span className="text-[10px] font-bold text-zinc-100">{currentLineup.startPosition?.callout || 'Stand'}</span>
+                <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wide">
+                  {lang === 'pt-BR' ? 'ONDE FICAR:' : 'STAND POSITION:'}
+                </span>
+                <span className="text-[10px] font-bold text-zinc-100">
+                  {localizeCallout(currentLineup.startPosition?.callout, lang) || 'Stand'}
+                </span>
                 <span className="text-[8px] text-cyan-300">{currentLineup.movementRequirements}</span>
               </div>
             </div>
@@ -409,13 +428,14 @@ export const HudOverlayView: React.FC = () => {
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-center">
               <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider">
-                POSIÇÃO / ENCAIXE:
+                {lang === 'pt-BR' ? 'POSIÇÃO / ENCAIXE:' : 'POSITION / STAND:'}
               </span>
               <span className="text-[10px] font-bold text-zinc-100 truncate">
-                {currentLineup.startPosition?.callout || 'Position'}
+                {localizeCallout(currentLineup.startPosition?.callout, lang) || 'Position'}
               </span>
               <span className="text-[8px] text-cyan-400/90 truncate">
-                To: {currentLineup.landingArea?.callout || currentLineup.targetDestination?.callout || 'Target'}
+                {lang === 'pt-BR' ? 'Para: ' : 'To: '}
+                {localizeCallout(currentLineup.landingArea?.callout || currentLineup.targetDestination?.callout, lang) || 'Target'}
               </span>
             </div>
           </div>

@@ -129,6 +129,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'overlay.alignOpacity': 'Align Opacity',
 
     // Common
+    'common.from': 'From',
+    'common.to': 'To',
     'common.cancel': 'Cancel',
     'common.save': 'Save',
     'common.delete': 'Delete',
@@ -254,6 +256,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'overlay.alignOpacity': 'Opacidade de Alinhamento',
 
     // Common
+    'common.from': 'De',
+    'common.to': 'Para',
     'common.cancel': 'Cancelar',
     'common.save': 'Salvar',
     'common.delete': 'Excluir',
@@ -379,6 +383,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'overlay.alignOpacity': 'Opacidad de Alineación',
 
     // Common
+    'common.from': 'Desde',
+    'common.to': 'Hacia',
     'common.cancel': 'Cancelar',
     'common.save': 'Guardar',
     'common.delete': 'Eliminar',

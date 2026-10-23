@@ -52,7 +52,7 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
   onGoToOverlayCenter,
   isMatchActive,
 }) => {
-  const { t, localize, language, setLanguage } = useI18n();
+  const { t, localize, localizeCallout, language, setLanguage } = useI18n();
   const [activeNavTab, setActiveNavTab] = useState<'LINEUPS' | 'STATS'>('LINEUPS');
 
   // Filter States
@@ -163,14 +163,15 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
       if (selectedUtility !== 'ALL' && l.utilityType !== selectedUtility) return false;
       if (pixelSearch.trim()) {
         const query = pixelSearch.toLowerCase();
-        const matchesTitle = l.title.toLowerCase().includes(query);
-        const matchesStand = l.startPosition?.callout?.toLowerCase().includes(query);
+        const matchesTitle = l.title.toLowerCase().includes(query) || (l.titles && (l.titles['pt-BR']?.toLowerCase().includes(query) || l.titles.pt?.toLowerCase().includes(query) || l.titles.es?.toLowerCase().includes(query)));
+        const matchesStand = l.startPosition?.callout?.toLowerCase().includes(query) || localizeCallout(l.startPosition?.callout).toLowerCase().includes(query);
+        const matchesTarget = l.landingArea?.callout?.toLowerCase().includes(query) || localizeCallout(l.landingArea?.callout).toLowerCase().includes(query);
         const matchesAim = l.aimReference?.crosshairPlacement?.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesStand && !matchesAim) return false;
+        if (!matchesTitle && !matchesStand && !matchesTarget && !matchesAim) return false;
       }
       return true;
     });
-  }, [lineups, selectedMap, selectedSide, selectedUtility, pixelSearch]);
+  }, [lineups, selectedMap, selectedSide, selectedUtility, pixelSearch, localizeCallout]);
 
   // Keep inspectedLineup in sync if filtered list changes
   useEffect(() => {
@@ -671,15 +672,15 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                       </div>
                       <div className="flex items-center gap-1.5 mt-1 text-[10px] flex-wrap">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-highest border border-border-subtle text-text-primary">
-                          <span className="text-text-muted font-medium">From:</span>
+                          <span className="text-text-muted font-medium">{t('common.from', 'From')}:</span>
                           <span className="font-semibold text-white truncate max-w-[130px]">
-                            {lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spawn'}
+                            {localizeCallout(lineup.startPosition?.callout || lineup.throwPosition?.callout) || 'Base'}
                           </span>
                         </span>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 border border-primary/20 text-primary">
-                          <span className="text-primary/70 font-medium">To:</span>
+                          <span className="text-primary/70 font-medium">{t('common.to', 'To')}:</span>
                           <span className="font-semibold text-primary truncate max-w-[130px]">
-                            {lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}
+                            {localizeCallout(lineup.landingArea?.callout || lineup.targetDestination?.callout) || 'Destino'}
                           </span>
                         </span>
                       </div>
@@ -954,18 +955,18 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                       <span className={`material-symbols-outlined ${meta.colorText} text-[16px]`}>
                         {meta.icon}
                       </span>
-                      <span className="text-xs font-medium text-white truncate max-w-[140px]">{lineup.title}</span>
+                      <span className="text-xs font-medium text-white truncate max-w-[140px]">{localize(lineup.titles || lineup.title)}</span>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-surface-container-highest border border-border-subtle text-text-muted">
-                          <span>From:</span>
+                          <span>{t('common.from', 'From')}:</span>
                           <span className="text-white font-medium truncate max-w-[80px]">
-                            {lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spawn'}
+                            {localizeCallout(lineup.startPosition?.callout || lineup.throwPosition?.callout) || 'Base'}
                           </span>
                         </span>
                         <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 border border-primary/20 text-primary font-medium">
-                          <span>To:</span>
+                          <span>{t('common.to', 'To')}:</span>
                           <span className="truncate max-w-[80px]">
-                            {lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}
+                            {localizeCallout(lineup.landingArea?.callout || lineup.targetDestination?.callout) || 'Destino'}
                           </span>
                         </span>
                       </div>
@@ -1083,15 +1084,15 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
 
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-high border border-border-subtle text-[11px]">
-                      <span className="text-text-muted font-medium">From:</span>
+                      <span className="text-text-muted font-medium">{t('common.from', 'From')}:</span>
                       <span className="text-white font-semibold">
-                        {inspectedLineup.startPosition?.callout || inspectedLineup.throwPosition?.callout || 'Spawn'}
+                        {localizeCallout(inspectedLineup.startPosition?.callout || inspectedLineup.throwPosition?.callout) || 'Base'}
                       </span>
                     </span>
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/15 border border-primary/20 text-[11px]">
-                      <span className="text-primary/70 font-medium">To:</span>
+                      <span className="text-primary/70 font-medium">{t('common.to', 'To')}:</span>
                       <span className="text-primary font-semibold">
-                        {inspectedLineup.landingArea?.callout || inspectedLineup.targetDestination?.callout || 'Target'}
+                        {localizeCallout(inspectedLineup.landingArea?.callout || inspectedLineup.targetDestination?.callout) || 'Destino'}
                       </span>
                     </span>
                     <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-[11px] font-mono text-text-muted">
@@ -1233,9 +1234,9 @@ export const UtilityRoomView: React.FC<UtilityRoomViewProps> = ({
                     {/* Stand & Aim Landmarks */}
                     <div className="p-3 rounded-xl bg-surface-container border border-border-subtle space-y-2 shrink-0">
                       <div>
-                        <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider">STAND POSITION</div>
+                        <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider">{t('inspector.standPosition', 'STAND POSITION')}</div>
                         <div className="text-xs font-medium text-white mt-0.5">
-                          {inspectedLineup.startPosition?.callout || 'Position on map'}
+                          {localizeCallout(inspectedLineup.startPosition?.callout) || 'Position on map'}
                         </div>
                       </div>
                       <div className="pt-2 border-t border-border-subtle">

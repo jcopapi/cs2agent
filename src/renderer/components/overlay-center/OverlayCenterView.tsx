@@ -34,6 +34,7 @@ import {
   saveActiveQueue,
 } from '../../../core/utility/play-database';
 import { getAllLineups, getLineupById } from '../../../core/utility/lineup-database';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface OverlayCenterViewProps {
   onOpenSettings: () => void;
@@ -52,6 +53,7 @@ const COMPETITIVE_MAPS: { id: CS2Map; label: string }[] = [
 export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
   onOpenSettings,
 }) => {
+  const { t, language, localize, localizeCallout } = useI18n();
   const [matchStatus, setMatchStatus] = useState<GsiStatus | null>(null);
   const [plans, setPlans] = useState<Play[]>([]);
   const [activeQueue, setActiveQueueState] = useState<TacticalQueue>(() => getActiveQueue());
@@ -174,13 +176,14 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
       if (selectedSide !== 'ALL' && l.side !== selectedSide) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const mTitle = l.title.toLowerCase().includes(q);
-        const mSpot = l.startPosition?.callout?.toLowerCase().includes(q);
-        if (!mTitle && !mSpot) return false;
+        const mTitle = l.title.toLowerCase().includes(q) || (l.titles && (l.titles['pt-BR']?.toLowerCase().includes(q) || l.titles.pt?.toLowerCase().includes(q) || l.titles.es?.toLowerCase().includes(q)));
+        const mSpot = l.startPosition?.callout?.toLowerCase().includes(q) || localizeCallout(l.startPosition?.callout).toLowerCase().includes(q);
+        const mTarget = l.landingArea?.callout?.toLowerCase().includes(q) || localizeCallout(l.landingArea?.callout).toLowerCase().includes(q);
+        if (!mTitle && !mSpot && !mTarget) return false;
       }
       return true;
     });
-  }, [loadedLineups, isPixelsLoaded, selectedMap, categoryTab, selectedSide, searchQuery]);
+  }, [loadedLineups, isPixelsLoaded, selectedMap, categoryTab, selectedSide, searchQuery, localizeCallout]);
 
   // Queue actions
   const handleLoadPlanToQueue = (planId: string, mode: 'REPLACE' | 'APPEND') => {
@@ -634,11 +637,11 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                           <span className={`absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full ${meta.bgClass}`} />
                         </div>
                         <div className="truncate">
-                          <div className="text-xs font-medium text-white truncate">{lineup.title}</div>
+                          <div className="text-xs font-medium text-white truncate">{localize(lineup.titles || lineup.title)}</div>
                           <div className="flex items-center gap-1.5 mt-0.5 truncate text-[10px]">
-                            <span className="text-text-muted">From: <strong className="text-white font-medium">{lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spawn'}</strong></span>
+                            <span className="text-text-muted">{t('common.from', 'From')}: <strong className="text-white font-medium">{localizeCallout(lineup.startPosition?.callout || lineup.throwPosition?.callout) || 'Base'}</strong></span>
                             <span>•</span>
-                            <span className="text-primary font-medium">To: {lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}</span>
+                            <span className="text-primary font-medium">{t('common.to', 'To')}: {localizeCallout(lineup.landingArea?.callout || lineup.targetDestination?.callout) || 'Destino'}</span>
                           </div>
                         </div>
                       </div>
@@ -781,16 +784,16 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                         <span className={`material-symbols-outlined ${meta.textClass} text-[15px]`}>
                           {meta.icon}
                         </span>
-                        <span className="text-xs font-semibold text-white truncate">{lineup.title}</span>
+                        <span className="text-xs font-semibold text-white truncate">{localize(lineup.titles || lineup.title)}</span>
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5 truncate text-[9px]">
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-surface-container-high text-text-muted truncate">
-                          <span>From:</span>
-                          <strong className="text-white font-medium">{lineup.startPosition?.callout || lineup.throwPosition?.callout || 'Spot'}</strong>
+                          <span>{t('common.from', 'From')}:</span>
+                          <strong className="text-white font-medium">{localizeCallout(lineup.startPosition?.callout || lineup.throwPosition?.callout) || 'Base'}</strong>
                         </span>
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-primary-soft text-primary font-semibold truncate">
-                          <span>To:</span>
-                          <span>{lineup.landingArea?.callout || lineup.targetDestination?.callout || 'Target'}</span>
+                          <span>{t('common.to', 'To')}:</span>
+                          <span>{localizeCallout(lineup.landingArea?.callout || lineup.targetDestination?.callout) || 'Destino'}</span>
                         </span>
                       </div>
                     </div>
@@ -876,14 +879,14 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                   <span className={`material-symbols-outlined ${getUtilityMeta(activeLineup.utilityType).textClass} text-[16px]`}>
                     {getUtilityMeta(activeLineup.utilityType).icon}
                   </span>
-                  <span className="text-white truncate">{activeLineup.title}</span>
+                  <span className="text-white truncate">{localize(activeLineup.titles || activeLineup.title)}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 text-[10px]">
                   <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-text-muted">
-                    From: <strong className="text-white">{activeLineup.startPosition?.callout || activeLineup.throwPosition?.callout || 'Spawn'}</strong>
+                    {t('common.from', 'From')}: <strong className="text-white">{localizeCallout(activeLineup.startPosition?.callout || activeLineup.throwPosition?.callout) || 'Base'}</strong>
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
-                    To: {activeLineup.landingArea?.callout || activeLineup.targetDestination?.callout || 'Target'}
+                    {t('common.to', 'To')}: {localizeCallout(activeLineup.landingArea?.callout || activeLineup.targetDestination?.callout) || 'Destino'}
                   </span>
                 </div>
               </div>
@@ -907,7 +910,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                 </div>
 
                 {/* Where it Lands (Landing Bloom) */}
-                <div className="relative rounded-xl overflow-hidden bg-black border border-primary/40 ring-1 ring-primary/20 flex items-center justify-center group" title={`Onde a granada cai: ${activeLineup.landingArea?.callout || 'Destino'}`}>
+                <div className="relative rounded-xl overflow-hidden bg-black border border-primary/40 ring-1 ring-primary/20 flex items-center justify-center group" title={`Onde a granada cai: ${localizeCallout(activeLineup.landingArea?.callout) || 'Destino'}`}>
                   {activeLineup.thumbnailUrl || activeLineup.resultImageUrl ? (
                     <img
                       src={activeLineup.thumbnailUrl || activeLineup.resultImageUrl}
@@ -921,7 +924,7 @@ export const OverlayCenterView: React.FC<OverlayCenterViewProps> = ({
                     2. ONDE CAI (IMPACTO)
                   </div>
                   <div className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-black/85 text-[8px] font-semibold text-primary truncate max-w-[120px]">
-                    {activeLineup.landingArea?.callout || 'Landing'}
+                    {localizeCallout(activeLineup.landingArea?.callout) || 'Destino'}
                   </div>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { TRANSLATIONS } from '../src/renderer/i18n/translations';
+import { localizeCallout, BRAZILIAN_CALLOUTS } from '../src/renderer/i18n/callouts';
 import { getCuratedMapPackLineups, getAvailableMapPacksMeta } from '../src/core/utility/map-packs-data';
 import type { CS2Map } from '../src/core/utility/types';
 import packageJson from '../package.json';
@@ -73,6 +74,43 @@ describe('UI Consistency, Branding & Balloon Metadata Tests', () => {
         const landingPhoto = lineup.thumbnailUrl || lineup.resultImageUrl;
         expect(landingPhoto, `Lineup ${lineup.id} in ${map} must have landing result photo`).toBeDefined();
         expect(landingPhoto?.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('CS-CALLOUT-BR-01: Translates all competitive CS callouts and balloons to Brazilian Portuguese', () => {
+    expect(TRANSLATIONS['pt-BR']['common.from']).toBe('De');
+    expect(TRANSLATIONS['pt-BR']['common.to']).toBe('Para');
+    expect(TRANSLATIONS.es['common.from']).toBe('Desde');
+    expect(TRANSLATIONS.es['common.to']).toBe('Hacia');
+
+    // Key iconic Brazilian callouts
+    expect(localizeCallout('Palace', 'pt-BR')).toBe('Palácio');
+    expect(localizeCallout('Ticket Booth', 'pt-BR')).toBe('Cabine do Ticket');
+    expect(localizeCallout('Mid Window', 'pt-BR')).toBe('Janelão do Meio');
+    expect(localizeCallout('Coffins', 'pt-BR')).toBe('Caixão da B');
+    expect(localizeCallout('Heaven', 'pt-BR')).toBe('Céu');
+    expect(localizeCallout('Hell', 'pt-BR')).toBe('Inferno (Embaixo do Céu)');
+    expect(localizeCallout('Hut', 'pt-BR')).toBe('Cabana');
+    expect(localizeCallout('Silo', 'pt-BR')).toBe('Silo');
+    expect(localizeCallout('Cave', 'pt-BR')).toBe('Caverna');
+    expect(localizeCallout('Ruins', 'pt-BR')).toBe('Ruínas');
+    expect(localizeCallout('Temple', 'pt-BR')).toBe('Templo');
+    expect(localizeCallout('Canal', 'pt-BR')).toBe('Canal');
+    expect(localizeCallout('Pit', 'pt-BR')).toBe('Fosso');
+
+    // Verify all lineups in all 6 active maps have non-empty Brazilian localized callouts
+    for (const map of MAPS) {
+      const lineups = getCuratedMapPackLineups(map);
+      for (const lineup of lineups) {
+        const from = lineup.startPosition?.callout || lineup.throwPosition?.callout;
+        const to = lineup.landingArea?.callout || lineup.targetDestination?.callout;
+
+        const localizedFrom = localizeCallout(from, 'pt-BR');
+        const localizedTo = localizeCallout(to, 'pt-BR');
+
+        expect(localizedFrom.length).toBeGreaterThan(0);
+        expect(localizedTo.length).toBeGreaterThan(0);
       }
     }
   });

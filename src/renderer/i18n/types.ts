@@ -19,4 +19,5 @@ export interface I18nContextValue {
   setLanguage: (lang: Language) => void;
   t: (key: string, fallback?: string) => string;
   localize: (field: LocalizedText | undefined | null, fallback?: string) => string;
+  localizeCallout: (rawCallout: string | undefined | null) => string;
 }

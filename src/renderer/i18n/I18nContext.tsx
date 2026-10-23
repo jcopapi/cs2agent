@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { Language, LocalizedText, I18nContextValue } from './types';
 import { TRANSLATIONS } from './translations';
+import { localizeCallout as rawLocalizeCallout } from './callouts';
 
 const LANGUAGE_STORAGE_KEY = 'cs2agent_language';
 
@@ -18,10 +19,13 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved && (saved === 'en' || saved === 'pt-BR' || saved === 'es')) {
         return saved;
       }
+      if (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('pt')) {
+        return 'pt-BR';
+      }
     } catch {
       // ignore
     }
-    return 'en'; // English by default
+    return 'en'; // Default
   });
 
   const setLanguage = (lang: Language) => {
@@ -65,14 +69,21 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [language]);
 
+  const localizeCallout = useMemo(() => {
+    return (rawCallout: string | undefined | null): string => {
+      return rawLocalizeCallout(rawCallout, language);
+    };
+  }, [language]);
+
   const value = useMemo(
     () => ({
       language,
       setLanguage,
       t,
       localize,
+      localizeCallout,
     }),
-    [language, t, localize]
+    [language, t, localize, localizeCallout]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
@@ -92,6 +103,7 @@ export function useI18n(): I18nContextValue {
         if (typeof field === 'object' && field.en) return field.en;
         return fallback || '';
       },
+      localizeCallout: (rawCallout: string | undefined | null) => rawLocalizeCallout(rawCallout, 'en'),
     };
   }
   return ctx;

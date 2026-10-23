@@ -191,8 +191,11 @@ Features real in-game utility lineups (Mirage, Inferno, Dust II, Nuke, Ancient, 
 
     const alreadyExists = existingAssets.find((a) => a.name === item.name);
     if (alreadyExists) {
-      console.log(`Asset ${item.name} already exists (ID: ${alreadyExists.id}). Skipping or delete first.`);
-      continue;
+      console.log(`Asset ${item.name} already exists (ID: ${alreadyExists.id}). Deleting old asset to upload updated binary...`);
+      await requestJson(`https://api.github.com/repos/${owner}/${repo}/releases/assets/${alreadyExists.id}`, {
+        method: 'DELETE',
+      });
+      console.log(`Deleted old asset ${item.name}`);
     }
 
     await uploadAsset(release.upload_url, item.path, item.name);
