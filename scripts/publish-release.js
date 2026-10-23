@@ -117,40 +117,49 @@ async function main() {
   console.log(`Checking if release v1.0.0 exists for ${owner}/${repo}...`);
   let release;
 
-  try {
-    const res = await requestJson(`https://api.github.com/repos/${owner}/${repo}/releases/tags/v1.0.0`);
-    release = res.data;
-    console.log(`Found existing release: ID ${release.id}`);
-  } catch {
-    console.log('Release not found, creating new release v1.0.0...');
-    const releaseBody = {
-      tag_name: 'v1.0.0',
-      target_commitish: 'main',
-      name: 'CS Overlay Assistant v1.0.0',
-      body: `## CS Overlay Assistant v1.0.0
+  const releaseBody = {
+    tag_name: 'v1.0.0',
+    target_commitish: 'main',
+    name: 'CS Overlay Assistant v1.0.0',
+    body: `## CS Overlay Assistant v1.0.0
 
-Tactical overlay companion for Counter-Strike 2 with zero VAC memory hooks, offline lineup packages, and calibrated bomb timer.
+A lightweight, tournament-compliant Windows desktop tactical companion for Counter-Strike 2.
+Features real in-game utility lineups (Mirage, Inferno, Dust II, Nuke, Ancient, Anubis) with dual crosshair & landing impact previews, custom community \`.zip\` package support, calibrated bomb defusal timer, and zero memory hooks.
 
 ### 📦 Downloads
 
-| Versão | Arquivo | Descrição | Tamanho |
+| Distribution | File | Details | Size |
 | :--- | :--- | :--- | :--- |
-| **Instalador Oficial** | [CS.Overlay.Assistant.Setup.1.0.0.exe](https://github.com/${owner}/${repo}/releases/download/v1.0.0/CS.Overlay.Assistant.Setup.1.0.0.exe) | Instalador completo com atalho na Área de Trabalho e inicialização rápida | ~77 MB |
-| **Portátil (Standalone)** | [CS.Overlay.Assistant.1.0.0.exe](https://github.com/${owner}/${repo}/releases/download/v1.0.0/CS.Overlay.Assistant.1.0.0.exe) | Executável único portátil, não requer instalação | ~77 MB |
+| 🚀 **Windows Installer** | [**CS.Overlay.Assistant.Setup.1.0.0.exe**](https://github.com/${owner}/${repo}/releases/download/v1.0.0/CS.Overlay.Assistant.Setup.1.0.0.exe) | Official Windows setup with desktop shortcuts and clean uninstaller | ~74 MB |
+| ⚡ **Portable Executable** | [**CS.Overlay.Assistant.1.0.0.exe**](https://github.com/${owner}/${repo}/releases/download/v1.0.0/CS.Overlay.Assistant.1.0.0.exe) | Standalone portable executable — run directly without installation | ~73 MB |
 
 ---
 
-### ✨ Destaques da Versão
-- **Totalmente Offline & Seguro**: Utiliza apenas Game State Integration (GSI) e Win32 Focus Monitor sem injeção de DLL ou leitura de memória.
-- **Lineups Autênticas**: Pacotes padrão curados para Mirage, Inferno, Dust II, Nuke, Ancient e Anubis com fotos reais de mira e fotos de onde cai (landing impact).
-- **Importador de Pacotes Customizados**: Suporte a arquivos \`.zip\` com lineups personalizadas pela comunidade.
-- **Timer de Bomba Calibrado (1.5s delay)**: Precisão total para os 10 e 5 segundos críticos de defuse.
-- **Multilíngue**: Suporte completo para Inglês, Português (Brasil) e Espanhol.
+### 🌟 Key Highlights & Features
+- **100% Offline & Valve Regulatory Compliant**: Operates strictly out-of-process via official Game State Integration (GSI) and Win32 Focus Monitor. Zero DLL injection, zero memory reading, zero VAC hooks.
+- **Curated High-Quality Lineup Packs**: Pre-loaded lineups for all active competitive maps with authentic in-game screenshots for both aiming positions and landing impact zones.
+- **Expanded Flashbangs & Molotovs**: Comprehensive competitive utility lineup coverage with intuitive "From" and "To" navigation callouts.
+- **Custom Lineup \`.zip\` Importer**: Create, export, or drag-and-drop custom community utility packages into the \`Custom Lineups/\` folder.
+- **Calibrated Bomb Defuse Timer**: Synchronized with a precise 1.5s detection offset for competitive 10-second and 5-second defusal windows.
+- **Multi-language Support**: Full support for English, Portuguese (Brazil), and Spanish.
 `,
-      draft: false,
-      prerelease: false,
-    };
+    draft: false,
+    prerelease: false,
+  };
 
+  try {
+    const res = await requestJson(`https://api.github.com/repos/${owner}/${repo}/releases/tags/v1.0.0`);
+    release = res.data;
+    console.log(`Found existing release: ID ${release.id}. Updating release notes to English...`);
+    const updateRes = await requestJson(
+      `https://api.github.com/repos/${owner}/${repo}/releases/${release.id}`,
+      { method: 'PATCH' },
+      releaseBody
+    );
+    release = updateRes.data;
+    console.log(`Successfully updated release ID ${release.id} description and metadata to English.`);
+  } catch {
+    console.log('Release not found, creating new release v1.0.0...');
     const res = await requestJson(
       `https://api.github.com/repos/${owner}/${repo}/releases`,
       { method: 'POST' },

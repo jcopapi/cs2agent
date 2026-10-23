@@ -14,18 +14,18 @@
 
 ## 📦 Downloads (v1.0.0)
 
-| Tipo | Arquivo | Tamanho | Link de Download |
+| Package | File | Size | Direct Download |
 | :--- | :--- | :--- | :--- |
-| 🚀 **Instalador Oficial (Windows)** | `CS.Overlay.Assistant.Setup.1.0.0.exe` | ~74 MB | [**Baixar Instalador**](https://github.com/jcopapi/csoverlayassistant/releases/download/v1.0.0/CS.Overlay.Assistant.Setup.1.0.0.exe) |
-| ⚡ **Portátil (Executar sem instalar)** | `CS.Overlay.Assistant.1.0.0.exe` | ~73 MB | [**Baixar Portátil**](https://github.com/jcopapi/csoverlayassistant/releases/download/v1.0.0/CS.Overlay.Assistant.1.0.0.exe) |
+| 🚀 **Windows Installer** | `CS.Overlay.Assistant.Setup.1.0.0.exe` | ~74 MB | [**Download Installer**](https://github.com/jcopapi/csoverlayassistant/releases/download/v1.0.0/CS.Overlay.Assistant.Setup.1.0.0.exe) |
+| ⚡ **Portable Executable (Standalone)** | `CS.Overlay.Assistant.1.0.0.exe` | ~73 MB | [**Download Portable**](https://github.com/jcopapi/csoverlayassistant/releases/download/v1.0.0/CS.Overlay.Assistant.1.0.0.exe) |
 
-> 📌 **Página de Release Oficial**: Acesse todas as notas e arquivos em [GitHub Releases v1.0.0](https://github.com/jcopapi/csoverlayassistant/releases/tag/v1.0.0).
+> 📌 **Official Release Page**: View release notes and all release assets on [GitHub Releases v1.0.0](https://github.com/jcopapi/csoverlayassistant/releases/tag/v1.0.0).
 
 ---
 
 ## Table of Contents
 - [1. Overview](#1-overview)
-- [Downloads (Instalador & Portátil)](#-downloads-v100)
+- [Downloads (Installer & Portable)](#-downloads-v100)
 - [2. Regulatory Compliance & Fair Play](#2-regulatory-compliance--fair-play)
   - [2.1 Compliance Posture (Anti-Claim Invariant)](#21-compliance-posture-anti-claim-invariant)
   - [2.2 The Six Zero Invariants](#22-the-six-zero-invariants)
@@ -53,9 +53,9 @@
 
 ## 1. Overview
 
-**CS2 Assistant** is an advanced tactical intelligence and preparation desktop companion built for competitive Counter-Strike 2 players and coaches. 
+**CS Overlay Assistant** is an advanced tactical intelligence and preparation desktop companion built for competitive Counter-Strike 2 players and coaches. 
 
-Featuring an uncompromising minimalist dark user interface (charcoal/zinc-950, 1px subtle borders, restrained typography, zero gamer-RGB clutter), CS2 Assistant pairs a deterministic local tactical engine with an optional **Google Gemini AI Tactical Coach** (`gemini-3.8-flash` via `@google/genai`).
+Featuring an uncompromising minimalist dark user interface (charcoal/zinc-950, 1px subtle borders, restrained typography, zero gamer-RGB clutter), CS Overlay Assistant pairs a deterministic local tactical engine with an optional **Google Gemini AI Tactical Coach** (`gemini-3.8-flash` via `@google/genai`).
 
 The application enables competitive players to execute a seamless training and match loop:
 $$\text{UTILITY ROOM} \longrightarrow \text{LIVE MATCH} \longrightarrow \text{HISTORY} \longrightarrow \text{UTILITY ROOM}$$
@@ -67,9 +67,9 @@ $$\text{UTILITY ROOM} \longrightarrow \text{LIVE MATCH} \longrightarrow \text{HI
 ### 2.1 Compliance Posture (Anti-Claim Invariant)
 
 > **MANDATORY DISCLOSURE & ANTI-CLAIM INVARIANT**  
-> CS2 Assistant makes **NO** claims of being *"VAC-proof"*, *"100% VAC safe"*, or *"Officially Valve approved"*. Valve Corporation does not endorse, certify, or whitelist third-party companion software.
+> CS Overlay Assistant makes **NO** claims of being *"VAC-proof"*, *"100% VAC safe"*, or *"Officially Valve approved"*. Valve Corporation does not endorse, certify, or whitelist third-party companion software.
 
-CS2 Assistant defines its security posture strictly through transparent, verifiable technical mechanisms:
+CS Overlay Assistant defines its security posture strictly through transparent, verifiable technical mechanisms:
 - Operates strictly **out-of-process** as an independent Windows user-mode application.
 - Receives game telemetry **exclusively** via Valve's officially documented, outward-pushing **Game State Integration (GSI)** HTTP API.
 - Incorporates an active runtime **Capability Gating Engine** restricting features across `COMPETITIVE_PROTECTED`, `PRACTICE_SERVER`, and `SIMULATION_PREVIEW` modes.
@@ -78,7 +78,7 @@ For comprehensive legal citations, rules matrix, and tournament regulations, con
 
 ### 2.2 The Six Zero Invariants
 
-To guarantee that the application can never be weaponized as a cheat vector, CS2 Assistant enforces the **Six Zero Invariants** across all code paths:
+To guarantee that the application can never be weaponized as a cheat vector, CS Overlay Assistant enforces the **Six Zero Invariants** across all code paths:
 
 ```
 +-------------------------------------------------------------------------+
@@ -95,7 +95,7 @@ To guarantee that the application can never be weaponized as a cheat vector, CS2
 
 ### 2.3 Official Primary Sources
 
-CS2 Assistant's architectural constraints are directly grounded in published policies:
+CS Overlay Assistant's architectural constraints are directly grounded in published policies:
 - **Steam Subscriber Agreement (Section 4)**: `https://store.steampowered.com/subscriber_agreement/`
 - **CS2 Trusted Mode FAQ**: `https://help.steampowered.com/en/faqs/view/09C5-DNSY-W1CB-F0BB`
 - **Valve Anti-Cheat (VAC) Guide**: `https://help.steampowered.com/en/faqs/view/647C-5CC1-7DA0-4C0A`
@@ -152,7 +152,7 @@ Accessible via header buttons or `Ctrl+,`:
 
 ### 5.1 The Four Decoupled Layers
 
-CS2 Assistant enforces clean architectural decoupling into four layers:
+CS Overlay Assistant enforces clean architectural decoupling into four layers:
 1. **Core Domain (`src/core/`)**: Pure TypeScript business logic containing GSI normalizers, tactical memory, lineup FSM, bomb timer, Gemini coach, and capability gating. Has **zero** Electron or DOM dependencies and is 100% headlessly testable under Vitest.
 2. **Main Process (`src/main/`)**: Electron host managing application lifecycle, local GSI HTTP listener (port 3001), Windows DPAPI `safeStorage`, window management, and transparent click-through HUD overlay.
 3. **Preload Layer (`src/preload/`)**: Context isolation barrier exposing a strictly typed, immutable IPC bridge (`window.cs2Assistant`).
@@ -162,7 +162,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full architectural documentation.
 
 ### 5.2 Palace Killer Invariance
 
-A foundational invariant of CS2 Assistant's Tactical Memory is the strict distinction between **Observation** and **Interpretation**:
+A foundational invariant of CS Overlay Assistant's Tactical Memory is the strict distinction between **Observation** and **Interpretation**:
 - When **Player X** dies at **Palace** and **Player Y** killed them, the system records:
   - Victim Player X location: **`CONFIRMED`** at Palace.
   - Killer Player Y location: **`UNCONFIRMED`** (unknown coordinate, zero map marker).
@@ -182,24 +182,30 @@ User Gemini API keys are encrypted at rest using Windows Data Protection API (DP
 
 ### 6.1 Prerequisites
 - **Operating System**: Windows 10 / Windows 11 (64-bit).
-- **Node.js**: Version `>= 20.0.0` (LTS recommended, verified on Node 24).
-- **Package Manager**: `npm` (>= 9.x).
 - **Counter-Strike 2**: Installed via Steam.
+- **Node.js** (Optional, for building from source): `>= 20.0.0`.
 
 ### 6.2 Installation
 
+#### Option A: Binary Release (Recommended for Players)
+Simply download either the Windows Installer or the Standalone Portable executable from [Downloads](#-downloads-v100) or [Releases](https://github.com/jcopapi/csoverlayassistant/releases/latest).
+
+#### Option B: Build from Source
 ```powershell
 # Clone the repository
-git clone https://github.com/your-org/cs2-assistant.git
-cd cs2-assistant
+git clone https://github.com/jcopapi/csoverlayassistant.git
+cd csoverlayassistant
 
 # Install dependencies
 npm install
+
+# Build production binaries
+npm run package
 ```
 
 ### 6.3 CS2 Game State Integration (GSI) Setup
 
-To push telemetry from CS2 into CS2 Assistant, create a GSI configuration file:
+To push telemetry from CS2 into CS Overlay Assistant, create a GSI configuration file:
 
 1. Locate your CS2 configuration directory:
    `C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\`
@@ -244,7 +250,7 @@ npm run dev
 
 ### 7.1 Headless Core Test Suite (11 Domains)
 
-CS2 Assistant includes a comprehensive automated test suite in Vitest validating all 11 required domains and edge cases:
+CS Overlay Assistant includes a comprehensive automated test suite in Vitest validating all 11 required domains and edge cases:
 
 ```powershell
 # Run all unit and integration test domains headlessly
@@ -278,6 +284,6 @@ npm run package
 
 ## 8. Security & Privacy Disclosure
 
-- **Telemetry & Logs**: CS2 Assistant collects **zero** remote analytics, tracking pixels, or diagnostic telemetry. All match histories and tactical notes remain strictly on your local machine.
+- **Telemetry & Logs**: CS Overlay Assistant collects **zero** remote analytics, tracking pixels, or diagnostic telemetry. All match histories and tactical notes remain strictly on your local machine.
 - **Gemini AI Requests**: When configured with a user-provided Gemini API key, tactical prompts containing sanitized round state are transmitted directly to Google's Gemini API endpoints over HTTPS. No intermediate proxy servers are utilized.
 - **Reporting Vulnerabilities**: If you discover any potential security or compliance concern, please submit an issue or contact the development team immediately.
